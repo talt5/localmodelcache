@@ -205,6 +205,8 @@ openshift:
   enabled: false
   # -- ServiceAccount in kserve.localmodel.jobNamespace that runs the model download Jobs. It is granted the download Job SCC, which permits the Jobs' fsGroup.
   downloadJobServiceAccount: default
+  # -- fsGroup of shared-PVC import Jobs on OpenShift, replacing kserve.localmodel.sharedPVCImportFSGroup. The Jobs run in the cache's namespace under restricted-v2, which rejects a group outside the namespace's range. Leave it null so admission assigns the namespace's group, which the pods mounting the claim also get.
+  sharedPVCImportFSGroup: null
   localmodelnode:
     # -- UID the node agent runs as. It owns the model cache on the node.
     runAsUser: 1000

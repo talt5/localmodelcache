@@ -19,6 +19,7 @@ package reconcilers
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -30,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 // nodeListErrorClient fails every Node list so GetNodesFromNodeGroup returns an error.
@@ -62,18 +62,17 @@ func newLocalModelCacheClient(t *testing.T, objs ...client.Object) client.Client
 		Build()
 }
 
-func isvcConsumer(name, namespace string) cacheConsumers {
-	return cacheConsumers{isvcs: []v1beta1.InferenceService{{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-	}}}
-}
+const testSourceModelUri = "hf://org/model"
 
-func TestReconcileLocalModelNodeRecordsConsumersWithoutNodeGroups(t *testing.T) {
-	cache := &v1alpha1.LocalModelCache{ObjectMeta: metav1.ObjectMeta{Name: "cache"}}
+func TestReconcileLocalModelNodeRecordsMountReferencesWithoutNodeGroups(t *testing.T) {
+	cache := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache"},
+		Spec:       v1alpha1.LocalModelCacheSpec{SourceModelUri: testSourceModelUri},
+	}
 	cl := newLocalModelCacheClient(t, cache)
 
 	err := ReconcileLocalModelNode(context.Background(), cl, logr.Discard(), cache, nil,
-		map[string]*v1alpha1.LocalModelNodeGroup{}, isvcConsumer("isvc", "ns"))
+		map[string]*v1alpha1.LocalModelNodeGroup{}, []string{"cache-gpu"})
 	if err != nil {
 		t.Fatalf("ReconcileLocalModelNode() error = %v", err)
 	}
@@ -82,24 +81,26 @@ func TestReconcileLocalModelNodeRecordsConsumersWithoutNodeGroups(t *testing.T) 
 	if err := cl.Get(context.Background(), types.NamespacedName{Name: "cache"}, persisted); err != nil {
 		t.Fatalf("get cache: %v", err)
 	}
-	want := v1alpha1.NamespacedName{Name: "isvc", Namespace: "ns"}
-	if len(persisted.Status.InferenceServices) != 1 {
-		t.Fatalf("Status.InferenceServices = %#v, want exactly [%#v]", persisted.Status.InferenceServices, want)
+	if want := v1alpha1.GetStorageSubPath(testSourceModelUri); persisted.Status.SubPath != want {
+		t.Fatalf("Status.SubPath = %q, want %q", persisted.Status.SubPath, want)
 	}
-	if got := persisted.Status.InferenceServices[0]; got != want {
-		t.Fatalf("Status.InferenceServices[0] = %#v, want %#v", got, want)
+	if !reflect.DeepEqual(persisted.Status.PersistentVolumeClaims, []string{"cache-gpu"}) {
+		t.Fatalf("Status.PersistentVolumeClaims = %#v, want [cache-gpu]", persisted.Status.PersistentVolumeClaims)
 	}
 }
 
-func TestReconcileLocalModelNodeRecordsConsumersOnNodeGroupError(t *testing.T) {
-	cache := &v1alpha1.LocalModelCache{ObjectMeta: metav1.ObjectMeta{Name: "cache"}}
+func TestReconcileLocalModelNodeRecordsMountReferencesOnNodeGroupError(t *testing.T) {
+	cache := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache"},
+		Spec:       v1alpha1.LocalModelCacheSpec{SourceModelUri: testSourceModelUri},
+	}
 	listErr := errors.New("node list failed")
 	cl := &nodeListErrorClient{Client: newLocalModelCacheClient(t, cache), err: listErr}
 	nodeGroups := map[string]*v1alpha1.LocalModelNodeGroup{
 		"gpu": {ObjectMeta: metav1.ObjectMeta{Name: "gpu"}},
 	}
 
-	err := ReconcileLocalModelNode(context.Background(), cl, logr.Discard(), cache, nil, nodeGroups, isvcConsumer("isvc", "ns"))
+	err := ReconcileLocalModelNode(context.Background(), cl, logr.Discard(), cache, nil, nodeGroups, nil)
 	if !errors.Is(err, listErr) {
 		t.Fatalf("ReconcileLocalModelNode() error = %v, want %v", err, listErr)
 	}
@@ -108,8 +109,11 @@ func TestReconcileLocalModelNodeRecordsConsumersOnNodeGroupError(t *testing.T) {
 	if err := cl.Get(context.Background(), types.NamespacedName{Name: "cache"}, persisted); err != nil {
 		t.Fatalf("get cache: %v", err)
 	}
-	if len(persisted.Status.InferenceServices) != 1 || persisted.Status.InferenceServices[0].Name != "isvc" {
-		t.Fatalf("Status.InferenceServices = %#v, want the isvc consumer recorded despite the node-group error", persisted.Status.InferenceServices)
+	if want := v1alpha1.GetStorageSubPath(testSourceModelUri); persisted.Status.SubPath != want {
+		t.Fatalf("Status.SubPath = %q, want %q recorded despite the node-group error", persisted.Status.SubPath, want)
+	}
+	if persisted.Status.PersistentVolumeClaims != nil {
+		t.Fatalf("Status.PersistentVolumeClaims = %#v, want none for a cluster-scoped cache", persisted.Status.PersistentVolumeClaims)
 	}
 }
 

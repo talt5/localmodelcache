@@ -2580,7 +2580,7 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNamespaceCache(ref common.Refere
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "LocalModelNamespaceCache is a namespace-scoped version of LocalModelCache. It allows InferenceServices only in the same namespace to use the cached model.",
+				Description: "LocalModelNamespaceCache is a namespace-scoped version of LocalModelCache. Workloads in its namespace mount the cached model through the claims listed in status.persistentVolumeClaims, at status.subPath.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {

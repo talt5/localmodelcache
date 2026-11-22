@@ -1,0 +1,58 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kserve-localmodel-config
+data:
+  localModel: |-
+    {
+      "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
+      "jobTTLSecondsAfterFinished": {{ .Values.kserve.localmodel.jobTTLSecondsAfterFinished }},
+      "defaultJobImage": "{{ .Values.kserve.localmodel.defaultJobImage }}:{{ .Values.kserve.localmodel.defaultJobTag | default .Values.kserve.version }}",
+      "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }},
+      {{- $importFSGroup := .Values.kserve.localmodel.sharedPVCImportFSGroup }}
+      {{- if .Values.openshift.enabled }}
+      {{- $importFSGroup = .Values.openshift.sharedPVCImportFSGroup }}
+      {{- end }}
+      {{- if not (kindIs "invalid" $importFSGroup) }}
+      "sharedPVCImportFSGroup": {{ $importFSGroup }},
+      {{- end }}
+      "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }},
+      "disableVolumeManagement": {{ .Values.kserve.localmodel.disableVolumeManagement }}
+    }
+  storageInitializer: |-
+    {
+        "image" : "{{ .Values.kserve.storage.image }}:{{ .Values.kserve.storage.tag | default .Values.kserve.version }}",
+        "memoryRequest": "{{ .Values.kserve.storage.resources.requests.memory }}",
+        "memoryLimit": "{{ .Values.kserve.storage.resources.limits.memory }}",
+        "cpuRequest": "{{ .Values.kserve.storage.resources.requests.cpu }}",
+        "cpuLimit": "{{ .Values.kserve.storage.resources.limits.cpu }}",
+        "caBundleConfigMapName": "{{ .Values.kserve.storage.caBundleConfigMapName }}",
+        "caBundleVolumeMountPath": "{{ .Values.kserve.storage.caBundleVolumeMountPath }}"
+        {{- if .Values.kserve.storage.enableOciModelSupport }},
+        "enableOciModelSupport": {{ .Values.kserve.storage.enableOciModelSupport }}
+        {{- end }}
+        {{- if .Values.kserve.storage.ociModelMode }},
+        "ociModelMode": "{{ .Values.kserve.storage.ociModelMode }}"
+        {{- end }}
+    }
+  credentials: |-
+    {
+       "storageSpecSecretName": "{{ .Values.kserve.storage.storageSpecSecretName }}",
+       "storageSecretNameAnnotation": "{{ .Values.kserve.storage.storageSecretNameAnnotation }}",
+       "gcs": {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3": {
+           "s3AccessKeyIDName": "{{ .Values.kserve.storage.s3.accessKeyIdName }}",
+           "s3SecretAccessKeyName": "{{ .Values.kserve.storage.s3.secretAccessKeyName }}",
+           "s3Endpoint": "{{ .Values.kserve.storage.s3.endpoint }}",
+           "s3UseHttps": "{{ .Values.kserve.storage.s3.useHttps }}",
+           "s3Region": "{{ .Values.kserve.storage.s3.region }}",
+           "s3VerifySSL": "{{ .Values.kserve.storage.s3.verifySSL }}",
+           "s3UseVirtualBucket": "{{ .Values.kserve.storage.s3.useVirtualBucket }}",
+           "s3UseAnonymousCredential": "{{ .Values.kserve.storage.s3.useAnonymousCredential }}",
+           "s3CABundleConfigMap": "{{ .Values.kserve.storage.s3.CABundleConfigMap }}",
+           "s3CABundle": "{{ .Values.kserve.storage.s3.CABundle }}"
+       }
+    }

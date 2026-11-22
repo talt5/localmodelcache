@@ -36,8 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	controllerutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/credentials"
@@ -48,27 +46,26 @@ import (
 // LocalModelNamespaceCacheReconciler reconciles namespace-scoped LocalModelNamespaceCache resources
 type LocalModelNamespaceCacheReconciler struct {
 	client.Client
-	APIReader                client.Reader
-	Clientset                *kubernetes.Clientset
-	Log                      logr.Logger
-	Scheme                   *runtime.Scheme
-	CredentialBuilder        *credentials.CredentialBuilder
-	llmInferenceServiceCRDUp bool
+	APIReader         client.Reader
+	Clientset         *kubernetes.Clientset
+	Log               logr.Logger
+	Scheme            *runtime.Scheme
+	CredentialBuilder *credentials.CredentialBuilder
 }
 
 // Reconcile
 // Step 1 - Checks if the CR is in the deletion process. Deletion completes when all LocalModelNodes have been updated
 // Step 2 - Adds this model to LocalModelNode resources in the node group
-// Step 3 - Creates PV & PVC for model download (in the same namespace as the CR)
-// Step 4 - Creates PV & PVCs for ISVCs in the same namespace using this cached model
+// Step 3 - Creates PV & PVC for model download (in the job namespace)
+// Step 4 - Creates the PV & PVC that workloads in the cache's namespace mount
 func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Reconciling namespace-scoped localmodel", "name", req.Name, "namespace", req.Namespace)
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.Clientset)
+	configMap, err := localmodelcache.GetConfigMap(ctx, c.Clientset)
 	if err != nil {
-		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		c.Log.Error(err, "unable to get configmap", "name", constants.LocalModelConfigMapName, "namespace", constants.KServeNamespace)
 		return reconcile.Result{}, err
 	}
-	localModelConfig, err := v1beta1.NewLocalModelConfig(isvcConfigMap)
+	localModelConfig, err := localmodelcache.NewLocalModelConfig(configMap)
 	if err != nil {
 		c.Log.Error(err, "Failed to get local model config")
 		return reconcile.Result{}, err
@@ -83,28 +80,17 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 	// Shared-PVC mode takes a dedicated branch before any node-group resolution or per-node
 	// PV/PVC/LocalModelNode fan-out.
 	if localModel.Spec.SharedPVCMode() {
-		var consumers cacheConsumers
-		if localModel.DeletionTimestamp.IsZero() {
-			consumers, err = collectCacheConsumers(ctx, c.Client, c.Log, nil, localModel, c.llmInferenceServiceCRDUp)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		}
-		return c.reconcileSharedPVC(ctx, localModel, isvcConfigMap, localModelConfig, consumers)
+		return c.reconcileSharedPVC(ctx, localModel, configMap, localModelConfig)
 	}
 
-	defaultNodeGroup := &v1alpha1.LocalModelNodeGroup{}
 	nodeGroups := map[string]*v1alpha1.LocalModelNodeGroup{}
-	for idx, nodeGroupName := range localModel.Spec.NodeGroups {
+	for _, nodeGroupName := range localModel.Spec.NodeGroups {
 		nodeGroup := &v1alpha1.LocalModelNodeGroup{}
 		nodeGroupNamespacedName := types.NamespacedName{Name: nodeGroupName}
 		if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
 			return reconcile.Result{}, err
 		}
 		nodeGroups[nodeGroupName] = nodeGroup
-		if idx == 0 {
-			defaultNodeGroup = nodeGroup
-		}
 	}
 
 	// Step 1 - Checks if the CR is in the deletion process
@@ -122,14 +108,13 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		return DeleteModelFromNodes(ctx, c.Client, c.Clientset, c.Log, nil, localModel, nodeGroups)
 	}
 
-	consumers, err := collectCacheConsumers(ctx, c.Client, c.Log, nil, localModel, c.llmInferenceServiceCRDUp)
-	if err != nil {
-		return reconcile.Result{}, err
+	var claims []string
+	if !localModelConfig.DisableVolumeManagement {
+		claims = localmodelcache.NamespaceCacheClaimNames(localModel)
 	}
-	previousNamespaces := consumerNamespaces(localModel.Status)
 
 	// Step 2 - Adds this model to LocalModelNode resources in the node group
-	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, nil, localModel, nodeGroups, consumers); err != nil {
+	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, nil, localModel, nodeGroups, claims); err != nil {
 		c.Log.Error(err, "failed to reconcile LocalModelNode for namespace cache")
 	}
 
@@ -160,68 +145,11 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, nil
 	}
 
-	// Step 4 - Creates PV & PVCs for ISVCs in the same namespace using this model
-	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, nil, localModel, nodeGroups, defaultNodeGroup, consumers, previousNamespaces)
-	return ctrl.Result{}, err
-}
-
-// Reconciles corresponding namespace model cache CR when we found an update on an isvc
-func (c *LocalModelNamespaceCacheReconciler) isvcFuncNamespaceCache(ctx context.Context, obj client.Object) []reconcile.Request {
-	isvc := obj.(*v1beta1.InferenceService)
-	if isvc.Labels == nil {
-		return []reconcile.Request{}
+	// Step 4 - Creates the PV & PVC that workloads in the cache's namespace mount
+	if err := ReconcileNamespaceCacheVolumes(ctx, c.Clientset, c.Scheme, c.Log, localModel, nodeGroups); err != nil {
+		return ctrl.Result{}, err
 	}
-	var modelName string
-	var modelNamespace string
-	var ok bool
-	if modelName, ok = isvc.Labels[constants.LocalModelLabel]; !ok {
-		return []reconcile.Request{}
-	}
-	if modelNamespace, ok = isvc.Labels[constants.LocalModelNamespaceLabel]; !ok {
-		return []reconcile.Request{}
-	}
-	// Ensure the ISVC is in the same namespace as the LocalModelNamespaceCache
-	if isvc.Namespace != modelNamespace {
-		return []reconcile.Request{}
-	}
-
-	localModel := &v1alpha1.LocalModelNamespaceCache{}
-	if err := c.Get(ctx, types.NamespacedName{Name: modelName, Namespace: modelNamespace}, localModel); err != nil {
-		c.Log.Error(err, "error getting namespace localModel", "name", modelName, "namespace", modelNamespace)
-		return []reconcile.Request{}
-	}
-
-	c.Log.Info("Reconcile namespace localModel from inference services", "name", modelName, "namespace", modelNamespace)
-
-	return []reconcile.Request{{
-		NamespacedName: types.NamespacedName{
-			Name:      modelName,
-			Namespace: modelNamespace,
-		},
-	}}
-}
-
-// Reconciles corresponding namespace model cache CR when we found an update on an LLMInferenceService
-func (c *LocalModelNamespaceCacheReconciler) llmIsvcFuncNamespaceCache(ctx context.Context, obj client.Object) []reconcile.Request {
-	llmSvc := obj.(*v1alpha2.LLMInferenceService)
-	cacheNames := localmodelcache.LLMISVCNamespaceCacheNames(llmSvc.Namespace, llmSvc.Labels, llmSvc.Annotations)
-	if len(cacheNames) == 0 {
-		return []reconcile.Request{}
-	}
-
-	requests := make([]reconcile.Request, 0, len(cacheNames))
-	for _, modelName := range cacheNames {
-		localModel := &v1alpha1.LocalModelNamespaceCache{}
-		if err := c.Get(ctx, types.NamespacedName{Name: modelName, Namespace: llmSvc.Namespace}, localModel); err != nil {
-			c.Log.Error(err, "error getting namespace localModel", "name", modelName, "namespace", llmSvc.Namespace)
-			continue
-		}
-		c.Log.Info("Reconcile namespace localModel from LLM inference services", "name", modelName, "namespace", llmSvc.Namespace)
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{Name: modelName, Namespace: llmSvc.Namespace},
-		})
-	}
-	return requests
+	return ctrl.Result{}, nil
 }
 
 // Given a node object, checks if it matches any node group CR, then reconcile all namespace local models that has this node group.
@@ -341,66 +269,6 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 	if c.APIReader == nil {
 		c.APIReader = mgr.GetAPIReader()
 	}
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(context.Background(), c.Clientset)
-	if err != nil {
-		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
-		return err
-	}
-	localModelConfig, err := v1beta1.NewLocalModelConfig(isvcConfigMap)
-	if err != nil {
-		c.Log.Error(err, "Failed to get local model config during controller manager setup")
-		return err
-	}
-
-	// Index for namespace-scoped models - index by name AND namespace label
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1beta1.InferenceService{}, LocalModelNamespaceKey, func(rawObj client.Object) []string {
-		isvc := rawObj.(*v1beta1.InferenceService)
-		modelName, hasModel := isvc.GetLabels()[constants.LocalModelLabel]
-		modelNamespace, hasNamespace := isvc.GetLabels()[constants.LocalModelNamespaceLabel]
-		if hasModel && hasNamespace && isvc.Namespace == modelNamespace {
-			return []string{modelName}
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	hasLLMISvcCRD, err := hasLLMInferenceServiceCRD(mgr)
-	if err != nil {
-		return err
-	}
-	c.llmInferenceServiceCRDUp = hasLLMISvcCRD
-	if hasLLMISvcCRD {
-		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha2.LLMInferenceService{}, LocalModelNamespaceKey, func(rawObj client.Object) []string {
-			llmSvc := rawObj.(*v1alpha2.LLMInferenceService)
-			return localmodelcache.LLMISVCNamespaceCacheNames(llmSvc.Namespace, llmSvc.Labels, llmSvc.Annotations)
-		}); err != nil {
-			return err
-		}
-	} else {
-		c.Log.Info("LLMInferenceService CRD not installed; skipping LocalModelNamespaceCache LLMInferenceService index and watch setup")
-	}
-
-	isvcPredicates := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldNsLabel := e.ObjectOld.GetLabels()[constants.LocalModelNamespaceLabel]
-			newNsLabel := e.ObjectNew.GetLabels()[constants.LocalModelNamespaceLabel]
-			return oldNsLabel != newNsLabel
-		},
-		CreateFunc: func(e event.CreateEvent) bool {
-			if _, ok := e.Object.GetLabels()[constants.LocalModelNamespaceLabel]; !ok {
-				return false
-			}
-			return true
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			if _, ok := e.Object.GetLabels()[constants.LocalModelNamespaceLabel]; !ok {
-				return false
-			}
-			return true
-		},
-	}
-
 	nodePredicates := NodeReadyPredicate()
 
 	localModelNodePredicates := predicate.Funcs{
@@ -432,32 +300,6 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 		Owns(&corev1.PersistentVolumeClaim{}).
 		// Shared-PVC import Jobs are owned by the cache, so their status changes trigger reconciliation.
 		Owns(&batchv1.Job{})
-
-	llmIsvcPredicates := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			old := e.ObjectOld.(*v1alpha2.LLMInferenceService)
-			new := e.ObjectNew.(*v1alpha2.LLMInferenceService)
-			return !localmodelcache.CacheNamesEqual(
-				localmodelcache.LLMISVCNamespaceCacheNames(old.Namespace, old.Labels, old.Annotations),
-				localmodelcache.LLMISVCNamespaceCacheNames(new.Namespace, new.Labels, new.Annotations),
-			)
-		},
-		CreateFunc: func(e event.CreateEvent) bool {
-			llmSvc := e.Object.(*v1alpha2.LLMInferenceService)
-			return len(localmodelcache.LLMISVCNamespaceCacheNames(llmSvc.Namespace, llmSvc.Labels, llmSvc.Annotations)) > 0
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			llmSvc := e.Object.(*v1alpha2.LLMInferenceService)
-			return len(localmodelcache.LLMISVCNamespaceCacheNames(llmSvc.Namespace, llmSvc.Labels, llmSvc.Annotations)) > 0
-		},
-	}
-
-	if !localModelConfig.DisableVolumeManagement {
-		controllerBuilder.Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFuncNamespaceCache), builder.WithPredicates(isvcPredicates))
-		if hasLLMISvcCRD {
-			controllerBuilder.Watches(&v1alpha2.LLMInferenceService{}, handler.EnqueueRequestsFromMapFunc(c.llmIsvcFuncNamespaceCache), builder.WithPredicates(llmIsvcPredicates))
-		}
-	}
 
 	return controllerBuilder.
 		Watches(&v1alpha1.LocalModelNamespaceCache{}, handler.EnqueueRequestsFromMapFunc(c.deletedCacheFuncNamespaceCache), builder.WithPredicates(cacheDeletePredicates)).

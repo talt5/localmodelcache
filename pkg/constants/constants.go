@@ -67,6 +67,9 @@ var (
 	InferenceServicePodLabelKey           = KServeAPIGroupName + "/" + InferenceServiceName
 	InferenceServiceGenerationPodLabelKey = "isvc.generation"
 	InferenceServiceConfigMapName         = "inferenceservice-config"
+	// LocalModelConfigMapName is the ConfigMap, in KServeNamespace, that configures the
+	// local model cache and kernel cache controllers and their node agents.
+	LocalModelConfigMapName = "kserve-localmodel-config"
 )
 
 // InferenceGraph Constants

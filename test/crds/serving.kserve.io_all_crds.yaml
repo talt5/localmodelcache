@@ -156831,7 +156831,14 @@ spec:
     singular: localmodelcache
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.subPath
+      name: SubPath
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:
@@ -156941,24 +156948,6 @@ spec:
                   total:
                     type: integer
                 type: object
-              inferenceServices:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                  type: object
-                type: array
-              llmInferenceServices:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                  type: object
-                type: array
               nodeStatus:
                 additionalProperties:
                   enum:
@@ -156970,6 +156959,10 @@ spec:
                   - NodeDownloadError
                   type: string
                 type: object
+              persistentVolumeClaims:
+                items:
+                  type: string
+                type: array
               sharedPVCImport:
                 properties:
                   completionTime:
@@ -156980,6 +156973,8 @@ spec:
                 required:
                 - pvcUID
                 type: object
+              subPath:
+                type: string
             type: object
         type: object
     served: true
@@ -157002,7 +156997,14 @@ spec:
     singular: localmodelnamespacecache
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.subPath
+      name: SubPath
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:
@@ -157126,24 +157128,6 @@ spec:
                   total:
                     type: integer
                 type: object
-              inferenceServices:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                  type: object
-                type: array
-              llmInferenceServices:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                  type: object
-                type: array
               nodeStatus:
                 additionalProperties:
                   enum:
@@ -157155,6 +157139,10 @@ spec:
                   - NodeDownloadError
                   type: string
                 type: object
+              persistentVolumeClaims:
+                items:
+                  type: string
+                type: array
               sharedPVCImport:
                 properties:
                   completionTime:
@@ -157165,6 +157153,8 @@ spec:
                 required:
                 - pvcUID
                 type: object
+              subPath:
+                type: string
             type: object
         type: object
     served: true

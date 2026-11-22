@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"path"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -30,6 +31,12 @@ import (
 func GetStorageKey(sourceModelUri string) string {
 	hash := sha256.Sum256([]byte(sourceModelUri))
 	return hex.EncodeToString(hash[:])[:16] // Use first 16 chars of hash
+}
+
+// GetStorageSubPath returns the directory, relative to the root of a cache volume, that holds
+// the files downloaded from sourceModelUri: models/<storage key>.
+func GetStorageSubPath(sourceModelUri string) string {
+	return path.Join("models", GetStorageKey(sourceModelUri))
 }
 
 // LocalModelStorageSpec defines credential and storage configuration for model download
@@ -80,6 +87,8 @@ type LocalModelCacheSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope="Cluster"
+// +kubebuilder:printcolumn:name="SubPath",type="string",JSONPath=".status.subPath"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type LocalModelCache struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

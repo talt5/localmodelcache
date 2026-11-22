@@ -20,44 +20,15 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 var storageURI = "gs://testbucket/testmodel"
-
-func makeTestInferenceService() v1beta1.InferenceService {
-	inferenceservice := v1beta1.InferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "sklearn-iris",
-			Namespace: "default",
-			Labels: map[string]string{
-				constants.LocalModelLabel: "iris",
-			},
-		},
-		Spec: v1beta1.InferenceServiceSpec{
-			Predictor: v1beta1.PredictorSpec{
-				Model: &v1beta1.ModelSpec{
-					ModelFormat: v1beta1.ModelFormat{
-						Name: "sklearn",
-					},
-					PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
-						StorageURI: proto.String(storageURI),
-					},
-				},
-			},
-		},
-	}
-	return inferenceservice
-}
 
 func makeTestLocalModelCache() v1alpha1.LocalModelCache {
 	localModelCache := v1alpha1.LocalModelCache{
@@ -68,14 +39,6 @@ func makeTestLocalModelCache() v1alpha1.LocalModelCache {
 			ModelSize:      resource.MustParse("1Gi"),
 			NodeGroups:     []string{"gpu1"},
 			SourceModelUri: storageURI,
-		},
-		Status: v1alpha1.LocalModelCacheStatus{
-			InferenceServices: []v1alpha1.NamespacedName{
-				{
-					Namespace: "default",
-					Name:      "sklearn-iris",
-				},
-			},
 		},
 	}
 	return localModelCache
@@ -95,140 +58,17 @@ func makeTestLocalModelCacheWithSameStorageURI() v1alpha1.LocalModelCache {
 	return localModelCache
 }
 
-func TestUnableToDeleteLocalModelCacheWithActiveIsvc(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	lmc := makeTestLocalModelCache()
-	isvc := makeTestInferenceService()
-	s := runtime.NewScheme()
-	err := v1beta1.AddToScheme(s)
-	if err != nil {
-		t.Errorf("unable to add scheme : %v", err)
-	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&isvc).WithScheme(s).Build()
-	validator := LocalModelCacheValidator{fakeClient}
-	warnings, err := validator.ValidateDelete(t.Context(), &lmc)
-	g.Expect(warnings).NotTo(gomega.BeNil())
-	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s is being used by InferenceService %s", lmc.Name, isvc.Name)))
-}
-
-func makeTestLLMInferenceService() v1alpha2.LLMInferenceService {
-	return v1alpha2.LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "llm-iris",
-			Namespace: "default",
-			Labels: map[string]string{
-				constants.LocalModelLabel: "iris",
-			},
-		},
-	}
-}
-
-func makeTestLocalModelCacheWithLLMIsvc() v1alpha1.LocalModelCache {
-	lmc := makeTestLocalModelCache()
-	lmc.Status.InferenceServices = nil
-	lmc.Status.LLMInferenceServices = []v1alpha1.NamespacedName{
-		{
-			Namespace: "default",
-			Name:      "llm-iris",
-		},
-	}
-	return lmc
-}
-
-func TestUnableToDeleteLocalModelCacheWithActiveLLMIsvc(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	lmc := makeTestLocalModelCacheWithLLMIsvc()
-	llmIsvc := makeTestLLMInferenceService()
-	s := runtime.NewScheme()
-	err := v1alpha2.AddToScheme(s)
-	if err != nil {
-		t.Errorf("unable to add scheme : %v", err)
-	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&llmIsvc).WithScheme(s).Build()
-	validator := LocalModelCacheValidator{fakeClient}
-	warnings, err := validator.ValidateDelete(t.Context(), &lmc)
-	g.Expect(warnings).NotTo(gomega.BeNil())
-	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s is being used by LLMInferenceService %s", lmc.Name, llmIsvc.Name)))
-}
-
-func makeTestLLMInferenceServiceWithLoRAAdapterOnly() v1alpha2.LLMInferenceService {
-	return v1alpha2.LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "llm-lora-only",
-			Namespace: "default",
-			Annotations: map[string]string{
-				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"iris"}}`,
-			},
-		},
-	}
-}
-
-func makeTestLocalModelCacheWithLoRAOnlyLLMIsvc() v1alpha1.LocalModelCache {
-	lmc := makeTestLocalModelCache()
-	lmc.Status.InferenceServices = nil
-	lmc.Status.LLMInferenceServices = []v1alpha1.NamespacedName{
-		{
-			Namespace: "default",
-			Name:      "llm-lora-only",
-		},
-	}
-	return lmc
-}
-
-func TestUnableToDeleteLocalModelCacheWithActiveLLMIsvcLoRAAdapterOnly(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	lmc := makeTestLocalModelCacheWithLoRAOnlyLLMIsvc()
-	llmIsvc := makeTestLLMInferenceServiceWithLoRAAdapterOnly()
-	s := runtime.NewScheme()
-	err := v1alpha2.AddToScheme(s)
-	if err != nil {
-		t.Errorf("unable to add scheme : %v", err)
-	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&llmIsvc).WithScheme(s).Build()
-	validator := LocalModelCacheValidator{fakeClient}
-	warnings, err := validator.ValidateDelete(t.Context(), &lmc)
-	g.Expect(warnings).NotTo(gomega.BeNil())
-	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s is being used by LLMInferenceService %s", lmc.Name, llmIsvc.Name)))
-}
-
-func TestDeleteLocalModelCacheWithStaleIsvcStatusEntry(t *testing.T) {
+// A cluster-scoped cache exposes no claims to workloads, so nothing blocks its deletion.
+func TestDeleteLocalModelCacheIsAllowed(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	lmc := makeTestLocalModelCache()
 	s := runtime.NewScheme()
-	err := v1beta1.AddToScheme(s)
-	if err != nil {
-		t.Errorf("unable to add scheme : %v", err)
-	}
-	fakeClient := fake.NewClientBuilder().WithScheme(s).Build()
+	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+	fakeClient := fake.NewClientBuilder().WithObjects(&lmc).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
 	warnings, err := validator.ValidateDelete(t.Context(), &lmc)
 	g.Expect(warnings).To(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
-}
-
-func TestUnableToDeleteLocalModelCacheWithMalformedLoRAAnnotation(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	lmc := makeTestLocalModelCacheWithLoRAOnlyLLMIsvc()
-	lmc.Status.LLMInferenceServices[0].Name = "llm-malformed-lora"
-	llmIsvc := v1alpha2.LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "llm-malformed-lora",
-			Namespace: "default",
-			Annotations: map[string]string{
-				constants.LocalModelLoRAAnnotationKey: `{invalid`,
-			},
-		},
-	}
-	s := runtime.NewScheme()
-	err := v1alpha2.AddToScheme(s)
-	if err != nil {
-		t.Errorf("unable to add scheme : %v", err)
-	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&llmIsvc).WithScheme(s).Build()
-	validator := LocalModelCacheValidator{fakeClient}
-	warnings, err := validator.ValidateDelete(t.Context(), &lmc)
-	g.Expect(warnings).NotTo(gomega.BeNil())
-	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s is being used by LLMInferenceService %s", lmc.Name, llmIsvc.Name)))
 }
 
 func TestUnableToCreateLocalModelCacheWithSameStorageURI(t *testing.T) {

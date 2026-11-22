@@ -86,13 +86,16 @@ func (spec *LocalModelNamespaceCacheSpec) SharedPVCMode() bool {
 	return spec.PVCRef != nil && *spec.PVCRef != ""
 }
 
-// LocalModelNamespaceCache is a namespace-scoped version of LocalModelCache.
-// It allows InferenceServices only in the same namespace to use the cached model.
+// LocalModelNamespaceCache is a namespace-scoped version of LocalModelCache. Workloads in its
+// namespace mount the cached model through the claims listed in status.persistentVolumeClaims,
+// at status.subPath.
 // +k8s:openapi-gen=true
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope="Namespaced"
+// +kubebuilder:printcolumn:name="SubPath",type="string",JSONPath=".status.subPath"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type LocalModelNamespaceCache struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

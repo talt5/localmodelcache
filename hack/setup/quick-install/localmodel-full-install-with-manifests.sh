@@ -7734,7 +7734,14 @@ spec:
     singular: localmodelcache
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.subPath
+      name: SubPath
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:
@@ -7844,24 +7851,6 @@ spec:
                   total:
                     type: integer
                 type: object
-              inferenceServices:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                  type: object
-                type: array
-              llmInferenceServices:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                  type: object
-                type: array
               nodeStatus:
                 additionalProperties:
                   enum:
@@ -7873,6 +7862,10 @@ spec:
                   - NodeDownloadError
                   type: string
                 type: object
+              persistentVolumeClaims:
+                items:
+                  type: string
+                type: array
               sharedPVCImport:
                 properties:
                   completionTime:
@@ -7883,6 +7876,8 @@ spec:
                 required:
                 - pvcUID
                 type: object
+              subPath:
+                type: string
             type: object
         type: object
     served: true
@@ -7905,7 +7900,14 @@ spec:
     singular: localmodelnamespacecache
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.subPath
+      name: SubPath
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:
@@ -8029,24 +8031,6 @@ spec:
                   total:
                     type: integer
                 type: object
-              inferenceServices:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                  type: object
-                type: array
-              llmInferenceServices:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                  type: object
-                type: array
               nodeStatus:
                 additionalProperties:
                   enum:
@@ -8058,6 +8042,10 @@ spec:
                   - NodeDownloadError
                   type: string
                 type: object
+              persistentVolumeClaims:
+                items:
+                  type: string
+                type: array
               sharedPVCImport:
                 properties:
                   completionTime:
@@ -8068,6 +8056,8 @@ spec:
                 required:
                 - pvcUID
                 type: object
+              subPath:
+                type: string
             type: object
         type: object
     served: true
@@ -9172,8 +9162,6 @@ rules:
   - serving.kserve.io
   resources:
   - clusterstoragecontainers
-  - inferenceservices
-  - llminferenceservices
   - localmodelnodegroups
   verbs:
   - get
@@ -9393,6 +9381,57 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kserve-localmodelnode-agent
+  namespace: kserve
+---
+apiVersion: v1
+data:
+  credentials: |-
+    {
+       "storageSpecSecretName": "storage-config",
+       "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
+       "gcs": {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3": {
+           "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
+           "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY",
+           "s3Endpoint": "",
+           "s3UseHttps": "",
+           "s3Region": "",
+           "s3VerifySSL": "",
+           "s3UseVirtualBucket": "",
+           "s3UseAccelerate": "",
+           "s3UseAnonymousCredential": "",
+           "s3CABundleConfigMap": "",
+           "s3CABundle": ""
+       }
+    }
+  localModel: |-
+    {
+      "jobNamespace": "kserve-localmodel-jobs",
+      "defaultJobImage": "kserve/storage-initializer:latest",
+      "fsGroup": 1000,
+      "sharedPVCImportFSGroup": 1000,
+      "jobTTLSecondsAfterFinished": 3600,
+      "reconcilationFrequencyInSecs": 60,
+      "disableVolumeManagement": false
+    }
+  storageInitializer: |-
+    {
+        "image" : "kserve/storage-initializer:latest",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "caBundleConfigMapName": "",
+        "caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodel-config
   namespace: kserve
 ---
 apiVersion: v1

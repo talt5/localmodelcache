@@ -1,6 +1,6 @@
 # V1alpha1LocalModelNamespaceCache
 
-LocalModelNamespaceCache is a namespace-scoped version of LocalModelCache. It allows InferenceServices only in the same namespace to use the cached model.
+LocalModelNamespaceCache is a namespace-scoped version of LocalModelCache. Workloads in its namespace mount the cached model through the claims listed in status.persistentVolumeClaims, at status.subPath.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

@@ -9,6 +9,7 @@ labels:
     app.kubernetes.io/component: localmodel
 
 resources:
+- configmap.yaml
 - ../certmanager/localmodel
 - ../rbac/localmodel
 - ../rbac/kernelcache

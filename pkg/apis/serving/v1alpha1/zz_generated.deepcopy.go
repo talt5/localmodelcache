@@ -1840,14 +1840,9 @@ func (in *LocalModelCacheStatus) DeepCopyInto(out *LocalModelCacheStatus) {
 		*out = new(ModelCopies)
 		**out = **in
 	}
-	if in.InferenceServices != nil {
-		in, out := &in.InferenceServices, &out.InferenceServices
-		*out = make([]NamespacedName, len(*in))
-		copy(*out, *in)
-	}
-	if in.LLMInferenceServices != nil {
-		in, out := &in.LLMInferenceServices, &out.LLMInferenceServices
-		*out = make([]NamespacedName, len(*in))
+	if in.PersistentVolumeClaims != nil {
+		in, out := &in.PersistentVolumeClaims, &out.PersistentVolumeClaims
+		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
 	if in.Conditions != nil {

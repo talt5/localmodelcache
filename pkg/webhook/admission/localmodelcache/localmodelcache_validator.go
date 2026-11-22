@@ -20,16 +20,11 @@ import (
 	"context"
 	"fmt"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/localmodelcache"
 )
 
 // logger for the validation webhook.
@@ -80,46 +75,12 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, _, localM
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *LocalModelCacheValidator) ValidateDelete(ctx context.Context, localModelCache *v1alpha1.LocalModelCache) (admission.Warnings, error) {
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
+// A cluster-scoped cache exposes no claims to workloads: they mount the claims of a
+// LocalModelNamespaceCache, whose own delete check protects them, and the node agent keeps a
+// model folder while any cache still references its source URI.
+func (v *LocalModelCacheValidator) ValidateDelete(_ context.Context, localModelCache *v1alpha1.LocalModelCache) (admission.Warnings, error) {
 	localModelCacheValidatorLogger.Info("validate delete", "name", localModelCache.Name)
-
-	// Delete protection relies on Status.InferenceServices / Status.LLMInferenceServices
-	// being up-to-date. A newly created consumer may not appear in status yet if the
-	// reconciler has not run, so deletion can race and succeed until the next reconcile.
-	// This gap already existed for base-model references; LoRA adapter references inherit it.
-	for _, isvcMeta := range localModelCache.Status.InferenceServices {
-		isvc := v1beta1.InferenceService{}
-		if err := v.Get(ctx, client.ObjectKey(isvcMeta), &isvc); err != nil {
-			if apierrors.IsNotFound(err) {
-				continue
-			}
-			localModelCacheValidatorLogger.Error(err, "Error getting InferenceService", "name", isvcMeta.Name)
-			return nil, err
-		}
-		modelName, ok := isvc.Labels[constants.LocalModelLabel]
-		if !ok {
-			continue
-		}
-		if modelName == localModelCache.Name {
-			return admission.Warnings{}, fmt.Errorf("LocalModelCache %s is being used by InferenceService %s", localModelCache.Name, isvcMeta.Name)
-		}
-	}
-
-	// Check if current LocalModelCache is being used by LLMInferenceServices
-	for _, llmIsvcMeta := range localModelCache.Status.LLMInferenceServices {
-		llmIsvc := v1alpha2.LLMInferenceService{}
-		if err := v.Get(ctx, client.ObjectKey(llmIsvcMeta), &llmIsvc); err != nil {
-			if apierrors.IsNotFound(err) {
-				continue
-			}
-			localModelCacheValidatorLogger.Error(err, "Error getting LLMInferenceService", "name", llmIsvcMeta.Name)
-			return nil, err
-		}
-		if localmodelcache.LLMISVCReferencesClusterCache(localModelCache.Name, llmIsvc.Labels, llmIsvc.Annotations) {
-			return admission.Warnings{}, fmt.Errorf("LocalModelCache %s is being used by LLMInferenceService %s", localModelCache.Name, llmIsvcMeta.Name)
-		}
-	}
 	return nil, nil
 }
 

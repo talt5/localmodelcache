@@ -39,10 +39,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel/jobs"
 	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -52,10 +52,8 @@ const (
 	importStorageKeyAnnotation = "serving.kserve.io/import-storage-key"
 	importSpecHashAnnotation   = "serving.kserve.io/import-spec-hash"
 
-	// reimportBlockedRequeueInterval is the fallback poll while a re-import is blocked by
-	// consumers. Consumer removal normally re-enqueues the cache through the
-	// InferenceService/LLMInferenceService watches, but those are not registered under
-	// disableVolumeManagement.
+	// reimportBlockedRequeueInterval is the poll while a re-import is blocked by Pods that
+	// mount the claim. Nothing enqueues the cache when the last of them exits.
 	reimportBlockedRequeueInterval = time.Minute
 )
 
@@ -88,7 +86,7 @@ type sharedState struct {
 // state. The referenced PVC and the imported model data are user-owned and never mutated or
 // deleted by the controller. The owned Job is deleted before the cache finalizer is removed,
 // preventing a successor cache from importing into the same destination concurrently.
-func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, isvcConfigMap *corev1.ConfigMap, localModelConfig *v1beta1.LocalModelConfig, consumers cacheConsumers) (ctrl.Result, error) {
+func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, configMap *corev1.ConfigMap, localModelConfig *localmodelcache.LocalModelConfig) (ctrl.Result, error) {
 	log := c.Log.WithValues("name", localModel.Name, "namespace", localModel.Namespace, "pvcRef", *localModel.Spec.PVCRef)
 
 	if !localModel.DeletionTimestamp.IsZero() {
@@ -112,39 +110,37 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 		if apierr.IsNotFound(err) {
 			// The claim is gone and the data with it. pvc-protection keeps the object alive
 			// while any scheduled Pod mounts it, so NotFound means nothing reads it any more.
-			// Clear the import record: it holds bound consumers on the claim, and a consumer
-			// kept bound here would point at a claim that no longer exists instead of falling
-			// back to its source URI. A replacement claim has a new UID and is imported
-			// regardless, so the re-import gate loses nothing.
+			// Clear the import record: it names a claim that no longer exists. A replacement
+			// claim has a new UID and is imported regardless, so the re-import gate loses
+			// nothing.
 			log.Info("Referenced PVC not found")
 			return c.applySharedStatus(ctx, localModel, sharedState{
 				status:        metav1.ConditionFalse,
 				reason:        v1alpha1.ReasonPVCNotFound,
 				message:       fmt.Sprintf("PersistentVolumeClaim %q not found in namespace %q", pvcName, localModel.Namespace),
 				clearImported: true,
-			}, consumers)
+			})
 		}
 		return ctrl.Result{}, err
 	}
 
 	if !pvc.DeletionTimestamp.IsZero() {
 		// A Terminating claim never returns to service; pvc-protection holds it only while
-		// scheduled Pods still mount it. Report NotReady so no new consumer is bound to a dying
-		// claim and no import Job is started onto it. The import record is kept: the data is
-		// still there for the Pods draining from it, so bound consumers are held until the
-		// claim is gone and PVCNotFound clears the record.
+		// scheduled Pods still mount it. Report NotReady so no import Job is started onto it.
+		// The import record is kept: the data is still there for the Pods draining from it,
+		// until the claim is gone and PVCNotFound clears the record.
 		log.Info("Referenced PVC is terminating")
 		return c.applySharedStatus(ctx, localModel, sharedState{
 			status:  metav1.ConditionFalse,
 			reason:  v1alpha1.ReasonPVCTerminating,
 			message: fmt.Sprintf("PersistentVolumeClaim %q is being deleted", pvcName),
-		}, consumers)
+		})
 	}
 
 	// PVC preflight: volume mode, access mode, and capacity.
 	if state, ok := checkPVCPreflight(pvc, localModel.Spec.ModelSize); !ok {
 		log.Info("PVC preflight failed", "reason", state.reason, "message", state.message)
-		return c.applySharedStatus(ctx, localModel, state, consumers)
+		return c.applySharedStatus(ctx, localModel, state)
 	}
 
 	// Destination ownership: only one cache may own (namespace, pvcRef, storageKey).
@@ -156,23 +152,21 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 			status:  metav1.ConditionFalse,
 			reason:  v1alpha1.ReasonDestinationConflict,
 			message: conflict,
-		}, consumers)
+		})
 	}
 
 	// Get or create the single deterministic import Job.
-	job, requeue, err := c.getOrCreateImportJob(ctx, localModel, pvc, storageKey, isvcConfigMap, localModelConfig, consumers)
+	job, requeue, err := c.getOrCreateImportJob(ctx, localModel, pvc, storageKey, configMap, localModelConfig)
 	if err != nil {
 		if errors.Is(err, errReimportBlocked) {
-			// Not an error to retry: removing a consumer enqueues this cache via the
-			// InferenceService/LLMInferenceService watches. Those watches are not registered
-			// under disableVolumeManagement, and nothing enqueues the cache when the last Pod
-			// mounting the claim exits, so the blocked state also re-checks on a timer.
+			// Not an error to retry: nothing enqueues the cache when the last Pod mounting the
+			// claim exits, so the blocked state re-checks on a timer.
 			log.Info("Re-import blocked", "message", err.Error())
 			result, statusErr := c.applySharedStatus(ctx, localModel, sharedState{
 				status:  metav1.ConditionFalse,
 				reason:  v1alpha1.ReasonReimportBlocked,
 				message: err.Error(),
-			}, consumers)
+			})
 			if statusErr != nil {
 				return ctrl.Result{}, statusErr
 			}
@@ -184,7 +178,7 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 				status:  metav1.ConditionFalse,
 				reason:  v1alpha1.ReasonImportJobConflict,
 				message: err.Error(),
-			}, consumers); statusErr != nil {
+			}); statusErr != nil {
 				return ctrl.Result{}, statusErr
 			}
 		} else if errors.Is(err, errImportCredentials) {
@@ -192,10 +186,10 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 				status:  metav1.ConditionFalse,
 				reason:  v1alpha1.ReasonImportCredentialError,
 				message: err.Error(),
-			}, consumers); statusErr != nil {
+			}); statusErr != nil {
 				return ctrl.Result{}, statusErr
 			}
-		} else if _, statusErr := c.applySharedStatus(ctx, localModel, importPendingState("Unable to inspect or create the import Job"), consumers); statusErr != nil {
+		} else if _, statusErr := c.applySharedStatus(ctx, localModel, importPendingState("Unable to inspect or create the import Job")); statusErr != nil {
 			return ctrl.Result{}, statusErr
 		}
 		return ctrl.Result{}, err
@@ -206,10 +200,10 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 		if job != nil {
 			message = "Previous import Job is terminating; waiting before replacement"
 		}
-		return c.applySharedStatus(ctx, localModel, importPendingState(message), consumers)
+		return c.applySharedStatus(ctx, localModel, importPendingState(message))
 	}
 
-	return c.applySharedStatus(ctx, localModel, stateFromJob(job, pvc), consumers)
+	return c.applySharedStatus(ctx, localModel, stateFromJob(job, pvc))
 }
 
 func (c *LocalModelNamespaceCacheReconciler) finalizeSharedPVC(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache) (ctrl.Result, error) {
@@ -257,7 +251,7 @@ func (c *LocalModelNamespaceCacheReconciler) deleteImportJob(ctx context.Context
 // getReferencedPVC reads the claim named by spec.pvcRef. The informer cache serves the common
 // path. A NotFound from the cache is confirmed against the apiserver when an import record is
 // present: that NotFound clears the record, which is the only evidence that data was published
-// onto the claim and what holds bound consumers on it. Trusting a stale cached miss would drop
+// onto the claim. Trusting a stale cached miss would drop
 // that evidence for a claim that still exists, and a later Job deletion would then be treated
 // as a first import. Without a record there is nothing to protect, so the cached miss stands.
 func (c *LocalModelNamespaceCacheReconciler) getReferencedPVC(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim) error {
@@ -371,9 +365,9 @@ func cachePrecedes(candidate, current *v1alpha1.LocalModelNamespaceCache) bool {
 // getOrCreateImportJob returns the existing deterministic import Job, or creates it. A retained
 // succeeded/failed Job is returned as-is; a second Job is never created while one exists.
 // When the Job is gone after a successful import onto the current claim, no replacement is
-// created while consumers still reference the cache: the Job writes straight into the model
-// destination their pods read.
-func (c *LocalModelNamespaceCacheReconciler) getOrCreateImportJob(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim, storageKey string, isvcConfigMap *corev1.ConfigMap, localModelConfig *v1beta1.LocalModelConfig, consumers cacheConsumers) (*batchv1.Job, bool, error) {
+// created while Pods still mount the claim: the Job writes straight into the model destination
+// they read.
+func (c *LocalModelNamespaceCacheReconciler) getOrCreateImportJob(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim, storageKey string, configMap *corev1.ConfigMap, localModelConfig *localmodelcache.LocalModelConfig) (*batchv1.Job, bool, error) {
 	jobName := importJobName(localModel.Name)
 	job := &batchv1.Job{}
 	err := c.Get(ctx, types.NamespacedName{Name: jobName, Namespace: localModel.Namespace}, job)
@@ -383,11 +377,11 @@ func (c *LocalModelNamespaceCacheReconciler) getOrCreateImportJob(ctx context.Co
 	if !apierr.IsNotFound(err) {
 		return nil, false, err
 	}
-	if err := c.reimportGate(ctx, localModel, pvc, consumers); err != nil {
+	if err := c.reimportGate(ctx, localModel, pvc); err != nil {
 		return nil, false, err
 	}
 
-	job, err = c.buildImportJob(ctx, localModel, jobName, pvc, storageKey, isvcConfigMap, localModelConfig)
+	job, err = c.buildImportJob(ctx, localModel, jobName, pvc, storageKey, configMap, localModelConfig)
 	if err != nil {
 		return nil, false, err
 	}
@@ -437,26 +431,16 @@ func (c *LocalModelNamespaceCacheReconciler) validateExistingImportJob(ctx conte
 	return nil, true, nil
 }
 
-// reimportGate decides whether a replacement import Job may be created. The cached object is
-// checked first so a block already visible there costs no apiserver round trip. Otherwise the
-// record is confirmed against the apiserver before any Job is created: this controller writes
+// reimportGate decides whether a replacement import Job may be created. It runs only when the
+// Job is missing. The import record is confirmed against the apiserver: this controller writes
 // the record itself and the informer cache gives no read-your-write guarantee, so a Job deleted
-// shortly after completion can look missing while the record is still in flight. Trusting the
-// cached read would start the second writer this gate exists to prevent, whether consumer
-// objects remain or only their terminating Pods do. The gate runs only when the Job is
-// missing, so the extra read is paid once per Job creation. A missing cache is reported as an
-// error rather than treated as unblocked; the next reconcile observes the deletion and stops.
-// With the record confirmed and no consumer object left, the gate additionally waits for every
-// Pod still mounting the claim to exit.
-func (c *LocalModelNamespaceCacheReconciler) reimportGate(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim, consumers cacheConsumers) error {
-	if err := reimportBlocked(localModel, pvc, consumers); err != nil {
-		return err
-	}
+// shortly after completion can look missing while the record is still in flight. A missing
+// cache is reported as an error rather than treated as unblocked; the next reconcile observes
+// the deletion and stops. With the record confirmed, the gate waits for every Pod still
+// mounting the claim to exit.
+func (c *LocalModelNamespaceCacheReconciler) reimportGate(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim) error {
 	fresh := &v1alpha1.LocalModelNamespaceCache{}
 	if err := c.authoritativeReader().Get(ctx, client.ObjectKeyFromObject(localModel), fresh); err != nil {
-		return err
-	}
-	if err := reimportBlocked(fresh, pvc, consumers); err != nil {
 		return err
 	}
 	if !importedOnto(fresh, pvc) {
@@ -466,10 +450,8 @@ func (c *LocalModelNamespaceCacheReconciler) reimportGate(ctx context.Context, l
 }
 
 // podsBlockReimport returns errReimportBlocked while any Pod in the cache namespace still
-// mounts the claim. Consumer objects are deleted before their Pods finish terminating, and a
-// Pod that mounts the claim outside any InferenceService (a debug Pod, a user's own workload)
-// is never a consumer object at all, so the object count alone would start the replacement
-// writer while the destination is still being read. The rule is the one pvc-protection uses:
+// mounts the claim, so no replacement writer starts while the destination is being read. The
+// rule is the one pvc-protection uses:
 // a Pod that references the claim and has not reached Succeeded or Failed is using it,
 // terminating Pods included. This runs only on the path that would otherwise create a
 // replacement Job, so the list goes to the apiserver rather than through a Pod informer.
@@ -480,7 +462,7 @@ func (c *LocalModelNamespaceCacheReconciler) podsBlockReimport(ctx context.Conte
 	}
 	mounting := 0
 	for i := range pods.Items {
-		if podMountsClaim(&pods.Items[i], pvc.Name) {
+		if localmodelcache.PodMountsClaim(&pods.Items[i], pvc.Name) {
 			mounting++
 		}
 	}
@@ -490,19 +472,6 @@ func (c *LocalModelNamespaceCacheReconciler) podsBlockReimport(ctx context.Conte
 	return fmt.Errorf("%w: import Job %s/%s is missing after a successful import onto PVC %q; "+
 		"%d Pod(s) still mount the claim; waiting for them to exit before one replacement import",
 		errReimportBlocked, localModel.Namespace, importJobName(localModel.Name), pvc.Name, mounting)
-}
-
-// podMountsClaim reports whether pod references claimName and may still read it.
-func podMountsClaim(pod *corev1.Pod, claimName string) bool {
-	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
-		return false
-	}
-	for i := range pod.Spec.Volumes {
-		if pvcSource := pod.Spec.Volumes[i].PersistentVolumeClaim; pvcSource != nil && pvcSource.ClaimName == claimName {
-			return true
-		}
-	}
-	return false
 }
 
 // importedOnto reports whether the cache's import record names this exact claim (same UID). A
@@ -521,27 +490,9 @@ func (c *LocalModelNamespaceCacheReconciler) authoritativeReader() client.Reader
 	return c.Client
 }
 
-// reimportBlocked returns errReimportBlocked when the cache previously imported onto this
-// exact claim (same UID) and consumers still reference it. A claim recreated under the same
-// name has a new UID and holds no data, so it is imported again regardless of consumers. An
-// import that never succeeded leaves no record and is retried as before.
-func reimportBlocked(localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim, consumers cacheConsumers) error {
-	if !importedOnto(localModel, pvc) {
-		return nil
-	}
-	isvcCount, llmSvcCount := len(consumers.isvcs), len(consumers.llmSvcs)
-	if isvcCount == 0 && llmSvcCount == 0 {
-		return nil
-	}
-	return fmt.Errorf("%w: import Job %s/%s is missing after a successful import onto PVC %q; "+
-		"%d InferenceService and %d LLMInferenceService consumer(s) still read the destination; "+
-		"remove them to allow one replacement import",
-		errReimportBlocked, localModel.Namespace, importJobName(localModel.Name), pvc.Name, isvcCount, llmSvcCount)
-}
-
 // buildImportJob constructs the single import Job for a shared-PVC cache.
-func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, jobName string, pvc *corev1.PersistentVolumeClaim, storageKey string, isvcConfigMap *corev1.ConfigMap, localModelConfig *v1beta1.LocalModelConfig) (*batchv1.Job, error) {
-	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, jobName string, pvc *corev1.PersistentVolumeClaim, storageKey string, configMap *corev1.ConfigMap, localModelConfig *localmodelcache.LocalModelConfig) (*batchv1.Job, error) {
+	storageInitializerConfig, err := localmodelcache.GetStorageInitializerConfigs(configMap)
 	if err != nil {
 		c.Log.Error(err, "Failed to get storage initializer config, using defaults")
 	}
@@ -588,7 +539,7 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 
 	if localModel.Spec.ServiceAccountName != "" || localModel.Spec.Storage != nil {
 		if c.CredentialBuilder == nil {
-			c.CredentialBuilder = credentials.NewCredentialBuilder(c.Client, c.Clientset, isvcConfigMap)
+			c.CredentialBuilder = credentials.NewCredentialBuilder(c.Client, c.Clientset, configMap)
 		}
 		if err := jobs.InjectCredentials(ctx, c.CredentialBuilder, c.Log, container, &volumes,
 			localModel.Spec.ServiceAccountName, localModel.Spec.Storage, localModel.Namespace); err != nil {
@@ -683,13 +634,15 @@ func jobHasCondition(job *batchv1.Job, condType batchv1.JobConditionType) bool {
 
 // applySharedStatus writes copies and the Ready condition for a shared-PVC cache, only when
 // something changed. It clears node-keyed status which does not apply in shared-PVC mode.
-func (c *LocalModelNamespaceCacheReconciler) applySharedStatus(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, state sharedState, consumers ...cacheConsumers) (ctrl.Result, error) {
+func (c *LocalModelNamespaceCacheReconciler) applySharedStatus(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, state sharedState) (ctrl.Result, error) {
 	desired := localModel.DeepCopy()
 	desired.Status.NodeStatus = nil
 	desired.Status.ModelCopies = &v1alpha1.ModelCopies{Total: 1, Available: state.available, Failed: state.failed}
-	if len(consumers) > 0 {
-		setConsumerReferences(&desired.Status, consumers[0])
+	var claims []string
+	if localModel.Spec.SharedPVCMode() {
+		claims = []string{*localModel.Spec.PVCRef}
 	}
+	setMountReferences(&desired.Status, localModel.Spec.SourceModelUri, claims)
 	switch {
 	case state.imported != nil:
 		desired.Status.SharedPVCImport = state.imported
