@@ -58,23 +58,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	isvcPodLabelRequirement, err := labels.NewRequirement(constants.InferenceServicePodLabelKey, selection.Exists, nil)
+	// Only Pods the kernel cache webhook mapped to a Deployment are cached.
+	kernelCachePodRequirement, err := labels.NewRequirement(constants.KernelCacheWorkloadLabelKey, selection.Exists, nil)
 	if err != nil {
-		setupLog.Error(err, "unable to create InferenceService Pod label selector")
+		setupLog.Error(err, "unable to create kernel cache Pod label selector")
 		os.Exit(1)
 	}
-	isvcPodLabelSelector := labels.NewSelector().Add(*isvcPodLabelRequirement)
+	kernelCachePodSelector := labels.NewSelector().Add(*kernelCachePodRequirement)
 
 	mgr, err := manager.New(cfg, manager.Options{
 		Metrics:                metricsserver.Options{BindAddress: ":8080"},
 		HealthProbeBindAddress: ":8081",
 		Cache: cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
-				&corev1.Pod{}: {Label: isvcPodLabelSelector},
+				&corev1.Pod{}: {Label: kernelCachePodSelector},
 				&corev1.ConfigMap{}: {
 					Namespaces: map[string]cache.Config{
 						constants.KServeNamespace: {
-							FieldSelector: fields.OneTermEqualSelector("metadata.name", constants.InferenceServiceConfigMapName),
+							FieldSelector: fields.OneTermEqualSelector("metadata.name", constants.LocalModelConfigMapName),
 						},
 					},
 				},

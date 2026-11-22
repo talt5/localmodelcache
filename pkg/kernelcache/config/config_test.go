@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -45,20 +44,20 @@ func TestLoad(t *testing.T) {
 		{
 			name: "loads kernelcache configuration",
 			configMap: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
-				Data:       map[string]string{v1beta1.KernelCacheConfigName: `{"enabled":true,"jobNamespace":"kernelcache-jobs"}`},
+				ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+				Data:       map[string]string{KernelCacheConfigKeyName: `{"enabled":true,"jobNamespace":"kernelcache-jobs"}`},
 			},
 			wantEnable: true,
 		},
 		{
 			name:    "reports missing configmap",
-			wantErr: "inferenceservice-config was not found",
+			wantErr: "kserve-localmodel-config was not found",
 		},
 		{
 			name: "reports invalid configuration",
 			configMap: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
-				Data:       map[string]string{v1beta1.KernelCacheConfigName: "not-json"},
+				ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+				Data:       map[string]string{KernelCacheConfigKeyName: "not-json"},
 			},
 			wantErr: "parse KernelCache configuration",
 		},

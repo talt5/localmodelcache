@@ -73,7 +73,7 @@ class V1alpha1KernelCacheSourceRef(object):
     def kind(self):
         """Gets the kind of this V1alpha1KernelCacheSourceRef.  # noqa: E501
 
-        Kind is the kind of the source workload.  # noqa: E501
+        Kind is the kind of the source workload. Captures come from Deployments whose Pod template sets the serving.kserve.io/kernelcache-supported annotation.  # noqa: E501
 
         :return: The kind of this V1alpha1KernelCacheSourceRef.  # noqa: E501
         :rtype: str
@@ -84,7 +84,7 @@ class V1alpha1KernelCacheSourceRef(object):
     def kind(self, kind):
         """Sets the kind of this V1alpha1KernelCacheSourceRef.
 
-        Kind is the kind of the source workload.  # noqa: E501
+        Kind is the kind of the source workload. Captures come from Deployments whose Pod template sets the serving.kserve.io/kernelcache-supported annotation.  # noqa: E501
 
         :param kind: The kind of this V1alpha1KernelCacheSourceRef.  # noqa: E501
         :type: str

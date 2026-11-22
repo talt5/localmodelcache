@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
 	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
 )
@@ -61,11 +61,11 @@ func TestEnsureRuntimeImagePrefetchJobCreatesExpectedJob(t *testing.T) {
 	}}
 	configuredTTL := int32(600)
 	runtimeImagePrefetchTTL := int32(7200)
-	config := &v1beta1.KernelCacheConfig{
+	config := &kernelcacheconfig.KernelCacheConfig{
 		JobNamespace:               "jobs",
 		PrefetchImage:              "example.com/prefetch:latest",
 		JobTTLSecondsAfterFinished: &configuredTTL,
-		RuntimeImagePrefetch: v1beta1.KernelCacheRuntimeImagePrefetchConfig{
+		RuntimeImagePrefetch: kernelcacheconfig.KernelCacheRuntimeImagePrefetchConfig{
 			Enabled:                    true,
 			JobTTLSecondsAfterFinished: &runtimeImagePrefetchTTL,
 		},
@@ -139,7 +139,7 @@ func TestEnsureRuntimeImagePrefetchJobDeletesFailedJobBeforeRecreating(t *testin
 
 	runtimeImage := "example.com/vllm:v1"
 	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker", UID: types.UID("node-uid")}}
-	config := &v1beta1.KernelCacheConfig{JobNamespace: "jobs", PrefetchImage: "example.com/prefetch:latest"}
+	config := &kernelcacheconfig.KernelCacheConfig{JobNamespace: "jobs", PrefetchImage: "example.com/prefetch:latest"}
 	failedJob := buildImagePrefetchJob(imagePrefetchJobOptions{
 		name: runtimeImagePrefetchJobName(runtimeImage, node, nil), namespace: config.JobNamespace,
 		containerName: "runtime-image-prefetch", helperImage: config.PrefetchImage,
@@ -195,7 +195,7 @@ func TestEnsureRuntimeImagePrefetchJobWaitsForFailedJobDeletion(t *testing.T) {
 
 	runtimeImage := "example.com/vllm:v1"
 	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker", UID: types.UID("node-uid")}}
-	config := &v1beta1.KernelCacheConfig{JobNamespace: "jobs", PrefetchImage: "example.com/prefetch:latest"}
+	config := &kernelcacheconfig.KernelCacheConfig{JobNamespace: "jobs", PrefetchImage: "example.com/prefetch:latest"}
 	deletionTime := metav1.Now()
 	failedJob := buildImagePrefetchJob(imagePrefetchJobOptions{
 		name: runtimeImagePrefetchJobName(runtimeImage, node, nil), namespace: config.JobNamespace,
@@ -237,9 +237,9 @@ func TestEnsureRuntimeImagePrefetchJobsContinuesWhileOneJobIsDeleting(t *testing
 	runtimeImage := "example.com/vllm:v1"
 	deletingNode := corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker-a", UID: types.UID("node-uid-a")}}
 	readyNode := corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker-b", UID: types.UID("node-uid-b")}}
-	config := &v1beta1.KernelCacheConfig{
+	config := &kernelcacheconfig.KernelCacheConfig{
 		JobNamespace: "jobs", PrefetchImage: "example.com/prefetch:latest",
-		RuntimeImagePrefetch: v1beta1.KernelCacheRuntimeImagePrefetchConfig{Enabled: true},
+		RuntimeImagePrefetch: kernelcacheconfig.KernelCacheRuntimeImagePrefetchConfig{Enabled: true},
 	}
 	deletionTime := metav1.Now()
 	deletingJob := buildImagePrefetchJob(imagePrefetchJobOptions{
@@ -273,9 +273,9 @@ func TestEnsureRuntimeImagePrefetchJobsContinuesAfterAPIErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	image := "example.com/vllm:v1"
-	config := &v1beta1.KernelCacheConfig{
+	config := &kernelcacheconfig.KernelCacheConfig{
 		JobNamespace: "jobs", PrefetchImage: "example.com/prefetch:v1",
-		RuntimeImagePrefetch: v1beta1.KernelCacheRuntimeImagePrefetchConfig{Enabled: true},
+		RuntimeImagePrefetch: kernelcacheconfig.KernelCacheRuntimeImagePrefetchConfig{Enabled: true},
 	}
 	nodes := &corev1.NodeList{}
 	names := map[string]string{}
@@ -346,7 +346,7 @@ func TestEnsureRuntimeImagePrefetchJobRequeuesAfterCreateRace(t *testing.T) {
 
 	runtimeImage := "example.com/vllm:v1"
 	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker", UID: types.UID("node-uid")}}
-	config := &v1beta1.KernelCacheConfig{JobNamespace: "jobs", PrefetchImage: "example.com/prefetch:latest"}
+	config := &kernelcacheconfig.KernelCacheConfig{JobNamespace: "jobs", PrefetchImage: "example.com/prefetch:latest"}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithInterceptorFuncs(interceptor.Funcs{
 		Create: func(ctx context.Context, c client.WithWatch, object client.Object, options ...client.CreateOption) error {
 			return apierrors.NewAlreadyExists(schema.GroupResource{Resource: "jobs"}, object.GetName())
@@ -388,9 +388,9 @@ func TestEnsureRuntimeImagePrefetchJobsSkipsWhenDisabledOrImageIsIneligible(t *t
 			reconciler := &KernelCacheReconciler{Client: k8sClient}
 			kernelCache := kernelCacheWithRuntimeImage("cache", tc.image)
 			nodes := &corev1.NodeList{Items: []corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "worker", UID: types.UID("uid")}}}}
-			config := &v1beta1.KernelCacheConfig{
+			config := &kernelcacheconfig.KernelCacheConfig{
 				JobNamespace: "jobs", PrefetchImage: "example.com/prefetch:latest",
-				RuntimeImagePrefetch: v1beta1.KernelCacheRuntimeImagePrefetchConfig{Enabled: tc.enabled},
+				RuntimeImagePrefetch: kernelcacheconfig.KernelCacheRuntimeImagePrefetchConfig{Enabled: tc.enabled},
 			}
 
 			needsRequeue, err := reconciler.ensureRuntimeImagePrefetchJobs(t.Context(), kernelCache, &v1alpha1.KernelCacheNodeGroup{}, nodes, config)
@@ -421,9 +421,9 @@ func TestRuntimeImagePrefetchJobsAreSharedByImageAndNode(t *testing.T) {
 	}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 	reconciler := &KernelCacheReconciler{Client: k8sClient}
-	config := &v1beta1.KernelCacheConfig{
+	config := &kernelcacheconfig.KernelCacheConfig{
 		JobNamespace: "jobs", PrefetchImage: "example.com/prefetch:latest",
-		RuntimeImagePrefetch: v1beta1.KernelCacheRuntimeImagePrefetchConfig{Enabled: true},
+		RuntimeImagePrefetch: kernelcacheconfig.KernelCacheRuntimeImagePrefetchConfig{Enabled: true},
 	}
 	image := "example.com/vllm:v1"
 	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker", UID: types.UID("uid-a")}}

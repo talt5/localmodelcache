@@ -22,8 +22,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 )
 
 type kernelCacheMatch string
@@ -115,7 +115,7 @@ func compatibilityFootprintsMatch(requested, candidate v1alpha1.KernelCacheFootp
 		requested.CompatibilityFootprint == candidate.CompatibilityFootprint
 }
 
-func kernelCacheVerificationAllowsUse(cache *v1alpha1.KernelCache, cfg *v1beta1.KernelCacheConfig) bool {
+func kernelCacheVerificationAllowsUse(cache *v1alpha1.KernelCache, cfg *kernelcacheconfig.KernelCacheConfig) bool {
 	if cfg.ArtifactSecurity.Mode == "" || cfg.ArtifactSecurity.Mode == "none" {
 		return true
 	}
@@ -134,7 +134,7 @@ func cacheCanMountToPod(cache *v1alpha1.KernelCache, pod *corev1.Pod) bool {
 		return false
 	}
 	for _, cachePath := range cache.Spec.Artifact.CachePaths {
-		containerName, err := kernelcacheutil.ResolveRuntimeContainerName(pod.Spec.Containers, cachePath.ContainerName)
+		containerName, err := resolveRuntimeContainerName(pod, cachePath.ContainerName)
 		if err != nil {
 			return false
 		}

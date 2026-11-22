@@ -86,6 +86,13 @@ rules:
   - apps
   resources:
   - deployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
   - replicasets
   verbs:
   - get
@@ -554,6 +561,38 @@ data:
            "s3CABundle": ""
        }
     }
+  kernelcache: |-
+    {
+      "enabled": false,
+      "defaultSidecarInjection": true,
+      "defaultMountType": "oci",
+      "defaultNodeGroup": "",
+      "jobNamespace": "kserve-kernelcache-jobs",
+      "mcvImage": "kserve/kserve-mcv:latest-minimal",
+      "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "runtimeImagePrefetch": {
+        "enabled": false,
+        "jobTTLSecondsAfterFinished": 86400
+      },
+      "registry": {
+        "auth": {
+          "type": "none"
+        }
+      },
+      "artifactSecurity": {
+        "mode": "cert",
+        "failurePolicy": "reject",
+        "cert": {
+          "signingProfileRef": "kernelcache-signer",
+          "trustBundle": "kserve/kernelcache-root-ca",
+          "subjectRegexp": "spiffe://kserve/kernelcache-signer"
+        }
+      },
+      "abandonedCapturePolicy": "retain",
+      "jobTTLSecondsAfterFinished": 600,
+      "mcvCaptureReadinessTimeoutSeconds": 600,
+      "reconcileIntervalSeconds": 300
+    }
   localModel: |-
     {
       "jobNamespace": "kserve-localmodel-jobs",
@@ -910,9 +949,10 @@ webhooks:
       path: /mutate-kernelcache-pods
   failurePolicy: Fail
   matchConditions:
-  - expression: has(object.metadata.labels) && 'serving.kserve.io/inferenceservice'
-      in object.metadata.labels
-    name: inferenceservice-workload
+  - expression: has(object.metadata.annotations) && 'serving.kserve.io/kernelcache-supported'
+      in object.metadata.annotations && object.metadata.annotations['serving.kserve.io/kernelcache-supported']
+      == 'true'
+    name: kernelcache-opt-in
   name: kernelcache.kserve-webhook-server.pod-mutator
   namespaceSelector:
     matchExpressions:

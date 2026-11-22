@@ -32,15 +32,16 @@ type workloadModelSourceResolver interface {
 	Resolve(context.Context, client.Reader, *corev1.Pod, workloadRef) (string, bool, error)
 }
 
-type inferenceServiceModelSourceResolver struct{}
+// annotationModelSourceResolver reads the model URI from the kernelcache-model-uri annotation.
+type annotationModelSourceResolver struct{}
 
-func (inferenceServiceModelSourceResolver) Resolve(
+func (annotationModelSourceResolver) Resolve(
 	_ context.Context,
 	_ client.Reader,
 	pod *corev1.Pod,
 	_ workloadRef,
 ) (string, bool, error) {
-	modelURI := strings.TrimSpace(pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+	modelURI := strings.TrimSpace(pod.Annotations[constants.KernelCacheModelURIAnnotationKey])
 	if modelURI == "" || cacheidentity.ModelURIHash(modelURI) == "" {
 		return "", false, nil
 	}
@@ -48,7 +49,7 @@ func (inferenceServiceModelSourceResolver) Resolve(
 }
 
 var workloadModelSourceResolvers = map[string]workloadModelSourceResolver{
-	"InferenceService": inferenceServiceModelSourceResolver{},
+	constants.KernelCacheWorkloadKind: annotationModelSourceResolver{},
 }
 
 // resolveWorkloadModelSource dispatches model source resolution by workload kind.

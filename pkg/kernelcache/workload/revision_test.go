@@ -24,7 +24,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 )
 
-func TestResolveDeploymentBackedInferenceServiceRevision(t *testing.T) {
+func TestResolveDeploymentRevision(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		mutate     func(*deploymentBackedWorkloadFixture)
@@ -67,7 +67,7 @@ func TestResolveDeploymentBackedInferenceServiceRevision(t *testing.T) {
 				fixture.rebuildReader()
 			}
 
-			revision, err := ResolveDeploymentBackedInferenceServiceRevision(context.Background(), fixture.reader, fixture.pod)
+			revision, err := ResolveDeploymentRevision(context.Background(), fixture.reader, fixture.pod)
 			if tc.wantError != "" {
 				require.EqualError(t, err, "pod revision \"different\" "+tc.wantError+" \"abc123\"")
 				require.Nil(t, revision)
@@ -79,7 +79,7 @@ func TestResolveDeploymentBackedInferenceServiceRevision(t *testing.T) {
 				return
 			}
 			require.NotNil(t, revision)
-			require.Equal(t, fixture.inferenceService, revision.Source)
+			require.Equal(t, fixture.deployment.UID, revision.Source.UID)
 			require.Equal(t, fixture.replicaSet, revision.ReplicaSet)
 			require.Equal(t, tc.wantID, revision.RevisionID)
 		})

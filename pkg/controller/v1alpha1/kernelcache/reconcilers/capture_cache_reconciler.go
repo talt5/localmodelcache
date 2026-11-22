@@ -35,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
@@ -191,7 +190,7 @@ func generatedKernelCacheName(captureName, imageReference string) string {
 func (r *KernelCacheReconciler) captureNodeGroup(
 	ctx context.Context,
 	capture *v1alpha1.KernelCacheCapture,
-	config *v1beta1.KernelCacheConfig,
+	config *kernelcacheconfig.KernelCacheConfig,
 ) (nodeGroupSelection, error) {
 	activeSession := capture.Status.ActiveSession
 	if activeSession != nil && strings.TrimSpace(activeSession.RequestedNodeGroup) != "" {
@@ -258,10 +257,10 @@ func (r *KernelCacheReconciler) validateNodeGroup(ctx context.Context, name stri
 	return nil
 }
 
-func captureMountType(config *v1beta1.KernelCacheConfig) (v1alpha1.KernelCacheMountType, error) {
+func captureMountType(config *kernelcacheconfig.KernelCacheConfig) (v1alpha1.KernelCacheMountType, error) {
 	switch config.DefaultMountType {
 	case "":
-		return v1alpha1.KernelCacheMountType(v1beta1.DefaultKernelCacheMountType), nil
+		return v1alpha1.KernelCacheMountType(kernelcacheconfig.DefaultKernelCacheMountType), nil
 	case string(v1alpha1.KernelCacheMountTypeOCI):
 		return v1alpha1.KernelCacheMountTypeOCI, nil
 	default:
@@ -324,30 +323,4 @@ func (r *KernelCacheReconciler) enqueueKCForCompletedKCC(_ context.Context, obj 
 	}
 	name := generatedKernelCacheName(capture.Name, capture.Status.Artifact.ImageReference)
 	return []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: capture.Namespace, Name: name}}}
-}
-
-// enqueueKCsOnInferenceServiceChange finds completed KCCs whose source is the changed ISVC.
-// Requeuing their KCs gives completed captures another chance to materialize or refresh their KC.
-// The handler enqueues the returned requests; this function does not run KC reconciliation.
-func (r *KernelCacheReconciler) enqueueKCsOnInferenceServiceChange(ctx context.Context, obj client.Object) []reconcile.Request {
-	inferenceService, ok := obj.(*v1beta1.InferenceService)
-	if !ok {
-		return nil
-	}
-
-	captures := &v1alpha1.KernelCacheCaptureList{}
-	if err := r.List(ctx, captures, client.InNamespace(inferenceService.Namespace)); err != nil {
-		return nil
-	}
-
-	requests := make([]reconcile.Request, 0, len(captures.Items))
-	for index := range captures.Items {
-		capture := &captures.Items[index]
-		if !isCaptureComplete(capture) || !captureReferencesInferenceService(capture, inferenceService) {
-			continue
-		}
-		name := generatedKernelCacheName(capture.Name, capture.Status.Artifact.ImageReference)
-		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: capture.Namespace, Name: name}})
-	}
-	return requests
 }

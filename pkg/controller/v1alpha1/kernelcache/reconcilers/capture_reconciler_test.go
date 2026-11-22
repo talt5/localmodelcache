@@ -40,8 +40,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
 	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
 	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
@@ -50,21 +50,21 @@ import (
 func TestCapturePodPredicate(t *testing.T) {
 	pred := capturePodPredicate()
 	relevant := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
-		Labels: map[string]string{constants.InferenceServicePodLabelKey: "model"},
+		Labels: map[string]string{constants.KernelCacheWorkloadLabelKey: "model"},
 	}}
 	unrelated := &corev1.Pod{}
 
 	if !pred.Create(event.CreateEvent{Object: relevant}) {
-		t.Fatal("expected an InferenceService Pod to pass the predicate")
+		t.Fatal("expected a kernel cache workload Pod to pass the predicate")
 	}
 	if pred.Create(event.CreateEvent{Object: unrelated}) {
 		t.Fatal("did not expect an unrelated Pod to pass the predicate")
 	}
 	if !pred.Update(event.UpdateEvent{ObjectOld: relevant, ObjectNew: relevant.DeepCopy()}) {
-		t.Fatal("expected an InferenceService Pod update to pass the predicate")
+		t.Fatal("expected a kernel cache workload Pod update to pass the predicate")
 	}
 	if pred.Update(event.UpdateEvent{ObjectOld: relevant, ObjectNew: unrelated}) {
-		t.Fatal("did not expect an update whose new Pod has no InferenceService label to pass the predicate")
+		t.Fatal("did not expect an update whose new Pod has no workload label to pass the predicate")
 	}
 	if pred.Generic(event.GenericEvent{Object: unrelated}) {
 		t.Fatal("did not expect an unrelated generic event to pass the predicate")
@@ -113,7 +113,7 @@ func TestCompleteCaptureStatusIncludesPodRuntimeConfigFactors(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "model-pod",
 			Namespace: "team",
-			Labels:    map[string]string{constants.InferenceServicePodLabelKey: "model"},
+			Labels:    map[string]string{constants.KernelCacheWorkloadLabelKey: "model"},
 		},
 		Spec: corev1.PodSpec{Containers: []corev1.Container{{
 			Name:    "kserve-container",
@@ -129,7 +129,7 @@ func TestCompleteCaptureStatusIncludesPodRuntimeConfigFactors(t *testing.T) {
 	capture := &v1alpha1.KernelCacheCapture{
 		ObjectMeta: metav1.ObjectMeta{Name: "capture", Namespace: "team"},
 		Spec: v1alpha1.KernelCacheCaptureSpec{
-			SourceRef: v1alpha1.KernelCacheSourceRef{Kind: "InferenceService", Name: "model"},
+			SourceRef: v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: "model"},
 			CachePaths: []v1alpha1.KernelCachePath{{
 				ContainerName: "kserve-container", OCIPath: "io.vllm.cache",
 			}},
@@ -162,7 +162,7 @@ func TestGeneratedCapturePodRequiresRevisionLabel(t *testing.T) {
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
 		Name:      "model-pod",
 		Namespace: "team",
-		Labels:    map[string]string{constants.InferenceServicePodLabelKey: "model"},
+		Labels:    map[string]string{constants.KernelCacheWorkloadLabelKey: "model"},
 	}}
 	capture := &v1alpha1.KernelCacheCapture{
 		ObjectMeta: metav1.ObjectMeta{
@@ -171,7 +171,7 @@ func TestGeneratedCapturePodRequiresRevisionLabel(t *testing.T) {
 			Labels:    map[string]string{constants.KernelCacheCaptureGeneratedLabelKey: "true"},
 		},
 		Spec: v1alpha1.KernelCacheCaptureSpec{SourceRef: v1alpha1.KernelCacheSourceRef{
-			Kind: "InferenceService", Name: "model",
+			Kind: constants.KernelCacheWorkloadKind, Name: "model",
 		}},
 	}
 
@@ -195,7 +195,7 @@ func TestSuccessfulCaptureWithMissingProducerFailsWithoutArtifact(t *testing.T) 
 	capture := &v1alpha1.KernelCacheCapture{
 		ObjectMeta: metav1.ObjectMeta{Name: "capture", Namespace: "team"},
 		Spec: v1alpha1.KernelCacheCaptureSpec{
-			SourceRef:  v1alpha1.KernelCacheSourceRef{Kind: "InferenceService", Name: "model"},
+			SourceRef:  v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: "model"},
 			CachePaths: []v1alpha1.KernelCachePath{{ContainerName: "kserve-container", ContainerPath: "/runtime/vllm", OCIPath: "io.vllm.cache"}},
 		},
 		Status: v1alpha1.KernelCacheCaptureStatus{
@@ -271,23 +271,23 @@ func TestKernelCacheCaptureReconcilerDoesNotCreateDefaultCapture(t *testing.T) {
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, rbacv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 
-	inferenceService := &v1beta1.InferenceService{
-		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team", UID: "isvc-uid"},
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team", UID: "deployment-uid"},
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"none"}}`},
 	}
-	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(inferenceService, configMap).Build()
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(deployment, configMap).Build()
 	reconciler := &KernelCacheCaptureReconciler{Client: k8sClient, Reader: k8sClient}
 
-	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(inferenceService)})
+	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(deployment)})
 	require.NoError(t, err)
 
 	captures := &v1alpha1.KernelCacheCaptureList{}
-	require.NoError(t, k8sClient.List(t.Context(), captures, client.InNamespace(inferenceService.Namespace)))
+	require.NoError(t, k8sClient.List(t.Context(), captures, client.InNamespace(deployment.Namespace)))
 	require.Empty(t, captures.Items)
 }
 
@@ -517,30 +517,30 @@ func TestCaptureRuntimeResultHandlesDeletedCaptureDuringRetry(t *testing.T) {
 	require.Nil(t, current)
 }
 
-func TestKernelCacheCaptureReconcilerProcessesEveryCaptureForInferenceService(t *testing.T) {
+func TestKernelCacheCaptureReconcilerProcessesEveryCaptureForDeployment(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, rbacv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 
-	inferenceService := &v1beta1.InferenceService{
-		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team", UID: "isvc-uid"},
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team", UID: "deployment-uid"},
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"none"}}`},
 	}
-	first := completedUnsignedCapture("model-capture-first", inferenceService)
-	second := completedUnsignedCapture("model-capture-second", inferenceService)
+	first := completedUnsignedCapture("model-capture-first", deployment)
+	second := completedUnsignedCapture("model-capture-second", deployment)
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(inferenceService, configMap, first, second).
+		WithObjects(deployment, configMap, first, second).
 		WithStatusSubresource(first, second).
 		Build()
 	reconciler := &KernelCacheCaptureReconciler{Client: k8sClient, Reader: k8sClient}
 
-	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(inferenceService)})
+	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(deployment)})
 	require.NoError(t, err)
 
 	for _, capture := range []*v1alpha1.KernelCacheCapture{first, second} {
@@ -552,20 +552,20 @@ func TestKernelCacheCaptureReconcilerProcessesEveryCaptureForInferenceService(t 
 }
 
 func TestGeneratedUnchangedCaptureIsDeletedWhenProducerPodIsGone(t *testing.T) {
-	inferenceService, configMap, capture := unchangedCaptureFixture()
+	deployment, configMap, capture := unchangedCaptureFixture()
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, rbacv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(inferenceService, configMap, capture).
+		WithObjects(deployment, configMap, capture).
 		WithStatusSubresource(capture).
 		Build()
 	reconciler := &KernelCacheCaptureReconciler{Client: k8sClient, Reader: k8sClient}
 
-	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(inferenceService)})
+	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(deployment)})
 	require.NoError(t, err)
 
 	err = k8sClient.Get(t.Context(), client.ObjectKeyFromObject(capture), &v1alpha1.KernelCacheCapture{})
@@ -573,18 +573,18 @@ func TestGeneratedUnchangedCaptureIsDeletedWhenProducerPodIsGone(t *testing.T) {
 }
 
 func TestGeneratedCaptureDeleteDoesNotDeleteReplacement(t *testing.T) {
-	inferenceService, configMap, capture := unchangedCaptureFixture()
+	deployment, configMap, capture := unchangedCaptureFixture()
 	capture.UID = types.UID("capture-old")
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, rbacv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 
 	replaced := false
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(inferenceService, configMap, capture).
+		WithObjects(deployment, configMap, capture).
 		WithStatusSubresource(capture).
 		WithInterceptorFuncs(interceptor.Funcs{
 			Delete: func(ctx context.Context, c client.WithWatch, object client.Object, options ...client.DeleteOption) error {
@@ -608,7 +608,7 @@ func TestGeneratedCaptureDeleteDoesNotDeleteReplacement(t *testing.T) {
 		}).Build()
 	reconciler := &KernelCacheCaptureReconciler{Client: k8sClient, Reader: k8sClient}
 
-	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(inferenceService)})
+	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(deployment)})
 	require.True(t, replaced)
 	require.Error(t, err)
 	require.True(t, apierrors.IsConflict(err))
@@ -619,13 +619,13 @@ func TestGeneratedCaptureDeleteDoesNotDeleteReplacement(t *testing.T) {
 }
 
 func TestGeneratedUnchangedCaptureIsRetainedWhileProducerPodIsLive(t *testing.T) {
-	inferenceService, configMap, capture := unchangedCaptureFixture()
+	deployment, configMap, capture := unchangedCaptureFixture()
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "model-pod",
-			Namespace: inferenceService.Namespace,
+			Namespace: deployment.Namespace,
 			Labels: map[string]string{
-				constants.InferenceServicePodLabelKey: inferenceService.Name,
+				constants.KernelCacheWorkloadLabelKey: deployment.Name,
 			},
 		},
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
@@ -634,15 +634,15 @@ func TestGeneratedUnchangedCaptureIsRetainedWhileProducerPodIsLive(t *testing.T)
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, rbacv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(inferenceService, configMap, capture, pod).
+		WithObjects(deployment, configMap, capture, pod).
 		WithStatusSubresource(capture).
 		Build()
 	reconciler := &KernelCacheCaptureReconciler{Client: k8sClient, Reader: k8sClient}
 
-	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(inferenceService)})
+	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(deployment)})
 	require.NoError(t, err)
 
 	updated := &v1alpha1.KernelCacheCapture{}
@@ -658,35 +658,35 @@ func TestGeneratedUnchangedCaptureIsRetainedWhileProducerPodIsLive(t *testing.T)
 }
 
 func TestCompletedCaptureDoesNotPatchProducerPod(t *testing.T) {
-	inferenceService := &v1beta1.InferenceService{
-		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team", UID: "isvc-uid"},
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team", UID: "deployment-uid"},
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"none"}}`},
 	}
-	capture := completedUnsignedCapture("model-capture", inferenceService)
+	capture := completedUnsignedCapture("model-capture", deployment)
 	capture.Status.ActiveSession = &v1alpha1.KernelCacheCaptureSession{ID: "session", PodName: "model-pod"}
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "model-pod",
-			Namespace: inferenceService.Namespace,
-			Labels:    map[string]string{constants.InferenceServicePodLabelKey: inferenceService.Name},
+			Namespace: deployment.Namespace,
+			Labels:    map[string]string{constants.KernelCacheWorkloadLabelKey: deployment.Name},
 		},
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
 	}
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(inferenceService, configMap, capture, pod).
+		WithObjects(deployment, configMap, capture, pod).
 		WithStatusSubresource(capture).
 		Build()
 	reconciler := &KernelCacheCaptureReconciler{Client: k8sClient, Reader: k8sClient}
 
-	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(inferenceService)})
+	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(deployment)})
 	require.NoError(t, err)
 
 	updatedPod := &corev1.Pod{}
@@ -704,7 +704,7 @@ func TestGeneratedInProgressCaptureHandlesMissingProducerByPolicy(t *testing.T) 
 		{name: "deletes when configured", policy: "delete", wantDelete: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			inferenceService, configMap, capture := unchangedCaptureFixture()
+			deployment, configMap, capture := unchangedCaptureFixture()
 			capture.Status.RuntimeResult = nil
 			capture.Status.Phase = v1alpha1.KernelCacheCapturePhaseCapturing
 			if test.policy != "" {
@@ -713,15 +713,15 @@ func TestGeneratedInProgressCaptureHandlesMissingProducerByPolicy(t *testing.T) 
 			scheme := runtime.NewScheme()
 			require.NoError(t, corev1.AddToScheme(scheme))
 			require.NoError(t, v1alpha1.AddToScheme(scheme))
-			require.NoError(t, v1beta1.AddToScheme(scheme))
+			require.NoError(t, appsv1.AddToScheme(scheme))
 			k8sClient := fake.NewClientBuilder().
 				WithScheme(scheme).
-				WithObjects(inferenceService, configMap, capture).
+				WithObjects(deployment, configMap, capture).
 				WithStatusSubresource(capture).
 				Build()
 			reconciler := &KernelCacheCaptureReconciler{Client: k8sClient, Reader: k8sClient}
 
-			_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(inferenceService)})
+			_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(deployment)})
 			require.NoError(t, err)
 
 			updated := &v1alpha1.KernelCacheCapture{}
@@ -740,20 +740,20 @@ func TestGeneratedInProgressCaptureHandlesMissingProducerByPolicy(t *testing.T) 
 }
 
 func TestUserManagedUnchangedCaptureIsRetained(t *testing.T) {
-	inferenceService, configMap, capture := unchangedCaptureFixture()
+	deployment, configMap, capture := unchangedCaptureFixture()
 	capture.Labels = nil
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(inferenceService, configMap, capture).
+		WithObjects(deployment, configMap, capture).
 		WithStatusSubresource(capture).
 		Build()
 	reconciler := &KernelCacheCaptureReconciler{Client: k8sClient, Reader: k8sClient}
 
-	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(inferenceService)})
+	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(deployment)})
 	require.NoError(t, err)
 
 	updated := &v1alpha1.KernelCacheCapture{}
@@ -766,21 +766,21 @@ func TestUserManagedUnchangedCaptureIsRetained(t *testing.T) {
 }
 
 func TestGeneratedFailedCaptureIsRetained(t *testing.T) {
-	inferenceService, configMap, capture := unchangedCaptureFixture()
+	deployment, configMap, capture := unchangedCaptureFixture()
 	capture.Status.RuntimeResult[runtimeResultStateKey] = runtimeResultFailedState
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, rbacv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(inferenceService, configMap, capture).
+		WithObjects(deployment, configMap, capture).
 		WithStatusSubresource(capture).
 		Build()
 	reconciler := &KernelCacheCaptureReconciler{Client: k8sClient, Reader: k8sClient}
 
-	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(inferenceService)})
+	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(deployment)})
 	require.NoError(t, err)
 
 	updated := &v1alpha1.KernelCacheCapture{}
@@ -791,22 +791,22 @@ func TestGeneratedFailedCaptureIsRetained(t *testing.T) {
 	require.Equal(t, kernelCacheCaptureReasonFailed, condition.Reason)
 }
 
-func unchangedCaptureFixture() (*v1beta1.InferenceService, *corev1.ConfigMap, *v1alpha1.KernelCacheCapture) {
-	inferenceService := &v1beta1.InferenceService{
-		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team", UID: "isvc-uid"},
+func unchangedCaptureFixture() (*appsv1.Deployment, *corev1.ConfigMap, *v1alpha1.KernelCacheCapture) {
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team", UID: "deployment-uid"},
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"none"}}`},
 	}
 	capture := &v1alpha1.KernelCacheCapture{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "model-kcc-669889f77f",
-			Namespace: inferenceService.Namespace,
+			Namespace: deployment.Namespace,
 			Labels:    map[string]string{constants.KernelCacheCaptureGeneratedLabelKey: "true"},
 		},
 		Spec: v1alpha1.KernelCacheCaptureSpec{SourceRef: v1alpha1.KernelCacheSourceRef{
-			Kind: "InferenceService", Name: inferenceService.Name,
+			Kind: constants.KernelCacheWorkloadKind, Name: deployment.Name,
 		}},
 		Status: v1alpha1.KernelCacheCaptureStatus{
 			Phase:         v1alpha1.KernelCacheCapturePhaseCapturing,
@@ -818,15 +818,15 @@ func unchangedCaptureFixture() (*v1beta1.InferenceService, *corev1.ConfigMap, *v
 			},
 		},
 	}
-	return inferenceService, configMap, capture
+	return deployment, configMap, capture
 }
 
-func completedUnsignedCapture(name string, inferenceService *v1beta1.InferenceService) *v1alpha1.KernelCacheCapture {
+func completedUnsignedCapture(name string, deployment *appsv1.Deployment) *v1alpha1.KernelCacheCapture {
 	image := "registry.example.com/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	return &v1alpha1.KernelCacheCapture{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: inferenceService.Namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: deployment.Namespace},
 		Spec: v1alpha1.KernelCacheCaptureSpec{SourceRef: v1alpha1.KernelCacheSourceRef{
-			Kind: "InferenceService", Name: inferenceService.Name,
+			Kind: constants.KernelCacheWorkloadKind, Name: deployment.Name,
 		}},
 		Status: v1alpha1.KernelCacheCaptureStatus{
 			Phase: v1alpha1.KernelCacheCapturePhaseComplete,
@@ -863,7 +863,7 @@ func TestCaptureSigningIsSkippedInNoneMode(t *testing.T) {
 	}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(capture).WithStatusSubresource(capture).Build()
 	reconciler := &KernelCacheCaptureReconciler{Client: k8sClient}
-	config := &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: string(kernelcachetypes.ModeDisabled)}}
+	config := &kernelcacheconfig.KernelCacheConfig{ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{Mode: string(kernelcachetypes.ModeDisabled)}}
 
 	require.NoError(t, reconciler.reconcileArtifactSigning(t.Context(), capture, config))
 	updated := &v1alpha1.KernelCacheCapture{}
@@ -876,15 +876,15 @@ func TestCaptureSigningIsSkippedInNoneMode(t *testing.T) {
 func TestCaptureSigningRejectsMissingProfileReference(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	inferenceService := &v1beta1.InferenceService{
+	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team"},
 	}
-	capture := completedUnsignedCapture("capture", inferenceService)
+	capture := completedUnsignedCapture("capture", deployment)
 	capture.Spec.Signing = &v1alpha1.KernelCacheSigningSpec{}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(capture).WithStatusSubresource(capture).Build()
 	reconciler := &KernelCacheCaptureReconciler{Client: k8sClient}
-	config := &v1beta1.KernelCacheConfig{
-		ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: string(kernelcachetypes.ModeCert)},
+	config := &kernelcacheconfig.KernelCacheConfig{
+		ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{Mode: string(kernelcachetypes.ModeCert)},
 	}
 
 	require.NoError(t, reconciler.reconcileArtifactSigning(t.Context(), capture, config))
@@ -968,10 +968,10 @@ func TestCleanupCaptureIdentitiesKeepsRegistryAccessForActiveCapture(t *testing.
 }
 
 func TestCaptureSigningSecurityConfigUsesControllerNamespace(t *testing.T) {
-	config := &v1beta1.KernelCacheConfig{
-		ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{
+	config := &kernelcacheconfig.KernelCacheConfig{
+		ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{
 			Mode: string(kernelcachetypes.ModeCert),
-			Cert: v1beta1.KernelCacheArtifactCertConfig{
+			Cert: kernelcacheconfig.KernelCacheArtifactCertConfig{
 				SigningProfileRef: "kernelcache-signer",
 			},
 		},

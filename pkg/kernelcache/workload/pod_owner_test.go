@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestResolveDeploymentBackedInferenceService(t *testing.T) {
+func TestResolveDeployment(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		mutate     func(*deploymentBackedWorkloadFixture)
@@ -47,12 +47,6 @@ func TestResolveDeploymentBackedInferenceService(t *testing.T) {
 			},
 		},
 		{
-			name: "rejects inference service UID mismatch",
-			mutate: func(fixture *deploymentBackedWorkloadFixture) {
-				fixture.inferenceService.UID = "different-inferenceservice-uid"
-			},
-		},
-		{
 			name: "rejects non controller owner",
 			mutate: func(fixture *deploymentBackedWorkloadFixture) {
 				fixture.pod.OwnerReferences[0].Controller = nil
@@ -71,9 +65,9 @@ func TestResolveDeploymentBackedInferenceService(t *testing.T) {
 			},
 		},
 		{
-			name: "rejects missing inference service owner",
+			name: "rejects a pod without a replica set owner",
 			mutate: func(fixture *deploymentBackedWorkloadFixture) {
-				fixture.deployment.OwnerReferences = nil
+				fixture.pod.OwnerReferences = nil
 			},
 		},
 	} {
@@ -84,10 +78,10 @@ func TestResolveDeploymentBackedInferenceService(t *testing.T) {
 				fixture.rebuildReader()
 			}
 
-			resolved, err := ResolveDeploymentBackedInferenceService(context.Background(), fixture.reader, fixture.pod)
+			resolved, err := ResolveDeployment(context.Background(), fixture.reader, fixture.pod)
 			require.NoError(t, err)
 			if tc.wantResult {
-				require.Equal(t, fixture.inferenceService, resolved)
+				require.Equal(t, fixture.deployment.UID, resolved.UID)
 			} else {
 				require.Nil(t, resolved)
 			}
@@ -95,10 +89,10 @@ func TestResolveDeploymentBackedInferenceService(t *testing.T) {
 	}
 }
 
-func TestResolveDeploymentBackedInferenceServiceReturnsReaderError(t *testing.T) {
+func TestResolveDeploymentReturnsReaderError(t *testing.T) {
 	fixture := newDeploymentBackedWorkloadFixture(t)
 	fixture.reader = fake.NewClientBuilder().WithScheme(fixture.scheme).Build()
 
-	_, err := ResolveDeploymentBackedInferenceService(context.Background(), fixture.reader, fixture.pod)
+	_, err := ResolveDeployment(context.Background(), fixture.reader, fixture.pod)
 	require.Error(t, err)
 }

@@ -37,20 +37,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
 	"github.com/kserve/kserve/pkg/kernelcache/captureconfig"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	"github.com/kserve/kserve/pkg/kernelcache/podconfig"
 	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
 	"github.com/kserve/kserve/pkg/kernelcache/reporter"
 )
 
 const (
-	sidecarName = "mcv"
+	sidecarName = kernelcacheutil.MCVContainerName
 )
 
-func (m *PodMutator) injectMCVSidecar(ctx context.Context, pod *corev1.Pod, cfg *v1beta1.KernelCacheConfig) error {
+func (m *PodMutator) injectMCVSidecar(ctx context.Context, pod *corev1.Pod, cfg *kernelcacheconfig.KernelCacheConfig) error {
 	if findContainerIndex(pod.Spec.Containers, sidecarName) >= 0 {
 		return nil
 	}
@@ -59,7 +59,7 @@ func (m *PodMutator) injectMCVSidecar(ctx context.Context, pod *corev1.Pod, cfg 
 		return err
 	}
 	revisionID := pod.Labels[appsv1.DefaultDeploymentUniqueLabelKey]
-	if workload.Kind != "InferenceService" || revisionID == "" {
+	if workload.Kind != constants.KernelCacheWorkloadKind || revisionID == "" {
 		return nil
 	}
 	captureID := string(uuid.NewUUID())
@@ -96,10 +96,7 @@ func (m *PodMutator) injectMCVSidecar(ctx context.Context, pod *corev1.Pod, cfg 
 	}
 	if len(updatedConfig.CachePaths) > 0 {
 		for index := range updatedConfig.CachePaths {
-			containerName, err := kernelcacheutil.ResolveRuntimeContainerName(
-				pod.Spec.Containers,
-				updatedConfig.CachePaths[index].ContainerName,
-			)
+			containerName, err := resolveRuntimeContainerName(pod, updatedConfig.CachePaths[index].ContainerName)
 			if err != nil {
 				return err
 			}
@@ -124,7 +121,7 @@ func (m *PodMutator) injectMCVSidecar(ctx context.Context, pod *corev1.Pod, cfg 
 	if len(updatedConfig.CachePaths) > 0 {
 		containerName = updatedConfig.CachePaths[0].ContainerName
 	} else {
-		containerName, err = kernelcacheutil.ResolveRuntimeContainerName(pod.Spec.Containers, "")
+		containerName, err = resolveRuntimeContainerName(pod, "")
 		if err != nil {
 			return err
 		}
@@ -158,7 +155,7 @@ func (m *PodMutator) injectMCVSidecar(ctx context.Context, pod *corev1.Pod, cfg 
 		)
 	}
 
-	if updatedConfig.Registry.Auth.Type == v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken {
+	if updatedConfig.Registry.Auth.Type == kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken {
 		updatedConfig.CredentialSecretName = "mcv-registry-" + captureID
 	}
 	updatedConfig.ReporterSecretName = reporter.SecretName(captureName)
@@ -234,7 +231,7 @@ func captureForSidecar(
 	workload workloadRef,
 	revisionID string,
 ) (*v1alpha1.KernelCacheCapture, error) {
-	if revisionID != "" && workload.Kind == "InferenceService" {
+	if revisionID != "" && workload.Kind == constants.KernelCacheWorkloadKind {
 		capture := &v1alpha1.KernelCacheCapture{}
 		name := constants.KernelCacheCaptureRevisionName(workload.Name, revisionID)
 		err := reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, capture)
@@ -248,7 +245,7 @@ func captureForSidecar(
 	return nil, nil
 }
 
-func getSidecarManifestsWithConfigs(cfg *v1beta1.KernelCacheConfig, readiness captureconfig.ReadinessConfig, runtimeInfo captureconfig.RuntimeInfo) (corev1.PodSpec, error) {
+func getSidecarManifestsWithConfigs(cfg *kernelcacheconfig.KernelCacheConfig, readiness captureconfig.ReadinessConfig, runtimeInfo captureconfig.RuntimeInfo) (corev1.PodSpec, error) {
 	captureValue, err := captureconfig.MarshalCaptureConfig(captureconfig.CaptureConfig{
 		Version:     captureconfig.CurrentVersion,
 		CacheDir:    "/workspace/cache/0",
@@ -408,7 +405,7 @@ func readinessProbeConfig(container *corev1.Container, timeoutSeconds int64) (ca
 		pathValue = "/"
 	}
 	if timeoutSeconds <= 0 {
-		timeoutSeconds = v1beta1.DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds
+		timeoutSeconds = kernelcacheconfig.DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds
 	}
 	return captureconfig.ReadinessConfig{
 		URL:                               fmt.Sprintf("%s://%s%s", strings.ToLower(scheme), net.JoinHostPort(host, port), pathValue),

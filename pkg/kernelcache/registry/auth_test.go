@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 )
 
 func TestNewControllerServiceAccountAuthenticatorUsesProjectedToken(t *testing.T) {
@@ -49,7 +49,7 @@ func TestNewControllerServiceAccountAuthenticatorRejectsRegistryOutsideConfigure
 
 func TestNewControllerServiceAccountAuthenticatorReturnsNoAuthForNone(t *testing.T) {
 	config := serviceAccountTokenRegistryConfig()
-	config.Auth.Type = v1beta1.KernelCacheRegistryAuthTypeNone
+	config.Auth.Type = kernelcacheconfig.KernelCacheRegistryAuthTypeNone
 	authenticator, err := NewControllerServiceAccountAuthenticator(config, "registry.example:5000/team/cache:latest")
 	require.NoError(t, err)
 	require.Nil(t, authenticator)
@@ -85,9 +85,9 @@ func TestNewControllerRegistryAccessBuildsScopedAuthenticator(t *testing.T) {
 	require.Equal(t, "projected-token", auth.Password)
 }
 
-func serviceAccountTokenRegistryConfig() v1beta1.KernelCacheRegistryConfig {
-	return v1beta1.KernelCacheRegistryConfig{
+func serviceAccountTokenRegistryConfig() kernelcacheconfig.KernelCacheRegistryConfig {
+	return kernelcacheconfig.KernelCacheRegistryConfig{
 		Endpoint: "registry.example:5000",
-		Auth:     v1beta1.KernelCacheRegistryAuth{Type: v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken},
+		Auth:     kernelcacheconfig.KernelCacheRegistryAuth{Type: kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken},
 	}
 }

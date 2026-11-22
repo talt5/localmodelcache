@@ -25,8 +25,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
 )
 
@@ -36,15 +36,15 @@ const (
 )
 
 // ApplyCaptureRegistry mounts deferred registry access without changing the Pod identity.
-func ApplyCaptureRegistry(pod *corev1.PodSpec, container *corev1.Container, cfg v1beta1.KernelCacheRegistryConfig, secretName string) error {
+func ApplyCaptureRegistry(pod *corev1.PodSpec, container *corev1.Container, cfg kernelcacheconfig.KernelCacheRegistryConfig, secretName string) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
 	sources := []corev1.VolumeProjection{}
 	env := []corev1.EnvVar{}
 	switch cfg.Auth.Type {
-	case "", v1beta1.KernelCacheRegistryAuthTypeNone:
-	case v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken:
+	case "", kernelcacheconfig.KernelCacheRegistryAuthTypeNone:
+	case kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken:
 		if cfg.Endpoint == "" || strings.ContainsAny(cfg.Endpoint, "/ \t\n") {
 			return errors.New("registry.endpoint must be a registry host with optional port")
 		}

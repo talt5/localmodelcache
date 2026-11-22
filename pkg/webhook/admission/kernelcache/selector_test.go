@@ -28,8 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
 	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
 )
@@ -39,9 +39,9 @@ func TestSelectKernelCacheWorkloadMatch(t *testing.T) {
 	digestImage := "registry.example/vllm@sha256:" + strings.Repeat("b", 64)
 	pod := selectionPod(digestImage)
 	pod.Annotations = map[string]string{
-		constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+		constants.KernelCacheModelURIAnnotationKey: "hf://Qwen/Qwen3-0.6B",
 	}
-	requested, err := identityForPod(pod, pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+	requested, err := identityForPod(pod, pod.Annotations[constants.KernelCacheModelURIAnnotationKey])
 	require.NoError(t, err)
 
 	workloadCache := readyCache("workload", requested)
@@ -58,7 +58,7 @@ func TestSelectKernelCacheWorkloadMatch(t *testing.T) {
 	node.Status.CacheStatus[compatibleCache.Namespace+"/"+compatibleCache.Name] = kernelCacheNodeInfo(compatibleCache, v1alpha1.KernelCacheNodePreparationStateReady)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &compatibleCache, &workloadCache).Build()}
 
-	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &kernelcacheconfig.KernelCacheConfig{ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, workloadCache.Name, selection.cache.Name)
@@ -68,7 +68,7 @@ func TestSelectKernelCacheSkipsPodWithoutModelSource(t *testing.T) {
 	pod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
 	mutator := &PodMutator{Client: fake.NewClientBuilder().Build()}
 
-	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &kernelcacheconfig.KernelCacheConfig{ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.False(t, found)
 	require.Nil(t, selection)
@@ -79,7 +79,7 @@ func TestWorkloadMatchRequiresCompatibility(t *testing.T) {
 	pod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
 	requested := requireFullIdentity(t, cacheidentity.KernelCacheIdentityFactors{
 		Namespace:    pod.Namespace,
-		WorkloadKind: "InferenceService",
+		WorkloadKind: constants.KernelCacheWorkloadKind,
 		WorkloadName: "first",
 		RuntimeImage: pod.Spec.Containers[0].Image,
 		ModelURIHash: "sha256:" + strings.Repeat("a", 64),
@@ -108,7 +108,7 @@ func TestWorkloadKindIsNotExactMatch(t *testing.T) {
 	pod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
 	requested := requireFullIdentity(t, cacheidentity.KernelCacheIdentityFactors{
 		Namespace:    pod.Namespace,
-		WorkloadKind: "InferenceService",
+		WorkloadKind: constants.KernelCacheWorkloadKind,
 		WorkloadName: "first",
 		RuntimeImage: pod.Spec.Containers[0].Image,
 		ModelURIHash: "sha256:" + strings.Repeat("a", 64),
@@ -118,7 +118,7 @@ func TestWorkloadKindIsNotExactMatch(t *testing.T) {
 	})
 
 	otherKind := requestedFactors(requested)
-	otherKind.WorkloadKind = "LLMInferenceService"
+	otherKind.WorkloadKind = "StatefulSet"
 	candidate := readyCache("other-kind", requireFullIdentity(t, otherKind))
 	nodeCandidate := kernelCacheNodeCandidate{
 		ref:   v1alpha1.NamespacedName{Namespace: candidate.Namespace, Name: candidate.Name},
@@ -134,16 +134,16 @@ func TestSelectKernelCacheUsesReadyNode(t *testing.T) {
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 	pod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
 	pod.Annotations = map[string]string{
-		constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+		constants.KernelCacheModelURIAnnotationKey: "hf://Qwen/Qwen3-0.6B",
 	}
-	requested, err := identityForPod(pod, pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+	requested, err := identityForPod(pod, pod.Annotations[constants.KernelCacheModelURIAnnotationKey])
 	require.NoError(t, err)
 	cache := readyCache("matching", requested)
 	readyNode := kernelCacheNode("node-a", cache, v1alpha1.KernelCacheNodePreparationStateReady)
 	preparingNode := kernelCacheNode("node-b", cache, v1alpha1.KernelCacheNodePreparationStatePending)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&readyNode, &preparingNode, &cache).Build()}
 
-	config := &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}}
+	config := &kernelcacheconfig.KernelCacheConfig{ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{Mode: "none"}}
 	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, config)
 	require.NoError(t, err)
 	require.True(t, found)
@@ -155,13 +155,13 @@ func TestSelectKernelCacheRequiresSuccessfulArtifactVerification(t *testing.T) {
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 	pod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
 	pod.Annotations = map[string]string{
-		constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+		constants.KernelCacheModelURIAnnotationKey: "hf://Qwen/Qwen3-0.6B",
 	}
-	requested, err := identityForPod(pod, pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+	requested, err := identityForPod(pod, pod.Annotations[constants.KernelCacheModelURIAnnotationKey])
 	require.NoError(t, err)
 	cache := readyCache("verified", requested)
 	node := kernelCacheNode("node-a", cache, v1alpha1.KernelCacheNodePreparationStateReady)
-	config := &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{
+	config := &kernelcacheconfig.KernelCacheConfig{ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{
 		Mode: string(kernelcachetypes.ModeCert),
 	}}
 
@@ -219,10 +219,10 @@ func TestSelectKernelCacheRequiresExactCompatibility(t *testing.T) {
 			require.NoError(t, v1alpha1.AddToScheme(scheme))
 			pod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
 			pod.Annotations = map[string]string{
-				constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+				constants.KernelCacheModelURIAnnotationKey: "hf://Qwen/Qwen3-0.6B",
 			}
 			pod.Spec.Containers[0].Command = []string{"vllm", "--dtype", "bfloat16", "--max-model-len", "4096", "--tensor-parallel-size", "2"}
-			requested, err := identityForPod(pod, pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+			requested, err := identityForPod(pod, pod.Annotations[constants.KernelCacheModelURIAnnotationKey])
 			require.NoError(t, err)
 
 			candidateFactors := requestedFactors(requested)
@@ -231,7 +231,7 @@ func TestSelectKernelCacheRequiresExactCompatibility(t *testing.T) {
 			node := kernelCacheNode("node-a", candidate, v1alpha1.KernelCacheNodePreparationStateReady)
 			mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &candidate).Build()}
 
-			selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
+			selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &kernelcacheconfig.KernelCacheConfig{ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 			require.NoError(t, err)
 			require.False(t, found)
 			require.Nil(t, selection)
@@ -245,9 +245,9 @@ func TestSelectKernelCacheUsesCompatibilityMatchAcrossWorkloads(t *testing.T) {
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 	pod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
 	pod.Annotations = map[string]string{
-		constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+		constants.KernelCacheModelURIAnnotationKey: "hf://Qwen/Qwen3-0.6B",
 	}
-	requested, err := identityForPod(pod, pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+	requested, err := identityForPod(pod, pod.Annotations[constants.KernelCacheModelURIAnnotationKey])
 	require.NoError(t, err)
 	candidateFactors := requestedFactors(requested)
 	candidateFactors.WorkloadName = "other"
@@ -257,7 +257,7 @@ func TestSelectKernelCacheUsesCompatibilityMatchAcrossWorkloads(t *testing.T) {
 	node := kernelCacheNode("node-a", candidate, v1alpha1.KernelCacheNodePreparationStateReady)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &candidate).Build()}
 
-	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &kernelcacheconfig.KernelCacheConfig{ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, candidate.Name, selection.cache.Name)
@@ -269,15 +269,15 @@ func TestSelectKernelCacheIgnoresUnreadyNode(t *testing.T) {
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 	pod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
 	pod.Annotations = map[string]string{
-		constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+		constants.KernelCacheModelURIAnnotationKey: "hf://Qwen/Qwen3-0.6B",
 	}
-	requested, err := identityForPod(pod, pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+	requested, err := identityForPod(pod, pod.Annotations[constants.KernelCacheModelURIAnnotationKey])
 	require.NoError(t, err)
 	cache := readyCache("preparing", requested)
 	node := kernelCacheNode("node-a", cache, v1alpha1.KernelCacheNodePreparationStatePending)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &cache).Build()}
 
-	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &kernelcacheconfig.KernelCacheConfig{ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.False(t, found)
 	require.Nil(t, selection)
@@ -288,47 +288,51 @@ func TestSelectKernelCacheUsesCompatibilityForVersionTag(t *testing.T) {
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 	pod := selectionPod("registry.example/vllm:v0.10")
 	pod.Annotations = map[string]string{
-		constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+		constants.KernelCacheModelURIAnnotationKey: "hf://Qwen/Qwen3-0.6B",
 	}
-	requested, err := identityForPod(pod, pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+	requested, err := identityForPod(pod, pod.Annotations[constants.KernelCacheModelURIAnnotationKey])
 	require.NoError(t, err)
 	cache := readyCache("matching", requested)
 	node := kernelCacheNode("node-a", cache, v1alpha1.KernelCacheNodePreparationStateReady)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &cache).Build()}
 
-	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &kernelcacheconfig.KernelCacheConfig{ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, cache.Name, selection.cache.Name)
 }
 
-func TestIdentityForPodIncludesWorkloadKind(t *testing.T) {
-	isvcPod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
-	isvcPod.Annotations = map[string]string{
-		constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+// Two Deployments serving the same model on the same runtime share the compatibility
+// footprint but not the workload footprint.
+func TestIdentityForPodIncludesWorkloadName(t *testing.T) {
+	firstPod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
+	firstPod.Annotations = map[string]string{
+		constants.KernelCacheModelURIAnnotationKey: "hf://Qwen/Qwen3-0.6B",
 	}
-	isvcIdentity, err := identityForPod(isvcPod, isvcPod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+	firstIdentity, err := identityForPod(firstPod, firstPod.Annotations[constants.KernelCacheModelURIAnnotationKey])
 	require.NoError(t, err)
 
-	llmPod := isvcPod.DeepCopy()
-	llmPod.Labels = map[string]string{
-		constants.KubernetesAppNameLabelKey:   "first",
-		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
-		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
-	}
-	llmPod.Spec.Containers[0].Name = constants.LLMInferenceServiceContainerName
-	llmPod.Spec.Containers = append([]corev1.Container{{
-		Name:  constants.InferenceServiceContainerName,
-		Image: "registry.example/sidecar:latest",
-	}}, llmPod.Spec.Containers...)
-	llmIdentity, err := identityForPod(llmPod, llmPod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+	secondPod := firstPod.DeepCopy()
+	secondPod.Labels = map[string]string{constants.KernelCacheWorkloadLabelKey: "second"}
+	secondPod.Annotations[constants.KernelCacheContainerAnnotationKey] = "vllm"
+	secondPod.Spec.Containers = append(secondPod.Spec.Containers, corev1.Container{
+		Name:  "proxy",
+		Image: "registry.example/proxy:latest",
+	})
+	secondIdentity, err := identityForPod(secondPod, secondPod.Annotations[constants.KernelCacheModelURIAnnotationKey])
 	require.NoError(t, err)
 
-	require.Equal(t, "InferenceService", isvcIdentity.Factors[cacheidentity.WorkloadKindFactor])
-	require.Equal(t, "LLMInferenceService", llmIdentity.Factors[cacheidentity.WorkloadKindFactor])
-	require.Equal(t, "registry.example/vllm@sha256:"+strings.Repeat("b", 64), llmIdentity.Factors[cacheidentity.RuntimeImageFactor])
-	require.NotEqual(t, isvcIdentity.Footprints.WorkloadFootprint, llmIdentity.Footprints.WorkloadFootprint)
-	require.Equal(t, isvcIdentity.Footprints.CompatibilityFootprint, llmIdentity.Footprints.CompatibilityFootprint)
+	require.Equal(t, constants.KernelCacheWorkloadKind, firstIdentity.Factors[cacheidentity.WorkloadKindFactor])
+	require.Equal(t, "registry.example/vllm@sha256:"+strings.Repeat("b", 64), secondIdentity.Factors[cacheidentity.RuntimeImageFactor])
+	require.NotEqual(t, firstIdentity.Footprints.WorkloadFootprint, secondIdentity.Footprints.WorkloadFootprint)
+	require.Equal(t, firstIdentity.Footprints.CompatibilityFootprint, secondIdentity.Footprints.CompatibilityFootprint)
+}
+
+func TestIdentityForPodRequiresContainerAnnotationForSeveralContainers(t *testing.T) {
+	pod := selectionPod("registry.example/vllm:v0.10")
+	pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{Name: "proxy", Image: "registry.example/proxy:latest"})
+	_, err := identityForPod(pod, "hf://Qwen/Qwen3-0.6B")
+	require.ErrorContains(t, err, constants.KernelCacheContainerAnnotationKey)
 }
 
 func TestCacheCanMountToPodResolvesOptionalContainerPath(t *testing.T) {
@@ -349,15 +353,15 @@ func TestCacheCanMountToPodResolvesOptionalContainerPath(t *testing.T) {
 
 func selectionPod(image string) *corev1.Pod {
 	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: "pod", Namespace: "team", Labels: map[string]string{constants.InferenceServicePodLabelKey: "first"}},
-		Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: constants.InferenceServiceContainerName, Image: image}}},
+		ObjectMeta: metav1.ObjectMeta{Name: "pod", Namespace: "team", Labels: map[string]string{constants.KernelCacheWorkloadLabelKey: "first"}},
+		Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "vllm", Image: image}}},
 	}
 }
 
 func requireIdentity(t *testing.T, namespace, workloadName, image, modelHash string) v1alpha1.KernelCacheIdentity {
 	t.Helper()
 	return requireFullIdentity(t, cacheidentity.KernelCacheIdentityFactors{
-		Namespace: namespace, WorkloadKind: "InferenceService", WorkloadName: workloadName,
+		Namespace: namespace, WorkloadKind: constants.KernelCacheWorkloadKind, WorkloadName: workloadName,
 		RuntimeImage: image, ModelURIHash: modelHash,
 	})
 }
@@ -407,7 +411,7 @@ func readyCache(name string, cacheIdentity v1alpha1.KernelCacheIdentity) v1alpha
 			MountType: v1alpha1.KernelCacheMountTypeOCI,
 			Artifact: v1alpha1.KernelCacheArtifact{
 				ImageReference: "registry.example/cache@sha256:" + strings.Repeat("d", 64),
-				CachePaths:     []v1alpha1.KernelCachePath{{ContainerName: constants.InferenceServiceContainerName, ContainerPath: "/cache", OCIPath: "io.vllm.cache"}},
+				CachePaths:     []v1alpha1.KernelCachePath{{ContainerName: "vllm", ContainerPath: "/cache", OCIPath: "io.vllm.cache"}},
 				Identity:       cacheIdentity,
 			},
 		},

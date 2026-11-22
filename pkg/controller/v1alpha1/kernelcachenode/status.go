@@ -29,14 +29,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
 )
 
 // Status reconciliation and conflict-safe updates.
 func (r *KernelCacheNodeReconciler) reconcileStatus(
 	ctx context.Context,
-	config *v1beta1.KernelCacheConfig,
+	config *kernelcacheconfig.KernelCacheConfig,
 	validateImages bool,
 ) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {

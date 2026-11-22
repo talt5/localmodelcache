@@ -148,8 +148,17 @@ var (
 	KernelCacheSupportedAnnotationKey           = KServeAPIGroupName + "/kernelcache-supported"
 	KernelCacheSidecarInjectionAnnotationKey    = KServeAPIGroupName + "/kernelcache-sidecar-injection"
 	KernelCacheNodeGroupAnnotationKey           = KServeAPIGroupName + "/kernelcache-nodegroup"
-	ModelFormatAnnotationKey                    = "modelFormat"
-	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
+	// KernelCacheModelURIAnnotationKey names the model a kernel-cache Pod serves. It is part of
+	// the cache identity, so Pods that serve another model never share a cache.
+	KernelCacheModelURIAnnotationKey = KServeAPIGroupName + "/kernelcache-model-uri"
+	// KernelCacheContainerAnnotationKey names the runtime container of a kernel-cache Pod. It is
+	// required when the Pod has more than one container.
+	KernelCacheContainerAnnotationKey = KServeAPIGroupName + "/kernelcache-container"
+	// KernelCacheWorkloadLabelKey is set by the kernel cache webhook to the name of the
+	// Deployment that owns an opted-in Pod. Controllers map Pods to their workload through it.
+	KernelCacheWorkloadLabelKey        = KServeAPIGroupName + "/kernelcache-workload"
+	ModelFormatAnnotationKey           = "modelFormat"
+	InferencePoolMigratedAnnotationKey = KServeAPIGroupName + "/inferencepool-migrated"
 	// Managed DRA Experimental Annotations
 	// These annotations provide an intentionally limited-scope convenience feature for basic DRA use cases.
 	// Complex DRA topologies should use native Kubernetes ResourceClaimTemplate objects directly.
@@ -166,6 +175,10 @@ var (
 	ModelExpressTokenAudienceAnnotationKey = KServeAPIGroupName + "/exp-modelexpress-token-audience"
 	ModelExpressRevisionAnnotationKey      = KServeAPIGroupName + "/exp-modelexpress-revision"
 )
+
+// KernelCacheWorkloadKind is the kind of workload kernel caches are captured from and mounted
+// into: Pods owned by a Deployment through its ReplicaSet.
+const KernelCacheWorkloadKind = "Deployment"
 
 // ServingRuntime Server Type Annotations
 var (

@@ -29,9 +29,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 )
 
 const (
@@ -60,7 +60,7 @@ echo "kernel-cache-linker: cache materialization completed"`
 func (m *PodMutator) injectKernelCacheArtifact(
 	ctx context.Context,
 	pod *corev1.Pod,
-	cfg *v1beta1.KernelCacheConfig,
+	cfg *kernelcacheconfig.KernelCacheConfig,
 ) (bool, error) {
 	selection, found, err := m.findKernelCacheSelectionWithConfig(ctx, pod, cfg)
 	if err != nil {
@@ -80,7 +80,7 @@ func (m *PodMutator) injectKernelCacheArtifact(
 func (m *PodMutator) findKernelCacheSelectionWithConfig(
 	ctx context.Context,
 	pod *corev1.Pod,
-	cfg *v1beta1.KernelCacheConfig,
+	cfg *kernelcacheconfig.KernelCacheConfig,
 ) (*kernelCacheSelection, bool, error) {
 	reader := m.Reader
 	if reader == nil {
@@ -130,7 +130,7 @@ func selectKernelCacheCandidate(
 	pod *corev1.Pod,
 	requested v1alpha1.KernelCacheIdentity,
 	candidates []kernelCacheNodeCandidate,
-	cfg *v1beta1.KernelCacheConfig,
+	cfg *kernelcacheconfig.KernelCacheConfig,
 ) (*kernelCacheSelection, bool, error) {
 	for _, candidate := range candidates {
 		if !candidateMatchesWorkload(requested, candidate) {
@@ -166,7 +166,7 @@ func loadKernelCacheCandidate(
 	reader client.Reader,
 	pod *corev1.Pod,
 	candidate kernelCacheNodeCandidate,
-	cfg *v1beta1.KernelCacheConfig,
+	cfg *kernelcacheconfig.KernelCacheConfig,
 ) (*v1alpha1.KernelCache, bool, error) {
 	cache := &v1alpha1.KernelCache{}
 	key := client.ObjectKey{Namespace: candidate.ref.Namespace, Name: candidate.ref.Name}
@@ -182,7 +182,7 @@ func loadKernelCacheCandidate(
 	return cache, true, nil
 }
 
-func injectKernelCacheMount(pod *corev1.Pod, kernelCache *v1alpha1.KernelCache, cfg *v1beta1.KernelCacheConfig) error {
+func injectKernelCacheMount(pod *corev1.Pod, kernelCache *v1alpha1.KernelCache, cfg *kernelcacheconfig.KernelCacheConfig) error {
 	if len(kernelCache.Spec.Artifact.CachePaths) == 0 {
 		return fmt.Errorf("KernelCache %s/%s has no cache paths", kernelCache.Namespace, kernelCache.Name)
 	}
@@ -193,7 +193,7 @@ func injectKernelCacheMount(pod *corev1.Pod, kernelCache *v1alpha1.KernelCache, 
 	resolvedCachePaths := make([]v1alpha1.KernelCachePath, len(kernelCache.Spec.Artifact.CachePaths))
 	containerIndexes := make(map[string]int, len(kernelCache.Spec.Artifact.CachePaths))
 	for index, cachePath := range kernelCache.Spec.Artifact.CachePaths {
-		containerName, err := kernelcacheutil.ResolveRuntimeContainerName(pod.Spec.Containers, cachePath.ContainerName)
+		containerName, err := resolveRuntimeContainerName(pod, cachePath.ContainerName)
 		if err != nil {
 			return err
 		}
@@ -307,11 +307,11 @@ func kernelCacheSourceVolume(kernelCache *v1alpha1.KernelCache, mountType v1alph
 	return corev1.Volume{}, fmt.Errorf("unsupported KernelCache mount type %q", mountType)
 }
 
-func kernelCacheLinkerImage(cfg *v1beta1.KernelCacheConfig) string {
+func kernelCacheLinkerImage(cfg *kernelcacheconfig.KernelCacheConfig) string {
 	if cfg.PrefetchImage != "" {
 		return cfg.PrefetchImage
 	}
-	return v1beta1.DefaultKernelCachePrefetchImage
+	return kernelcacheconfig.DefaultKernelCachePrefetchImage
 }
 
 func addKernelCacheVolume(podSpec *corev1.PodSpec, volume corev1.Volume) error {

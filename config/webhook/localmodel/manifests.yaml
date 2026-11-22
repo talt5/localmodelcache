@@ -49,10 +49,11 @@ webhooks:
         - key: control-plane
           operator: DoesNotExist
     matchConditions:
-      - name: inferenceservice-workload
+      - name: kernelcache-opt-in
         expression: >-
-          has(object.metadata.labels) &&
-          'serving.kserve.io/inferenceservice' in object.metadata.labels
+          has(object.metadata.annotations) &&
+          'serving.kserve.io/kernelcache-supported' in object.metadata.annotations &&
+          object.metadata.annotations['serving.kserve.io/kernelcache-supported'] == 'true'
     rules:
       - apiGroups:
           - ""

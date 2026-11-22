@@ -161,7 +161,7 @@ func TestEnqueueCurrentNodeForJobUsesConfiguredNamespace(t *testing.T) {
 		t.Fatal(err)
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
 		Data:       map[string]string{"kernelcache": `{"jobNamespace":"kernel-cache-jobs"}`},
 	}
 	reconciler := &KernelCacheNodeReconciler{
@@ -185,17 +185,17 @@ func TestEnqueueCurrentNodeForJobUsesConfiguredNamespace(t *testing.T) {
 	}
 }
 
-func TestInferenceServiceConfigMapPredicate(t *testing.T) {
+func TestLocalModelConfigMapPredicate(t *testing.T) {
 	reconciler := &KernelCacheNodeReconciler{}
-	pred := reconciler.inferenceServiceConfigMapPredicate()
+	pred := reconciler.localModelConfigMapPredicate()
 
 	configMap := func(namespace, name string) *corev1.ConfigMap {
 		return &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name}}
 	}
-	if !pred.Create(event.CreateEvent{Object: configMap(constants.KServeNamespace, constants.InferenceServiceConfigMapName)}) {
-		t.Fatal("expected the InferenceService ConfigMap to enqueue the node")
+	if !pred.Create(event.CreateEvent{Object: configMap(constants.KServeNamespace, constants.LocalModelConfigMapName)}) {
+		t.Fatal("expected the local model ConfigMap to enqueue the node")
 	}
-	if pred.Create(event.CreateEvent{Object: configMap("other", constants.InferenceServiceConfigMapName)}) {
+	if pred.Create(event.CreateEvent{Object: configMap("other", constants.LocalModelConfigMapName)}) {
 		t.Fatal("did not expect a ConfigMap from another namespace to enqueue the node")
 	}
 	if pred.Create(event.CreateEvent{Object: configMap(constants.KServeNamespace, "other")}) {
@@ -207,17 +207,17 @@ func TestCurrentPodPredicate(t *testing.T) {
 	reconciler := &KernelCacheNodeReconciler{}
 	pred := reconciler.currentPodPredicate()
 
-	withISVCLabel := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
-		Labels: map[string]string{constants.InferenceServicePodLabelKey: "model"},
+	withWorkloadLabel := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+		Labels: map[string]string{constants.KernelCacheWorkloadLabelKey: "vllm"},
 	}}
-	withoutISVCLabel := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+	withoutWorkloadLabel := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
 		Labels: map[string]string{kernelCacheNameLabel: "cache"},
 	}}
 
-	if !pred.Create(event.CreateEvent{Object: withISVCLabel}) {
-		t.Fatal("expected an InferenceService Pod to be watched")
+	if !pred.Create(event.CreateEvent{Object: withWorkloadLabel}) {
+		t.Fatal("expected a kernel cache workload Pod to be watched")
 	}
-	if pred.Create(event.CreateEvent{Object: withoutISVCLabel}) {
-		t.Fatal("did not expect a Pod without an InferenceService label to be watched")
+	if pred.Create(event.CreateEvent{Object: withoutWorkloadLabel}) {
+		t.Fatal("did not expect a Pod without the kernel cache workload label to be watched")
 	}
 }

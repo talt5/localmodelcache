@@ -1149,7 +1149,7 @@ func schema_pkg_apis_serving_v1alpha1_KernelCacheCaptureSpec(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"sourceRef": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SourceRef identifies the source InferenceService.",
+							Description: "SourceRef identifies the source Deployment.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheSourceRef"),
 						},
@@ -1979,12 +1979,12 @@ func schema_pkg_apis_serving_v1alpha1_KernelCacheSourceRef(ref common.ReferenceC
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "KernelCacheSourceRef identifies the source InferenceService for a capture.",
+				Description: "KernelCacheSourceRef identifies the source Deployment for a capture.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Kind is the kind of the source workload.",
+							Description: "Kind is the kind of the source workload. Captures come from Deployments whose Pod template sets the serving.kserve.io/kernelcache-supported annotation.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",

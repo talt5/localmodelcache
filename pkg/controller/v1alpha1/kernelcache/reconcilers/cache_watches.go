@@ -45,15 +45,17 @@ func (r *KernelCacheReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&v1alpha1.KernelCacheNodeGroup{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCsOnNodeGroupChange)).
 		Watches(&v1alpha1.KernelCacheNode{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCsOnKCNChange)).
 		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCsOnNodeChange), builder.WithPredicates(kernelCacheNodePredicate())).
-		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCsOnConfigChange), builder.WithPredicates(predicate.NewPredicateFuncs(isInferenceServiceConfigMap))).
+		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCsOnConfigChange), builder.WithPredicates(predicate.NewPredicateFuncs(isLocalModelConfigMap))).
 		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCsOnPrefetchAuthChange), builder.WithPredicates(prefetchAuthResourcePredicate())).
 		Watches(&rbacv1.RoleBinding{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCsOnPrefetchAuthChange), builder.WithPredicates(prefetchAuthResourcePredicate())).
 		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCOnPodUsageChange), builder.WithPredicates(consumerPodPredicate())).
 		Complete(r)
 }
 
-func isInferenceServiceConfigMap(obj client.Object) bool {
-	return obj != nil && obj.GetNamespace() == constants.KServeNamespace && obj.GetName() == constants.InferenceServiceConfigMapName
+// isLocalModelConfigMap reports whether obj is the kserve-localmodel-config ConfigMap that
+// holds the kernel cache configuration.
+func isLocalModelConfigMap(obj client.Object) bool {
+	return obj != nil && obj.GetNamespace() == constants.KServeNamespace && obj.GetName() == constants.LocalModelConfigMapName
 }
 
 // prefetchAuthResourcePredicate accepts only the shared prefetch identity resources.
@@ -111,7 +113,7 @@ func (r *KernelCacheReconciler) enqueueKCsOnNodeChange(ctx context.Context, obj 
 
 // enqueueKCsOnConfigChange requeues all KCs because config values are global.
 func (r *KernelCacheReconciler) enqueueKCsOnConfigChange(ctx context.Context, obj client.Object) []reconcile.Request {
-	if !isInferenceServiceConfigMap(obj) {
+	if !isLocalModelConfigMap(obj) {
 		return nil
 	}
 	return mergeReconcileRequests(

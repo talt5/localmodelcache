@@ -32,7 +32,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-func TestKernelCacheWebhookMatchConditionDoesNotFilterSidecarInjection(t *testing.T) {
+func TestKernelCacheWebhookMatchConditionSelectsOptedInPods(t *testing.T) {
 	_, filename, _, ok := runtime.Caller(0)
 	require.True(t, ok)
 	manifestPath := filepath.Join(filepath.Dir(filename), "../../../../config/webhook/localmodel/manifests.yaml")
@@ -69,7 +69,7 @@ func TestKernelCacheWebhookMatchConditionDoesNotFilterSidecarInjection(t *testin
 			require.NotEmpty(t, webhook.MatchConditions)
 			for _, condition := range webhook.MatchConditions {
 				require.NotContains(t, condition.Expression, constants.KernelCacheSidecarInjectionAnnotationKey)
-				require.True(t, strings.Contains(condition.Expression, constants.InferenceServicePodLabelKey))
+				require.True(t, strings.Contains(condition.Expression, constants.KernelCacheSupportedAnnotationKey))
 			}
 		}
 	}

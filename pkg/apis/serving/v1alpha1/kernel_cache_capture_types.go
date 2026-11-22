@@ -37,7 +37,7 @@ type KernelCacheCapture struct {
 // KernelCacheCaptureSpec defines the desired capture configuration.
 // +k8s:openapi-gen=true
 type KernelCacheCaptureSpec struct {
-	// SourceRef identifies the source InferenceService.
+	// SourceRef identifies the source Deployment.
 	// +kubebuilder:validation:Required
 	SourceRef KernelCacheSourceRef `json:"sourceRef"`
 

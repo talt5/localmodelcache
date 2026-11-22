@@ -28,7 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	"github.com/kserve/kserve/pkg/kernelcache/security/fixture"
 )
 
@@ -41,8 +41,8 @@ func TestNewTransportAddsConfiguredCAToRootPool(t *testing.T) {
 	}
 	reader := fake.NewClientBuilder().WithObjects(configMap).Build()
 
-	transport, err := NewTransport(t.Context(), reader, "workload", v1beta1.KernelCacheRegistryConfig{
-		CAConfigMapRef: &v1beta1.KernelCacheConfigMapKeyRef{Name: "registry-ca", Key: "service-ca.crt"},
+	transport, err := NewTransport(t.Context(), reader, "workload", kernelcacheconfig.KernelCacheRegistryConfig{
+		CAConfigMapRef: &kernelcacheconfig.KernelCacheConfigMapKeyRef{Name: "registry-ca", Key: "service-ca.crt"},
 	})
 	require.NoError(t, err)
 
@@ -63,14 +63,14 @@ func TestNewTransportRejectsInvalidConfiguredCA(t *testing.T) {
 	}
 	reader := fake.NewClientBuilder().WithObjects(configMap).Build()
 
-	_, err := NewTransport(context.Background(), reader, "workload", v1beta1.KernelCacheRegistryConfig{
-		CAConfigMapRef: &v1beta1.KernelCacheConfigMapKeyRef{Name: "registry-ca", Key: "service-ca.crt"},
+	_, err := NewTransport(context.Background(), reader, "workload", kernelcacheconfig.KernelCacheRegistryConfig{
+		CAConfigMapRef: &kernelcacheconfig.KernelCacheConfigMapKeyRef{Name: "registry-ca", Key: "service-ca.crt"},
 	})
 	require.EqualError(t, err, "registry CA ConfigMap workload/registry-ca: key \"service-ca.crt\" contains no valid CA certificate")
 }
 
 func TestNewTransportUsesExplicitInsecureMode(t *testing.T) {
-	transport, err := NewTransport(context.Background(), nil, "workload", v1beta1.KernelCacheRegistryConfig{Insecure: true})
+	transport, err := NewTransport(context.Background(), nil, "workload", kernelcacheconfig.KernelCacheRegistryConfig{Insecure: true})
 	require.NoError(t, err)
 	require.True(t, transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify)
 }

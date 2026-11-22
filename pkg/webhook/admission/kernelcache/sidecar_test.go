@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,9 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/kernelcache/captureconfig"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
 	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
 	"github.com/kserve/kserve/pkg/kernelcache/reporter"
@@ -83,8 +84,8 @@ func TestInjectSidecar(t *testing.T) {
 			capture: &v1alpha1.KernelCacheCapture{
 				ObjectMeta: metav1.ObjectMeta{Name: "qwen-kcc-669889f77f", Namespace: "test"},
 				Spec: v1alpha1.KernelCacheCaptureSpec{
-					SourceRef:   v1alpha1.KernelCacheSourceRef{Kind: "InferenceService", Name: "qwen"},
-					CachePaths:  []v1alpha1.KernelCachePath{{ContainerName: "kserve-container", ContainerPath: "/custom/vllm", OCIPath: "io.vllm.cache"}},
+					SourceRef:   v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: "qwen"},
+					CachePaths:  []v1alpha1.KernelCachePath{{ContainerName: "vllm", ContainerPath: "/custom/vllm", OCIPath: "io.vllm.cache"}},
 					TargetImage: "registry.example:5000/test/custom:v1",
 				},
 			},
@@ -98,8 +99,8 @@ func TestInjectSidecar(t *testing.T) {
 			capture: &v1alpha1.KernelCacheCapture{
 				ObjectMeta: metav1.ObjectMeta{Name: "qwen-kcc-669889f77f", Namespace: "test"},
 				Spec: v1alpha1.KernelCacheCaptureSpec{
-					SourceRef:  v1alpha1.KernelCacheSourceRef{Kind: "InferenceService", Name: "qwen"},
-					CachePaths: []v1alpha1.KernelCachePath{{ContainerName: "kserve-container"}},
+					SourceRef:  v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: "qwen"},
+					CachePaths: []v1alpha1.KernelCachePath{{ContainerName: "vllm"}},
 				},
 			},
 			registryEndpoint:  "registry.example:5000",
@@ -112,7 +113,7 @@ func TestInjectSidecar(t *testing.T) {
 			capture: &v1alpha1.KernelCacheCapture{
 				ObjectMeta: metav1.ObjectMeta{Name: "qwen-kcc-669889f77f", Namespace: "test"},
 				Spec: v1alpha1.KernelCacheCaptureSpec{
-					SourceRef:   v1alpha1.KernelCacheSourceRef{Kind: "InferenceService", Name: "qwen"},
+					SourceRef:   v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: "qwen"},
 					TargetImage: "registry.example:5000/test/custom:v1",
 				},
 			},
@@ -125,8 +126,8 @@ func TestInjectSidecar(t *testing.T) {
 			capture: &v1alpha1.KernelCacheCapture{
 				ObjectMeta: metav1.ObjectMeta{Name: "qwen-kcc-669889f77f", Namespace: "test"},
 				Spec: v1alpha1.KernelCacheCaptureSpec{
-					SourceRef:  v1alpha1.KernelCacheSourceRef{Kind: "InferenceService", Name: "qwen"},
-					CachePaths: []v1alpha1.KernelCachePath{{ContainerName: "kserve-container", ContainerPath: "/custom/vllm", OCIPath: "io.vllm.cache"}},
+					SourceRef:  v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: "qwen"},
+					CachePaths: []v1alpha1.KernelCachePath{{ContainerName: "vllm", ContainerPath: "/custom/vllm", OCIPath: "io.vllm.cache"}},
 				},
 			},
 			registryEndpoint:  "registry.example:5000",
@@ -138,7 +139,7 @@ func TestInjectSidecar(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			scheme := runtime.NewScheme()
 			require.NoError(t, corev1.AddToScheme(scheme))
-			require.NoError(t, v1beta1.AddToScheme(scheme))
+			require.NoError(t, appsv1.AddToScheme(scheme))
 			require.NoError(t, v1alpha1.AddToScheme(scheme))
 			builder := fake.NewClientBuilder().WithScheme(scheme)
 			if tc.capture != nil {
@@ -147,12 +148,12 @@ func TestInjectSidecar(t *testing.T) {
 			mutator := &PodMutator{Client: builder.Build()}
 			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
 				Namespace: "test",
-				Labels:    map[string]string{constants.InferenceServicePodLabelKey: "qwen", "pod-template-hash": "669889f77f"},
+				Labels:    map[string]string{constants.KernelCacheWorkloadLabelKey: "qwen", "pod-template-hash": "669889f77f"},
 				Annotations: map[string]string{
-					constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+					constants.KernelCacheModelURIAnnotationKey: "hf://Qwen/Qwen3-0.6B",
 				},
-			}, Spec: corev1.PodSpec{ServiceAccountName: "runtime", Containers: []corev1.Container{{Name: "kserve-container", Env: []corev1.EnvVar{{Name: "VLLM_CACHE_ROOT", Value: "/cache/vllm"}}, ReadinessProbe: &corev1.Probe{ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{Path: "/health", Port: intstr.FromInt(8080)}}, PeriodSeconds: 5, TimeoutSeconds: 2}}}}}
-			cfg := &v1beta1.KernelCacheConfig{MCVImage: "example/mcv:test", MCVCaptureReadinessTimeoutSeconds: 900, Registry: v1beta1.KernelCacheRegistryConfig{Endpoint: tc.registryEndpoint}}
+			}, Spec: corev1.PodSpec{ServiceAccountName: "runtime", Containers: []corev1.Container{{Name: "vllm", Env: []corev1.EnvVar{{Name: "VLLM_CACHE_ROOT", Value: "/cache/vllm"}}, ReadinessProbe: &corev1.Probe{ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{Path: "/health", Port: intstr.FromInt(8080)}}, PeriodSeconds: 5, TimeoutSeconds: 2}}}}}
+			cfg := &kernelcacheconfig.KernelCacheConfig{MCVImage: "example/mcv:test", MCVCaptureReadinessTimeoutSeconds: 900, Registry: kernelcacheconfig.KernelCacheRegistryConfig{Endpoint: tc.registryEndpoint}}
 			originalConfig := cfg.DeepCopy()
 			originalEnv := append([]corev1.EnvVar(nil), pod.Spec.Containers[0].Env...)
 			require.NoError(t, mutator.injectMCVSidecar(context.Background(), pod, cfg))
@@ -184,23 +185,23 @@ func TestInjectSidecar(t *testing.T) {
 func TestInjectSidecarUsesReplicaSetRevisionIdentity(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).Build()}
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
 		Namespace: "team",
 		Labels: map[string]string{
-			constants.InferenceServicePodLabelKey: "qwen",
+			constants.KernelCacheWorkloadLabelKey: "qwen",
 			"pod-template-hash":                   "669889f77f",
 		},
 		Annotations: map[string]string{
-			constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+			constants.KernelCacheModelURIAnnotationKey: "hf://Qwen/Qwen3-0.6B",
 		},
 	}, Spec: corev1.PodSpec{Containers: []corev1.Container{{
-		Name:           "kserve-container",
+		Name:           "vllm",
 		ReadinessProbe: &corev1.Probe{ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{Path: "/health", Port: intstr.FromInt(8080)}}},
 	}}}}
-	cfg := &v1beta1.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: v1beta1.KernelCacheRegistryConfig{Endpoint: "registry.example:5000"}}
+	cfg := &kernelcacheconfig.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: kernelcacheconfig.KernelCacheRegistryConfig{Endpoint: "registry.example:5000"}}
 	require.NoError(t, mutator.injectMCVSidecar(context.Background(), pod, cfg))
 
 	var captureConfig captureconfig.CaptureConfig
@@ -221,18 +222,18 @@ func TestInjectSidecarUsesReplicaSetRevisionIdentity(t *testing.T) {
 func TestInjectSidecarConfiguresRegistryAccessForServiceAccountToken(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).Build()}
 	pod := sidecarTestPod()
-	cfg := &v1beta1.KernelCacheConfig{
+	cfg := &kernelcacheconfig.KernelCacheConfig{
 		MCVImage: "example/mcv:test",
-		Registry: v1beta1.KernelCacheRegistryConfig{
+		Registry: kernelcacheconfig.KernelCacheRegistryConfig{
 			Endpoint: "registry.example:5000",
-			Auth: v1beta1.KernelCacheRegistryAuth{
-				Type:        v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken,
-				PushRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
-				PullRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
+			Auth: kernelcacheconfig.KernelCacheRegistryAuth{
+				Type:        kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken,
+				PushRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
+				PullRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
 			},
 		},
 	}
@@ -255,7 +256,7 @@ func TestInjectSidecarConfiguresRegistryAccessForServiceAccountToken(t *testing.
 func TestInjectSidecarSkipsPodWithoutReplicaSetRevision(t *testing.T) {
 	pod := sidecarTestPod()
 	delete(pod.Labels, "pod-template-hash")
-	cfg := &v1beta1.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: v1beta1.KernelCacheRegistryConfig{Endpoint: "registry.example:5000"}}
+	cfg := &kernelcacheconfig.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: kernelcacheconfig.KernelCacheRegistryConfig{Endpoint: "registry.example:5000"}}
 	mutator := &PodMutator{Client: fake.NewClientBuilder().Build()}
 
 	require.NoError(t, mutator.injectMCVSidecar(context.Background(), pod, cfg))
@@ -298,13 +299,13 @@ func sidecarTestPod() *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test",
-			Labels:    map[string]string{constants.InferenceServicePodLabelKey: "qwen", "pod-template-hash": "669889f77f"},
+			Labels:    map[string]string{constants.KernelCacheWorkloadLabelKey: "qwen", "pod-template-hash": "669889f77f"},
 			Annotations: map[string]string{
-				constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+				constants.KernelCacheModelURIAnnotationKey: "hf://Qwen/Qwen3-0.6B",
 			},
 		},
 		Spec: corev1.PodSpec{Containers: []corev1.Container{{
-			Name: "kserve-container",
+			Name: "vllm",
 			Env:  []corev1.EnvVar{{Name: "VLLM_CACHE_ROOT", Value: "/cache/vllm"}},
 			ReadinessProbe: &corev1.Probe{ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{Path: "/health", Port: intstr.FromInt(8080)},
@@ -328,14 +329,14 @@ func TestTerminalCaptureSkipsSidecarWithoutReadyCache(t *testing.T) {
 	capture := &v1alpha1.KernelCacheCapture{
 		ObjectMeta: metav1.ObjectMeta{Name: "qwen-kcc-669889f77f", Namespace: "test"},
 		Spec: v1alpha1.KernelCacheCaptureSpec{SourceRef: v1alpha1.KernelCacheSourceRef{
-			Kind: "InferenceService", Name: "qwen",
+			Kind: constants.KernelCacheWorkloadKind, Name: "qwen",
 		}},
 		Status: v1alpha1.KernelCacheCaptureStatus{Phase: v1alpha1.KernelCacheCapturePhaseComplete},
 	}
 	pod := sidecarTestPod()
 	pod.Spec.ServiceAccountName = "runtime"
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(capture).Build()}
-	cfg := &v1beta1.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: v1beta1.KernelCacheRegistryConfig{Endpoint: "registry.example"}}
+	cfg := &kernelcacheconfig.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: kernelcacheconfig.KernelCacheRegistryConfig{Endpoint: "registry.example"}}
 	require.NoError(t, mutator.injectMCVSidecar(context.Background(), pod, cfg))
 	require.Len(t, pod.Spec.Containers, 1)
 	require.NotContains(t, pod.Annotations, reporter.AccessSecretAnnotation)
@@ -345,8 +346,8 @@ func TestTerminalCaptureSkipsSidecarWithoutReadyCache(t *testing.T) {
 
 func TestSidecarSkipsPodWithoutModelSource(t *testing.T) {
 	pod := sidecarTestPod()
-	delete(pod.Annotations, constants.StorageInitializerSourceUriInternalAnnotationKey)
-	cfg := &v1beta1.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: v1beta1.KernelCacheRegistryConfig{Endpoint: "registry.example"}}
+	delete(pod.Annotations, constants.KernelCacheModelURIAnnotationKey)
+	cfg := &kernelcacheconfig.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: kernelcacheconfig.KernelCacheRegistryConfig{Endpoint: "registry.example"}}
 	mutator := &PodMutator{Client: fake.NewClientBuilder().Build()}
 
 	require.NoError(t, mutator.injectMCVSidecar(context.Background(), pod, cfg))
@@ -361,26 +362,26 @@ func TestTerminalCaptureSkipsSidecarWithReadyCompatibilityCache(t *testing.T) {
 	pod.Namespace = "team"
 	pod.Spec.Containers[0].Image = "registry.example/vllm:v0.10"
 	pod.Annotations = map[string]string{
-		constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+		constants.KernelCacheModelURIAnnotationKey: "hf://Qwen/Qwen3-0.6B",
 	}
-	requested, err := identityForPod(pod, pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+	requested, err := identityForPod(pod, pod.Annotations[constants.KernelCacheModelURIAnnotationKey])
 	require.NoError(t, err)
 	cache := readyCache("matching", requested)
 	node := kernelCacheNode("node-a", cache, v1alpha1.KernelCacheNodePreparationStateReady)
 	capture := &v1alpha1.KernelCacheCapture{
 		ObjectMeta: metav1.ObjectMeta{Name: "qwen-kcc-669889f77f", Namespace: "team"},
 		Spec: v1alpha1.KernelCacheCaptureSpec{SourceRef: v1alpha1.KernelCacheSourceRef{
-			Kind: "InferenceService", Name: "qwen",
+			Kind: constants.KernelCacheWorkloadKind, Name: "qwen",
 		}},
 		Status: v1alpha1.KernelCacheCaptureStatus{Phase: v1alpha1.KernelCacheCapturePhaseComplete},
 	}
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &cache, capture).Build()}
-	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &kernelcacheconfig.KernelCacheConfig{ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, kernelCacheMatchCompatibility, selection.matchType)
 
-	cfg := &v1beta1.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: v1beta1.KernelCacheRegistryConfig{Endpoint: "registry.example"}}
+	cfg := &kernelcacheconfig.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: kernelcacheconfig.KernelCacheRegistryConfig{Endpoint: "registry.example"}}
 	require.NoError(t, mutator.injectMCVSidecar(context.Background(), pod, cfg))
 	require.Len(t, pod.Spec.Containers, 1)
 	require.NotContains(t, pod.Annotations, reporter.AccessSecretAnnotation)
@@ -393,26 +394,26 @@ func TestTerminalCaptureSkipsSidecarWithReadyWorkloadCache(t *testing.T) {
 	pod.Namespace = "team"
 	pod.Spec.Containers[0].Image = "registry.example/vllm@sha256:" + strings.Repeat("b", 64)
 	pod.Annotations = map[string]string{
-		constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+		constants.KernelCacheModelURIAnnotationKey: "hf://Qwen/Qwen3-0.6B",
 	}
-	requested, err := identityForPod(pod, pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+	requested, err := identityForPod(pod, pod.Annotations[constants.KernelCacheModelURIAnnotationKey])
 	require.NoError(t, err)
 	cache := readyCache("matching", requested)
 	node := kernelCacheNode("node-a", cache, v1alpha1.KernelCacheNodePreparationStateReady)
 	capture := &v1alpha1.KernelCacheCapture{
 		ObjectMeta: metav1.ObjectMeta{Name: "qwen-kcc-669889f77f", Namespace: "team"},
 		Spec: v1alpha1.KernelCacheCaptureSpec{SourceRef: v1alpha1.KernelCacheSourceRef{
-			Kind: "InferenceService", Name: "qwen",
+			Kind: constants.KernelCacheWorkloadKind, Name: "qwen",
 		}},
 		Status: v1alpha1.KernelCacheCaptureStatus{Phase: v1alpha1.KernelCacheCapturePhaseComplete},
 	}
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &cache, capture).Build()}
-	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &kernelcacheconfig.KernelCacheConfig{ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, kernelCacheMatchWorkload, selection.matchType)
 
-	cfg := &v1beta1.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: v1beta1.KernelCacheRegistryConfig{Endpoint: "registry.example"}}
+	cfg := &kernelcacheconfig.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: kernelcacheconfig.KernelCacheRegistryConfig{Endpoint: "registry.example"}}
 	require.NoError(t, mutator.injectMCVSidecar(context.Background(), pod, cfg))
 	require.Len(t, pod.Spec.Containers, 1)
 	require.NotContains(t, pod.Annotations, reporter.AccessSecretAnnotation)
@@ -424,13 +425,13 @@ func TestNonTerminalCaptureStillInjectsCaptureSidecar(t *testing.T) {
 	capture := &v1alpha1.KernelCacheCapture{
 		ObjectMeta: metav1.ObjectMeta{Name: "qwen-kcc-669889f77f", Namespace: "test"},
 		Spec: v1alpha1.KernelCacheCaptureSpec{SourceRef: v1alpha1.KernelCacheSourceRef{
-			Kind: "InferenceService", Name: "qwen",
+			Kind: constants.KernelCacheWorkloadKind, Name: "qwen",
 		}},
 		Status: v1alpha1.KernelCacheCaptureStatus{Phase: v1alpha1.KernelCacheCapturePhaseCapturing},
 	}
 	pod := sidecarTestPod()
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(capture).Build()}
-	cfg := &v1beta1.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: v1beta1.KernelCacheRegistryConfig{Endpoint: "registry.example"}}
+	cfg := &kernelcacheconfig.KernelCacheConfig{MCVImage: "example/mcv:test", Registry: kernelcacheconfig.KernelCacheRegistryConfig{Endpoint: "registry.example"}}
 	require.NoError(t, mutator.injectMCVSidecar(context.Background(), pod, cfg))
 	require.Len(t, pod.Spec.Containers, 2)
 	require.Equal(t, reporter.SecretName(capture.Name), pod.Annotations[reporter.AccessSecretAnnotation])
@@ -495,7 +496,7 @@ func TestSkipSidecarForTerminalCapture(t *testing.T) {
 }
 
 func TestSidecarManifestsAndExistingMount(t *testing.T) {
-	cfg := &v1beta1.KernelCacheConfig{
+	cfg := &kernelcacheconfig.KernelCacheConfig{
 		MCVImage: "example/mcv:test", TargetImage: "registry.example/cache:capture-id",
 		CachePaths:         []v1alpha1.KernelCachePath{{ContainerName: "main", ContainerPath: "/cache", OCIPath: "io.vllm.cache"}},
 		ReporterSecretName: reporter.SecretName("capture"),
@@ -532,9 +533,9 @@ func TestDefaultCachePaths(t *testing.T) {
 		wantVLLMPath string
 	}{
 		{
-			name: "inference service container uses environment values",
+			name: "container uses environment values",
 			container: corev1.Container{
-				Name: constants.InferenceServiceContainerName,
+				Name: "vllm",
 				Env: []corev1.EnvVar{
 					{Name: "VLLM_CACHE_ROOT", Value: "/cache/vllm"},
 					{Name: "TRITON_CACHE_DIR", Value: "/cache/triton"},
@@ -543,9 +544,9 @@ func TestDefaultCachePaths(t *testing.T) {
 			wantVLLMPath: "/cache/vllm",
 		},
 		{
-			name: "llm inference service container uses fallbacks",
+			name: "container uses fallbacks",
 			container: corev1.Container{
-				Name: constants.LLMInferenceServiceContainerName,
+				Name: "server",
 			},
 			wantVLLMPath: "/root/.cache/vllm",
 		},

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,8 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 )
 
 func TestCaptureRejectsKernelCacheWithDifferentImage(t *testing.T) {
@@ -134,7 +135,7 @@ func TestKernelCacheReconcilerCreatesKernelCacheFromCompletedCapture(t *testing.
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
-	if err := v1beta1.AddToScheme(scheme); err != nil {
+	if err := appsv1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
 
@@ -147,7 +148,7 @@ func TestKernelCacheReconcilerCreatesKernelCacheFromCompletedCapture(t *testing.
 		},
 		Spec: v1alpha1.KernelCacheCaptureSpec{
 			SourceRef: v1alpha1.KernelCacheSourceRef{
-				Kind: "InferenceService",
+				Kind: constants.KernelCacheWorkloadKind,
 				Name: "qwen",
 			},
 		},
@@ -195,7 +196,7 @@ func TestKernelCacheReconcilerCreatesKernelCacheFromCompletedCapture(t *testing.
 	secondCapture.Status.KernelCacheRef = nil
 	require.True(t, isCaptureComplete(capture), "capture fixture must be complete")
 	require.True(t, isCaptureComplete(secondCapture), "second capture fixture must be complete")
-	inferenceService := &v1beta1.InferenceService{
+	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "qwen",
 			Namespace: "team",
@@ -203,7 +204,7 @@ func TestKernelCacheReconcilerCreatesKernelCacheFromCompletedCapture(t *testing.
 	}
 	annotationGroup := &v1alpha1.KernelCacheNodeGroup{ObjectMeta: metav1.ObjectMeta{Name: "annotation-group"}, Spec: v1alpha1.KernelCacheNodeGroupSpec{NodeSelector: map[string]string{"role": "gpu"}}}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
 		Data: map[string]string{
 			"kernelcache": `{"enabled":true,"defaultMountType":"oci","defaultNodeGroup":"config-group"}`,
 		},
@@ -211,7 +212,7 @@ func TestKernelCacheReconcilerCreatesKernelCacheFromCompletedCapture(t *testing.
 
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(capture, secondCapture, inferenceService, configMap, annotationGroup).
+		WithObjects(capture, secondCapture, deployment, configMap, annotationGroup).
 		WithStatusSubresource(capture, secondCapture).
 		Build()
 	reconciler := &KernelCacheReconciler{Client: k8sClient}
@@ -306,11 +307,11 @@ func TestKernelCacheReconcilerAutomaticallySelectsUniqueNodeGroup(t *testing.T) 
 }
 
 func TestCaptureMountTypeDefaultsToOCI(t *testing.T) {
-	mountType, err := captureMountType(&v1beta1.KernelCacheConfig{})
+	mountType, err := captureMountType(&kernelcacheconfig.KernelCacheConfig{})
 	require.NoError(t, err)
 	require.Equal(t, v1alpha1.KernelCacheMountTypeOCI, mountType)
 
-	_, err = captureMountType(&v1beta1.KernelCacheConfig{DefaultMountType: "pvc"})
+	_, err = captureMountType(&kernelcacheconfig.KernelCacheConfig{DefaultMountType: "pvc"})
 	require.EqualError(t, err, `invalid kernelcache.defaultMountType "pvc"`)
 }
 
@@ -464,11 +465,11 @@ func newCaptureNodeGroupHarness(
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, rbacv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 	image := "registry.example.com/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	capture := &v1alpha1.KernelCacheCapture{
 		ObjectMeta: metav1.ObjectMeta{Name: "model-capture", Namespace: "team", Generation: 1},
-		Spec:       v1alpha1.KernelCacheCaptureSpec{SourceRef: v1alpha1.KernelCacheSourceRef{Kind: "InferenceService", Name: "model"}},
+		Spec:       v1alpha1.KernelCacheCaptureSpec{SourceRef: v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: "model"}},
 		Status: v1alpha1.KernelCacheCaptureStatus{
 			Phase:         v1alpha1.KernelCacheCapturePhaseComplete,
 			ActiveSession: &v1alpha1.KernelCacheCaptureSession{ID: "session", PodName: "model-pod", NodeName: nodeName, RequestedNodeGroup: requestedNodeGroup},
@@ -494,7 +495,7 @@ func newCaptureNodeGroupHarness(
 	}
 	require.True(t, isCaptureComplete(capture), "capture fixture must be complete")
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"defaultMountType":"oci","defaultNodeGroup":"` + defaultNodeGroup + `"}`},
 	}
 	objects := []client.Object{capture, configMap}

@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 )
 
 const (
@@ -107,17 +107,17 @@ type ServiceAccountTokenProvider struct {
 	TTLSeconds int64
 }
 
-func NewProvider(c kubernetes.Interface, cfg v1beta1.KernelCacheRegistryConfig) (RegistryAuthProvider, error) {
+func NewProvider(c kubernetes.Interface, cfg kernelcacheconfig.KernelCacheRegistryConfig) (RegistryAuthProvider, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	switch cfg.Auth.Type {
-	case "", v1beta1.KernelCacheRegistryAuthTypeNone:
+	case "", kernelcacheconfig.KernelCacheRegistryAuthTypeNone:
 		return NoAuthProvider{}, nil
-	case v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken:
+	case kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken:
 		ttl := cfg.Auth.TokenTTLSeconds
 		if ttl == 0 {
-			ttl = v1beta1.DefaultKernelCacheRegistryTokenTTLSeconds
+			ttl = kernelcacheconfig.DefaultKernelCacheRegistryTokenTTLSeconds
 		}
 		return &ServiceAccountTokenProvider{Client: c, TTLSeconds: ttl}, nil
 	default:

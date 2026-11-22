@@ -22,19 +22,19 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 )
 
 func TestCaptureRegistryProjection(t *testing.T) {
-	cfg := v1beta1.KernelCacheRegistryConfig{
+	cfg := kernelcacheconfig.KernelCacheRegistryConfig{
 		Endpoint: "registry.example:5000",
-		Auth: v1beta1.KernelCacheRegistryAuth{
-			Type:        v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken,
-			PushRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
-			PullRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
+		Auth: kernelcacheconfig.KernelCacheRegistryAuth{
+			Type:        kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken,
+			PushRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
+			PullRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
 		},
-		CAConfigMapRef: &v1beta1.KernelCacheConfigMapKeyRef{Name: "registry-ca", Key: "bundle"},
+		CAConfigMapRef: &kernelcacheconfig.KernelCacheConfigMapKeyRef{Name: "registry-ca", Key: "bundle"},
 	}
 	pod := corev1.PodSpec{ServiceAccountName: "runtime"}
 	container := corev1.Container{Name: "mcv"}
@@ -124,22 +124,22 @@ func TestCaptureRegistryRejectsConflictsWithoutPartialMutation(t *testing.T) {
 	}
 }
 
-func captureRegistryTestConfig() v1beta1.KernelCacheRegistryConfig {
-	return v1beta1.KernelCacheRegistryConfig{
+func captureRegistryTestConfig() kernelcacheconfig.KernelCacheRegistryConfig {
+	return kernelcacheconfig.KernelCacheRegistryConfig{
 		Endpoint: "registry.example:5000",
-		Auth: v1beta1.KernelCacheRegistryAuth{
-			Type:        v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken,
-			PushRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
-			PullRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
+		Auth: kernelcacheconfig.KernelCacheRegistryAuth{
+			Type:        kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken,
+			PushRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
+			PullRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
 		},
-		CAConfigMapRef: &v1beta1.KernelCacheConfigMapKeyRef{Name: "registry-ca", Key: "bundle"},
+		CAConfigMapRef: &kernelcacheconfig.KernelCacheConfigMapKeyRef{Name: "registry-ca", Key: "bundle"},
 	}
 }
 
 func TestRegistryCAWithoutAuthentication(t *testing.T) {
-	cfg := v1beta1.KernelCacheRegistryConfig{
-		Auth:           v1beta1.KernelCacheRegistryAuth{Type: v1beta1.KernelCacheRegistryAuthTypeNone},
-		CAConfigMapRef: &v1beta1.KernelCacheConfigMapKeyRef{Name: "ca", Key: "bundle"},
+	cfg := kernelcacheconfig.KernelCacheRegistryConfig{
+		Auth:           kernelcacheconfig.KernelCacheRegistryAuth{Type: kernelcacheconfig.KernelCacheRegistryAuthTypeNone},
+		CAConfigMapRef: &kernelcacheconfig.KernelCacheConfigMapKeyRef{Name: "ca", Key: "bundle"},
 	}
 	pod := corev1.PodSpec{}
 	container := corev1.Container{}
@@ -151,7 +151,7 @@ func TestRegistryCAWithoutAuthentication(t *testing.T) {
 }
 
 func TestCaptureRegistryInsecureWithoutAuthentication(t *testing.T) {
-	cfg := v1beta1.KernelCacheRegistryConfig{Insecure: true}
+	cfg := kernelcacheconfig.KernelCacheRegistryConfig{Insecure: true}
 	container := corev1.Container{}
 
 	require.NoError(t, ApplyCaptureRegistry(&corev1.PodSpec{}, &container, cfg, ""))
