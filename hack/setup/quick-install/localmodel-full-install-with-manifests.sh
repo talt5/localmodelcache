@@ -9196,6 +9196,13 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - localmodelcaches/finalizers
+  - localmodelnamespacecaches/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - localmodelcaches/status
   - localmodelnamespacecaches/status
   verbs:
@@ -9292,6 +9299,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelnodes/finalizers
+  verbs:
+  - update
 - apiGroups:
   - serving.kserve.io
   resources:
