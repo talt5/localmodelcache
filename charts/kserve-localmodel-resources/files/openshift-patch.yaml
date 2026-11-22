@@ -73,8 +73,12 @@ priority: null
 readOnlyRootFilesystem: false
 runAsUser:
   type: MustRunAsNonRoot
+# Level s0, not the namespace's MCS categories: CRI-O relabels the cache volume with the pod's
+# level, and files at s0 stay readable by the node agent and by model servers in any namespace.
 seLinuxContext:
   type: MustRunAs
+  seLinuxOptions:
+    level: s0
 supplementalGroups:
   type: RunAsAny
 seccompProfiles:

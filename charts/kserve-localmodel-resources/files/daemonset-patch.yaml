@@ -34,6 +34,10 @@ spec:
       securityContext:
         runAsUser: {{ $os.runAsUser }}
         runAsGroup: {{ $os.runAsGroup }}
+        {{- with $os.seLinuxType }}
+        seLinuxOptions:
+          type: {{ . }}
+        {{- end }}
       {{- if $os.prepareHostPath.enabled }}
       initContainers:
       - name: prepare-host-path
@@ -67,10 +71,6 @@ spec:
             add:
             - CHOWN
             - FOWNER
-          {{- with $os.prepareHostPath.seLinuxType }}
-          seLinuxOptions:
-            type: {{ . }}
-          {{- end }}
         volumeMounts:
         - name: models
           mountPath: /mnt/models
