@@ -20,3 +20,8 @@ spec:
         imagePullPolicy: {{ .Values.kserve.kernelcachenode.controller.imagePullPolicy }}
         resources:
           {{- toYaml .Values.kserve.kernelcachenode.controller.resources | nindent 10 }}
+  {{- if .Values.openshift.enabled }}
+    metadata:
+      annotations:
+        openshift.io/required-scc: restricted-v2
+  {{- end }}

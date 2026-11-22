@@ -106,6 +106,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodel.sharedPVCImportFSGroup | int | `1000` | fsGroup for shared-PVC import Jobs, which run in the cache's namespace. Independent of securityContext.fsGroup (per-node download Jobs). Set to null to omit it and let namespace admission (e.g. an OpenShift SCC) assign the group. |
 | kserve.localmodelnode.controller.affinity | object | `{}` |  |
 | kserve.localmodelnode.controller.extraArgs | list | `[]` | Additional container arguments. Example: ["--log-format=otel-json"]. |
+| kserve.localmodelnode.controller.hostPath | string | `"/models"` | Node directory that holds the model cache. It must match the path of the PersistentVolume in your LocalModelNodeGroup. On OpenShift (RHCOS) the root filesystem is immutable, so use a path under /var, such as /var/mnt/models. |
 | kserve.localmodelnode.controller.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
 | kserve.localmodelnode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.localmodelnode.controller.nodeSelector.kserve/localmodel | string | `"worker"` |  |
@@ -164,3 +165,10 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.storage.uidModelcar | int | `1010` |  |
 | kserve.storagecontainer.enabled | string | `""` |  |
 | kserve.version | string | `"v0.21.0"` |  |
+| openshift.downloadJobServiceAccount | string | `"default"` | ServiceAccount in kserve.localmodel.jobNamespace that runs the model download Jobs. It is granted the download Job SCC, which permits the Jobs' fsGroup. |
+| openshift.enabled | bool | `false` | Deploy on OpenShift. Creates SecurityContextConstraints (SCCs), grants them to the chart's ServiceAccounts and the download Job ServiceAccount, and pins each pod to its SCC. |
+| openshift.localmodelnode.prepareHostPath.enabled | bool | `true` | Run an init container that creates the cache directory, gives it to runAsUser:runAsGroup and labels it container_file_t so SELinux lets pods write it. Disable it if you prepare the nodes yourself, for example with a MachineConfig. |
+| openshift.localmodelnode.prepareHostPath.image | string | `"registry.access.redhat.com/ubi9/ubi-minimal:latest"` | Image for the init container. It needs sh, mkdir, chown, chmod and chcon. |
+| openshift.localmodelnode.prepareHostPath.seLinuxType | string | `"spc_t"` | SELinux type of the init container. It must be allowed to relabel the host directory. |
+| openshift.localmodelnode.runAsGroup | int | `1000` | GID the node agent runs as. Download Jobs share it through their fsGroup (kserve.localmodel.securityContext.fsGroup), so both can write the cache. |
+| openshift.localmodelnode.runAsUser | int | `1000` | UID the node agent runs as. It owns the model cache on the node. |

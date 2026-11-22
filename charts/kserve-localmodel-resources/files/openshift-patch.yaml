@@ -1,0 +1,194 @@
+{{- if .Values.openshift.enabled }}
+---
+# The node agent mounts the model cache from the node (hostPath), which restricted-v2 forbids.
+# runAsUser and seLinuxContext are RunAsAny so the optional prepare-host-path init container can
+# run as root with a SELinux type that may relabel the host directory.
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodelnode-agent
+allowHostDirVolumePlugin: true
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities:
+- CHOWN
+- FOWNER
+defaultAddCapabilities: []
+requiredDropCapabilities: []
+fsGroup:
+  type: RunAsAny
+readOnlyRootFilesystem: false
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+seccompProfiles:
+- runtime/default
+volumes:
+- configMap
+- downwardAPI
+- emptyDir
+- hostPath
+- persistentVolumeClaim
+- projected
+- secret
+users: []
+groups: []
+---
+# Download Jobs set fsGroup (kserve.localmodel.securityContext.fsGroup), which falls outside the
+# namespace's range that restricted-v2 enforces. Otherwise this matches restricted-v2.
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodel-download-job
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: []
+requiredDropCapabilities:
+- ALL
+fsGroup:
+  type: RunAsAny
+readOnlyRootFilesystem: false
+runAsUser:
+  type: MustRunAsNonRoot
+seLinuxContext:
+  type: MustRunAs
+supplementalGroups:
+  type: RunAsAny
+seccompProfiles:
+- runtime/default
+volumes:
+- configMap
+- csi
+- downwardAPI
+- emptyDir
+- ephemeral
+- persistentVolumeClaim
+- projected
+- secret
+users: []
+groups: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodelnode-agent-scc
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  resourceNames:
+  - kserve-localmodelnode-agent
+  verbs:
+  - use
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodel-download-job-scc
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  resourceNames:
+  - kserve-localmodel-download-job
+  verbs:
+  - use
+---
+# The controller and the kernel cache agent run under restricted-v2. Granting it explicitly keeps
+# them admitted when a cluster removes restricted-v2 from system:authenticated.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodel-restricted-scc
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  resourceNames:
+  - restricted-v2
+  verbs:
+  - use
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodelnode-agent-scc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kserve-localmodelnode-agent-scc
+subjects:
+- kind: ServiceAccount
+  name: kserve-localmodelnode-agent
+  namespace: {{ .Release.Namespace }}
+---
+# A ClusterRoleBinding, not a RoleBinding, because the job namespace may not exist yet at install time.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodel-download-job-scc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kserve-localmodel-download-job-scc
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.openshift.downloadJobServiceAccount }}
+  namespace: {{ .Values.kserve.localmodel.jobNamespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodel-restricted-scc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kserve-localmodel-restricted-scc
+subjects:
+- kind: ServiceAccount
+  name: kserve-localmodel-controller-manager
+  namespace: {{ .Release.Namespace }}
+- kind: ServiceAccount
+  name: kserve-kernelcachenode-agent
+  namespace: {{ .Release.Namespace }}
+{{- end }}
