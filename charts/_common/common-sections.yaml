@@ -83,7 +83,8 @@ localmodelcache:
       failurePolicy: 'reject'
       cert:
         signingProfileRef: 'kernelcache-signer'
-        trustBundle: 'localmodelcache/kernelcache-root-ca'
+        # -- Secret or ConfigMap (namespace/name) with the CA that artifacts must be signed by. Empty uses kernelcache-root-ca in the release namespace.
+        trustBundle: ''
         trustBundleKey: ''
         subjectRegexp: 'spiffe://localmodelcache/kernelcache-signer'
     abandonedCapturePolicy: 'retain'

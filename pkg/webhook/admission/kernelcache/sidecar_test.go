@@ -216,7 +216,7 @@ func TestInjectSidecarUsesReplicaSetRevisionIdentity(t *testing.T) {
 		}
 	}
 	require.NotNil(t, reporterVolume)
-	require.False(t, *reporterVolume.Projected.Sources[0].Secret.Optional)
+	require.True(t, *reporterVolume.Projected.Sources[0].Secret.Optional, "the Secret is gone when the Pod starts again after its capture")
 }
 
 func TestInjectSidecarConfiguresRegistryAccessForServiceAccountToken(t *testing.T) {

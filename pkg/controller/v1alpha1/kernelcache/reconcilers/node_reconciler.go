@@ -20,12 +20,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"sort"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -61,7 +61,11 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, _ ctrl.Reques
 		return ctrl.Result{}, fmt.Errorf("load KernelCache configuration: %w", err)
 	}
 	if !config.Enabled {
-		return ctrl.Result{}, nil
+		// Take the agent off the nodes. Installs that never use the kernel cache may not have it.
+		if err := r.reconcileAgentDaemonSet(ctx, nil); client.IgnoreNotFound(err) != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, r.reconcileKernelCacheNodes(ctx, nil)
 	}
 
 	groups, err := r.listAndValidateNodeGroups(ctx)
@@ -158,7 +162,7 @@ func validateKernelCacheNodeGroups(groups []v1alpha1.KernelCacheNodeGroup) error
 func (r *KernelCacheNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.KernelCacheNodeGroup{}).
-		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(r.nodeToNodeGroupRequests)).
+		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(r.nodeToNodeGroupRequests), builder.WithPredicates(kernelCacheNodePredicate())).
 		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(r.nodeToNodeGroupRequests), builder.WithPredicates(r.localModelConfigMapPredicate())).
 		Complete(r)
 }
@@ -185,16 +189,15 @@ func (r *KernelCacheNodeReconciler) reconcileAgentDaemonSet(ctx context.Context,
 	}
 
 	original := daemonSet.DeepCopy()
-	daemonSet.Spec.Template.Spec.NodeSelector = nil
+	if len(groups) > 0 {
+		// The chart keeps the agent off all nodes with a node selector while it is disabled.
+		daemonSet.Spec.Template.Spec.NodeSelector = nil
+	}
 	daemonSet.Spec.Template.Spec.Affinity = agentAffinity(groups, daemonSet.Spec.Template.Spec.Affinity)
 	daemonSet.Spec.Template.Spec.Tolerations = agentTolerations(groups)
-
-	if original.Spec.Template.Spec.NodeSelector == nil &&
-		reflect.DeepEqual(original.Spec.Template.Spec.Affinity, daemonSet.Spec.Template.Spec.Affinity) &&
-		reflect.DeepEqual(original.Spec.Template.Spec.Tolerations, daemonSet.Spec.Template.Spec.Tolerations) {
+	if equality.Semantic.DeepEqual(original.Spec, daemonSet.Spec) {
 		return nil
 	}
-
 	return r.Patch(ctx, daemonSet, client.MergeFrom(original))
 }
 

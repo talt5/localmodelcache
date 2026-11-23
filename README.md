@@ -262,8 +262,32 @@ Opt in through the Pod template of a Deployment:
 | `local.cache.ai/kernelcache-sidecar-injection` | `"true"` or `"false"` to override capture for this workload. |
 
 The `kernelcache` key of `localmodelcache-config` turns the feature on and sets the registry
-captured images are pushed to. See
+captured images are pushed to. The cluster must support OCI image volumes. With Helm and the
+registry of OpenShift:
+
+```yaml
+localmodelcache:
+  kernelcache:
+    enabled: true
+    registry:
+      endpoint: image-registry.openshift-image-registry.svc:5000
+      caConfigMapRef: {name: openshift-service-ca.crt, key: service-ca.crt}
+      auth:
+        type: serviceAccountToken
+        # The chart lets the controller bind these roles in the namespaces of the workloads.
+        pushRoleRef: {kind: ClusterRole, name: "system:image-builder"}
+        pullRoleRef: {kind: ClusterRole, name: "system:image-puller"}
+```
+
+Then name the nodes that get the images in a `KernelCacheNodeGroup`, whose `nodeSelector` and
+`tolerations` also place the kernel cache agent, and deploy
 [docs/samples/vllm-kernel-cache.yaml](docs/samples/vllm-kernel-cache.yaml).
+
+A Pod that cannot use or capture a cache starts without it, with an admission warning. One reason is
+a volume of its own at a parent of the cache path, such as `/root/.cache`.
+
+A cache outlives its Deployment, so that the next Deployment with the same runtime and model starts
+fast. To remove one, delete its `KernelCache` and, in the registry, its image and signature.
 
 ## Development
 

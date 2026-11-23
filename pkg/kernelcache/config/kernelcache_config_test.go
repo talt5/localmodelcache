@@ -57,7 +57,7 @@ func TestNewKernelCacheConfigDefaults(t *testing.T) {
 		g.Expect(config.ArtifactSecurity.FailurePolicy).To(gomega.Equal(string(kernelcachetypes.FailurePolicyReject)))
 		g.Expect(config.ArtifactSecurity.Cert).To(gomega.Equal(KernelCacheArtifactCertConfig{
 			SigningProfileRef: DefaultKernelCacheArtifactSigningProfileRef,
-			TrustBundle:       DefaultKernelCacheArtifactTrustBundle,
+			TrustBundle:       defaultTrustBundle(),
 			SubjectRegexp:     DefaultKernelCacheArtifactSubjectRegexp,
 		}))
 		g.Expect(config.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())

@@ -17,6 +17,10 @@ limitations under the License.
 package kernelcache
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -114,4 +118,31 @@ func TestInjectKernelCacheMountRejectsUnresolvedEnvironment(t *testing.T) {
 
 	err := injectKernelCacheMount(pod, cache, &kernelcacheconfig.KernelCacheConfig{})
 	require.ErrorContains(t, err, "VLLM_CACHE_ROOT uses valueFrom")
+}
+
+// A node reboot runs the init containers again, over the links of the first run.
+func TestKernelCacheLinkerCanRunAgain(t *testing.T) {
+	if output, err := exec.CommandContext(t.Context(), "cp", "--version").CombinedOutput(); err != nil || !strings.Contains(string(output), "GNU") {
+		t.Skip("the linker image has GNU cp")
+	}
+	source, target := t.TempDir(), filepath.Join(t.TempDir(), "cache")
+	require.NoError(t, os.MkdirAll(filepath.Join(source, "torch", "rank_0"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(source, "torch", "rank_0", "model"), []byte("captured"), 0o600))
+	link := func() {
+		t.Helper()
+		output, err := exec.CommandContext(t.Context(), "/bin/sh", "-c", kernelCacheLinkerScript, kernelCacheLinkerName, source, target).CombinedOutput() // #nosec G204 -- fixed script
+		require.NoError(t, err, string(output))
+	}
+	link()
+	// What the runtime adds stays.
+	require.NoError(t, os.WriteFile(filepath.Join(target, "torch", "new"), []byte("compiled"), 0o600))
+	link()
+
+	content, err := os.ReadFile(filepath.Join(target, "torch", "rank_0", "model")) // #nosec G304 -- test directory
+	require.NoError(t, err)
+	require.Equal(t, "captured", string(content))
+	destination, err := os.Readlink(filepath.Join(target, "torch", "rank_0", "model"))
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(source, "torch", "rank_0", "model"), filepath.Clean(destination))
+	require.FileExists(t, filepath.Join(target, "torch", "new"))
 }

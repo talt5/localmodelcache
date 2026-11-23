@@ -6,10 +6,13 @@ metadata:
 spec:
   template:
     spec:
-      tolerations:
-        {{- toYaml (.Values.localmodelcache.kernelcachenode.controller.tolerations | default list) | nindent 8 }}
-      affinity:
-        {{- toYaml (.Values.localmodelcache.kernelcachenode.controller.affinity | default dict) | nindent 8 }}
+      # The controller sets the affinity and tolerations from the KernelCacheNodeGroups. Set
+      # neither here, or server-side apply refuses the next upgrade.
+      {{- if not .Values.localmodelcache.kernelcache.enabled }}
+      # Matches no node.
+      nodeSelector:
+        local.cache.ai/kernelcache-agent: disabled
+      {{- end }}
       containers:
       - name: manager
         image: "{{ .Values.localmodelcache.kernelcachenode.controller.image }}:{{ .Values.localmodelcache.kernelcachenode.controller.tag | default .Values.localmodelcache.version }}"
