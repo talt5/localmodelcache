@@ -133,7 +133,7 @@ func (r *KernelCacheNodeReconciler) getPreparationPodFailure(ctx context.Context
 	}
 
 	pods := &corev1.PodList{}
-	// Prefetch Pods are not in the ISVC-filtered manager cache.
+	// The manager caches only Pods with the workload label, which prefetch Pods do not have.
 	reader := client.Reader(r.Client)
 	if r.Reader != nil {
 		reader = r.Reader

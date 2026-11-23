@@ -29,7 +29,7 @@ import (
 )
 
 // TestNoUpstreamNames fails when a tracked file uses a name of KServe, the project this one was
-// forked from. Names that live outside the Go build, such as API paths in scripts, would
+// forked from, or of its InferenceService. Names that live outside the Go build, such as API paths in scripts, would
 // otherwise only fail at runtime.
 func TestNoUpstreamNames(t *testing.T) {
 	root, err := exec.CommandContext(t.Context(), "git", "rev-parse", "--show-toplevel").Output()
@@ -42,9 +42,10 @@ func TestNoUpstreamNames(t *testing.T) {
 
 	skipped := map[string]bool{"LICENSE": true, "NOTICE": true, "pkg/testing/branding_test.go": true}
 	// Copyright notices and attribution must stay, and upstream issues are references.
-	allowed := regexp.MustCompile(`The KServe Authors|fork of \[?KServe|\(https://github\.com/kserve/kserve\)|kserve#\d+|upstream KServe|[Ww]ebhook[Ss]erver`)
+	allowed := regexp.MustCompile(`The KServe Authors|fork of \[?KServe|\(https://github\.com/kserve/kserve\)|kserve#\d+|upstream KServe|[Ww]ebhook[Ss]erver` +
+		`|no InferenceService or LLMInferenceService|InferenceService and LLMInferenceService are gone`)
 	upgrade := regexp.MustCompile(`(?s)### Upgrade from v0\.1.*?\n## `)
-	name := regexp.MustCompile(`(?i)kserve`)
+	name := regexp.MustCompile(`(?i)kserve|inference-?service|llmisvc|\bisvc`)
 
 	for path := range strings.SplitSeq(strings.TrimRight(string(listed), "\x00"), "\x00") {
 		if skipped[path] {

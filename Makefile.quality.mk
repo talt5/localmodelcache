@@ -123,7 +123,7 @@ check: precommit ## What CI runs: precommit, then fail if it left the tree dirty
 	fi
 
 # Override TEST_PKGS to focus on specific packages, e.g.:
-#   make test TEST_PKGS="./pkg/controller/v1alpha2/llmisvc/..."
+#   make test TEST_PKGS="./pkg/controller/v1alpha1/localmodel/..."
 TEST_PKGS ?= $$(go list ./pkg/...) ./cmd/...
 TEST_TIMEOUT ?= 30m
 # -vet=off: go test's built-in vet runs a subset of the analyzers `make vet` runs,

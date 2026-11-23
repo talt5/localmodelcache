@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package types holds the data contracts for the kernel cache security
-// subsystem: the configuration read from the inferenceservice-config ConfigMap
+// subsystem: the configuration read from the localmodelcache-config ConfigMap
 // and the request/result structures exchanged with the security package's
 // Verifier and Signer. It carries data only (no behaviour beyond validation and
 // the ShouldBlock decision), so any package can reference these types without
@@ -51,7 +51,7 @@ const (
 )
 
 // SecurityConfig is the cluster-level security configuration. It mirrors the
-// "security" block of the "kernelcache" section in the inferenceservice-config
+// "security" block of the "kernelcache" section in the localmodelcache-config
 // ConfigMap; the json tags are the wire contract and must match that schema.
 // Mode-specific sub-configuration is added with each mode.
 type SecurityConfig struct {

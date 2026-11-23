@@ -4,88 +4,81 @@ Right-sized descriptions for `.github/PULL_REQUEST_TEMPLATE.md`. Each stays with
 
 ## Bug fix
 
-Adapted from #6327. The symptom users saw, the root cause in two sentences, the fix, and a test that fails on master.
+The symptom users saw, the root cause in two sentences, the fix, and a test that fails on master.
 
 ~~~markdown
-fix(python): send a single Content-Type for binary v2 REST requests
+fix(localmodelnode): start downloads on tainted nodes
 
 **What this PR does / why we need it**:
 
-When a transformer forwards a v2 inference request carrying binary data to a REST v2 predictor, the predictor rejects it with `422 Unprocessable Entity` / `JSON decode error: Extra data`.
+On a tainted GPU node a cache stays at `NodeDownloadPending` forever, without an error.
 
-The model always passes a JSON `Content-Type`, and for binary requests the REST client added `application/octet-stream` under a differently cased key. Both went out, so the server parsed the binary tensor data as JSON. Binary requests now send exactly one `Content-Type` and leave the caller's headers untouched.
+The node agent tolerates the taint through the chart's `tolerations`, but the download Jobs it creates do not, so the scheduler never places them. The Jobs now get the same tolerations.
 
 **Feature/Issue validation/testing**:
 
-A new test sends a binary request with a transformer's headers to the in-process v2 server. It fails on master with the 422 and passes here.
+A chart test sets a toleration and expects it on both. On a cluster with a tainted node the download now completes. Both fail on master.
 
 **Release note**:
 
 ```release-note
-Fixed transformers failing with 422 when forwarding binary-encoded v2 REST inference requests to the predictor.
+`localmodelcache.localmodelnode.controller.tolerations` now applies to download Jobs as well as to the node agent.
 ```
 ~~~
 
 ## Feature
 
-Rewritten from #5916. What users can do now and why they need it, a short example, then the decisions a reviewer should weigh in on and whether an upgrade changes anything.
+What users can do now and why they need it, a short example, then the decisions a reviewer should weigh in on and whether an upgrade changes anything.
 
 ~~~markdown
-feat(llmisvc): add rolloutStrategy for controlling rolling updates
+feat(localmodel): refuse caches that exceed the storage limit
 
 **What this PR does / why we need it**:
 
-A single-node LLMInferenceService rolls with the Deployment defaults, which start extra pods before old ones go away. On a cluster without spare GPUs those pods wait for hardware that isn't there, and the rollout can stall.
+`storageLimit` on a LocalModelNodeGroup was only documentation. A cache too large for the disks of the group was accepted, and its downloads failed on every node once the disk was full.
 
-`rolloutStrategy` sets `maxSurge` and `maxUnavailable` for the main workload and, separately, for prefill. With no spare hardware, an old pod frees its GPU before its replacement is scheduled:
+A cache is now refused when the `modelSize` of all caches in a group would exceed its limit:
 
-```yaml
-spec:
-  rolloutStrategy:
-    maxSurge: 0
-    maxUnavailable: 1
+```
+LocalModelNodeGroup gpu: caching hf://org/model needs 210Gi in total, which exceeds its storageLimit 200Gi
 ```
 
-With spare capacity, a larger `maxSurge` finishes the rollout in fewer rounds. Both Deployments and LeaderWorkerSets honour it.
-
-**Which issue(s) this PR fixes**:
-
-Fixes #5452
+Caches with the same source URI share one folder on each node, so they count once.
 
 **Feature/Issue validation/testing**:
 
-Unit tests cover validation, v1alpha1 conversion, and how the strategy lands on Deployments and LeaderWorkerSets. On a GPU cluster with no spare capacity, a rollout with `maxSurge: 0` and `maxUnavailable: 1` completed, and patching the field on a live service updated its Deployment.
+Table tests cover create, update, shared URIs and several groups. On OpenShift, a cache over the limit was refused and one that fits exactly was accepted.
 
 **Special notes for your reviewer**:
 
-- When the field is omitted, the Kubernetes and LeaderWorkerSet defaults apply rather than a LocalModelCache default. Existing services see no change, but single-node and multi-node services keep rolling differently (25%/25% vs 1/0).
-- The webhook rejects `maxSurge` and `maxUnavailable` both set to zero. Kubernetes would refuse that Deployment anyway, but only when the controller writes it, so the error would show up at reconcile time instead of on apply.
+- The check trusts `modelSize`. Measuring the download would be exact, but only known once the disk is in use.
+- Two caches created at the same moment can both pass. The alternative, a lock, would hold up every create.
 
-The field is new and optional. Services that don't set it are unchanged, and nothing rolls on upgrade.
+Caches that already exceed a limit keep working and can be updated. Nothing rolls on upgrade.
 
 **Release note**:
 
 ```release-note
-LLMInferenceService accepts `spec.rolloutStrategy` and `spec.prefill.rolloutStrategy` with `maxSurge` and `maxUnavailable`, so rolling updates can run without spare GPUs or finish faster with surge capacity.
+Creating or growing a cache fails when the `modelSize` of all caches in a LocalModelNodeGroup would exceed its `storageLimit`.
 ```
 ~~~
 
 ## Refactor
 
-From #6311, unchanged apart from the checklist. Why the refactor is worth it, one number, and a plain statement that upgrades roll nothing. The only user-visible change gets one sentence.
+Why the refactor is worth it, one number, and a plain statement that upgrades roll nothing. The only user-visible change gets one sentence.
 
 ~~~markdown
-refactor(llmisvc): split pod template rendering from workload builders
+refactor(localmodel): share the download container between both kinds of Job
 
 **What this PR does / why we need it**:
 
-Splits each workload builder into a pod template renderer and a thin Deployment/LeaderWorkerSet wrapper. The DisaggregatedSet backend (#6330) now uses these shared renderers instead of its own hand-synced copies. All backends render pods from the same code, which removes about 370 lines of duplication.
+Per-node download Jobs and shared-PVC import Jobs each built their own download container. Settings had to be added twice, and the CA bundle reached only one of them. Both now use `pkg/controller/v1alpha1/localmodel/jobs`, which removes about 120 lines of duplication.
 
-No change in the objects the controller creates: pod templates, revisions, rollouts, restart policies and label/annotation propagation are identical to master, so upgrades trigger no rollouts. The only change users can see is clearer wording when attaching model artifacts fails. The error now names the template (for example `main pod template`) instead of a "deployment" that doesn't exist on the DisaggregatedSet path.
+Download Jobs are unchanged. Import Jobs now mount the CA bundle too, which is the only change users can see.
 
 **Special notes for your reviewer**:
 
-The DisaggregatedSet role functions are kept as thin adapters, so their callers are unchanged.
+The helpers take the settings as arguments instead of reading the ConfigMap, so their callers decide how often it is read.
 
 **Release note**:
 

@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
 	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 	"github.com/talt5/localmodelcache/pkg/kernelcache/nodegroup"
 )
@@ -99,7 +100,7 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, 0, reasonConfigError, fmt.Sprintf("unsupported KernelCache mount type %q", mountType), mountType)
 	}
 	if !config.Enabled {
-		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStatePending, 0, reasonFeatureDisabled, "kernel cache is disabled in inferenceservice-config", mountType)
+		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStatePending, 0, reasonFeatureDisabled, "kernel cache is disabled in "+constants.LocalModelConfigMapName, mountType)
 	}
 	verified, err := r.reconcileArtifactVerification(ctx, kernelCache, config)
 	if err != nil {
