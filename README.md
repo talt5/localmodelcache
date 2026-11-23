@@ -142,9 +142,65 @@ model's path inside the node group's volume.
 Deleting the cache is refused while a running Pod mounts its claim. The whole example is in
 [docs/samples/vllm-node-local.yaml](docs/samples/vllm-node-local.yaml).
 
-A cluster-scoped `LocalModelCache` pre-loads the nodes without creating claims. Caches with
-the same `sourceModelUri` share one folder on each node, so a `LocalModelNamespaceCache` in a
-workload namespace reuses a model the `LocalModelCache` already downloaded.
+### `LocalModelCache` or `LocalModelNamespaceCache`
+
+A PVC belongs to one namespace, so the cluster-scoped `LocalModelCache` only downloads models:
+
+| | `LocalModelCache` | `LocalModelNamespaceCache` |
+| --- | --- | --- |
+| Scope | cluster | namespace |
+| Downloads to the node group | yes | yes |
+| Creates a PVC for workloads | no | yes |
+| Refuses deletion while Pods use the model | no | yes, with `nodeGroups` |
+| Shared PVC (`pvcRef`) | no | yes |
+
+If a few namespaces use a model, create a `LocalModelNamespaceCache` in each. To pre-load a model
+centrally as well, create a `LocalModelCache` with the same `sourceModelUri`. Caches with the
+same URI share one folder on each node, and the files stay until the last of them is deleted.
+
+To use a `LocalModelCache` alone, create the PV and PVC yourself in each namespace. Take
+`<status.subPath>` from `kubectl get localmodelcache <name> -o jsonpath='{.status.subPath}'`:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: qwen3-team-a   # unique per namespace
+spec:
+  accessModes: [ReadOnlyMany]
+  capacity:
+    storage: 10Gi
+  storageClassName: local-storage
+  persistentVolumeReclaimPolicy: Retain
+  claimRef:
+    namespace: team-a
+    name: qwen3
+  local:
+    path: /mnt/models/<status.subPath>   # /var/mnt/models/<status.subPath> on OpenShift
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kserve/localmodel
+              operator: In
+              values: [worker]
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen3
+  namespace: team-a
+spec:
+  accessModes: [ReadOnlyMany]
+  storageClassName: local-storage
+  volumeName: qwen3-team-a
+  resources:
+    requests:
+      storage: 10Gi
+```
+
+Mount this claim with `readOnly: true` too. Nothing protects it: deleting the `LocalModelCache`
+removes the files under running Pods, unless another cache uses the same URI.
 
 ### Shared PVC instead of node disks
 
