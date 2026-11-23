@@ -1089,3 +1089,24 @@ webhooks:
     resources:
     - localmodelcaches
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: localmodel-webhook-server-service
+      namespace: kserve
+      path: /validate-serving-kserve-io-v1alpha1-localmodelnamespacecache
+  failurePolicy: Fail
+  name: localmodelnamespacecache.kserve-webhook-server.validator
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - localmodelnamespacecaches
+  sideEffects: None
