@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kserve-kernelcache-nodegroup-manager
+  name: localmodelcache-kernelcache-nodegroup-manager
 rules:
 - apiGroups:
   - ""
@@ -43,7 +43,7 @@ rules:
 - apiGroups:
   - apps
   resourceNames:
-  - kserve-kernelcachenode-agent
+  - localmodelcache-kernelcache-agent
   resources:
   - daemonsets
   verbs:
@@ -112,7 +112,7 @@ rules:
 - apiGroups:
   - rbac.authorization.k8s.io
   resourceNames:
-  - kserve-kernelcache-token-requester
+  - localmodelcache-kernelcache-token-requester
   resources:
   - clusterroles
   verbs:

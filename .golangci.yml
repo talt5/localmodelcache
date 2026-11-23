@@ -178,7 +178,7 @@ linters:
   settings:
     depguard:
       rules:
-        # Downstreams import the API types without the rest of kserve. These
+        # Downstreams import the API types without the rest of localmodelcache. These
         # packages bring in the cloud storage SDKs and credentials handling.
         apis:
           list-mode: lax

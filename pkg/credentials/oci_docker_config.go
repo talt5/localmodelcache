@@ -36,7 +36,7 @@ const (
 	CaBundleVolumeName = "cabundle-cert"
 	// OciFetchDockerConfigVolumeName is the projected-secret volume that carries the
 	// registry credentials (docker config.json) into the storage-initializer container.
-	OciFetchDockerConfigVolumeName = "kserve-oci-fetch-docker-config"
+	OciFetchDockerConfigVolumeName = "localmodelcache-oci-fetch-docker-config"
 	// OciFetchDockerConfigDir is the directory where the docker config.json is mounted.
 	// It is NOT under /root: the storage-initializer image runs as a non-root user (UID
 	// 1000), which cannot traverse /root (mode 0700). /mnt is chowned to that user in the
@@ -46,10 +46,10 @@ const (
 	OciFetchDockerConfigDir = "/mnt/oci-fetch-auth"
 	// OciFetchDockerConfigPathEnvVar signals to the Python handler where the docker
 	// config.json is mounted, keeping the cross-language path in one place (the Go side).
-	OciFetchDockerConfigPathEnvVar = "KSERVE_OCI_DOCKER_CONFIG"
+	OciFetchDockerConfigPathEnvVar = "LOCALMODELCACHE_OCI_DOCKER_CONFIG"
 	// OciInsecureRegistryEnvVar signals to the Python handler that the target
 	// registry should be treated as plain-HTTP/insecure (no TLS verification).
-	OciInsecureRegistryEnvVar = "KSERVE_OCI_INSECURE_REGISTRY"
+	OciInsecureRegistryEnvVar = "LOCALMODELCACHE_OCI_INSECURE_REGISTRY"
 )
 
 // ociFetchDockerConfigDefaultMode is the mode of the mounted docker config.
@@ -142,7 +142,7 @@ func MountImagePullSecretsAsDockerConfig(
 	})
 }
 
-// SetOciInsecureRegistryEnv sets KSERVE_OCI_INSECURE_REGISTRY=true on the download
+// SetOciInsecureRegistryEnv sets LOCALMODELCACHE_OCI_INSECURE_REGISTRY=true on the download
 // container when storageInitializer.ociInsecureRegistry is enabled. Overwrites an
 // existing value of the same name.
 func SetOciInsecureRegistryEnv(container *corev1.Container) {

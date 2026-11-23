@@ -23,16 +23,16 @@ import (
 	"strings"
 )
 
-// KServe Constants
+// LocalModelCache Constants
 const (
 	APIGroupName = "local.cache.ai"
 )
 
-var SystemNamespace = GetEnvOrDefault("POD_NAMESPACE", "kserve")
+var SystemNamespace = GetEnvOrDefault("POD_NAMESPACE", "localmodelcache")
 
 // LocalModelConfigMapName is the ConfigMap, in SystemNamespace, that configures the
 // local model cache and kernel cache controllers and their node agents.
-var LocalModelConfigMapName = "kserve-localmodel-config"
+var LocalModelConfigMapName = "localmodelcache-config"
 
 // Kernel cache annotations and labels
 var (
@@ -72,7 +72,7 @@ var (
 const (
 	OciURIPrefix = "oci://"
 
-	PvcSourceMountName = "kserve-pvc-source"
+	PvcSourceMountName = "localmodelcache-pvc-source"
 )
 
 // GPU Constants

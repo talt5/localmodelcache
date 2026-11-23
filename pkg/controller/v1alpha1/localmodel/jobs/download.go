@@ -36,9 +36,9 @@ import (
 
 const (
 	// DownloadContainerName is the name of the model download container.
-	DownloadContainerName = "kserve-localmodel-download"
+	DownloadContainerName = "localmodelcache-download"
 	// DefaultJobImage is used when no StorageInitializerConfig image is set.
-	DefaultJobImage = "ghcr.io/talt5/storage-initializer:latest"
+	DefaultJobImage = "ghcr.io/talt5/localmodelcache-storage-initializer:latest"
 )
 
 // ResolveDownloadContainer returns the download container for a source URI. It prefers a matching

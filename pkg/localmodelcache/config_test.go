@@ -98,7 +98,7 @@ func TestNewLocalModelConfig(t *testing.T) {
 
 func TestGetStorageInitializerConfigs(t *testing.T) {
 	baseJSON := func(extra string) string {
-		return `{"image":"kserve/storage-initializer:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1","caBundleConfigMapName":"","caBundleVolumeMountPath":"/etc/ssl/custom-certs"` + extra + `}`
+		return `{"image":"localmodelcache/storage-initializer:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1","caBundleConfigMapName":"","caBundleVolumeMountPath":"/etc/ssl/custom-certs"` + extra + `}`
 	}
 	parse := func(raw string) *corev1.ConfigMap {
 		return &corev1.ConfigMap{Data: map[string]string{StorageInitializerConfigKeyName: raw}}

@@ -34,7 +34,7 @@ import (
 	"github.com/talt5/localmodelcache/pkg/kernelcache/workload"
 )
 
-// +kubebuilder:webhook:path=/mutate-kernelcache-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=kernelcache.kserve-webhook-server.pod-mutator,reinvocationPolicy=IfNeeded
+// +kubebuilder:webhook:path=/mutate-kernelcache-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=kernelcache-pod-mutator.webhook.local.cache.ai,reinvocationPolicy=IfNeeded
 
 // PodMutator is the KernelCache Pod webhook entry point.
 type PodMutator struct {

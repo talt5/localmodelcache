@@ -59,7 +59,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		}
 
 		// Create namespaces required by the controllers
-		for _, ns := range []string{constants.SystemNamespace, "kserve-localmodel-jobs"} {
+		for _, ns := range []string{constants.SystemNamespace, "localmodelcache-jobs"} {
 			_, err := clientset.CoreV1().Namespaces().Create(context.Background(),
 				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}},
 				metav1.CreateOptions{})
@@ -77,8 +77,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 				},
 				Data: map[string]string{
 					"localModel": `{
-						"jobNamespace": "kserve-localmodel-jobs",
-						"defaultJobImage": "kserve/storage-initializer:latest",
+						"jobNamespace": "localmodelcache-jobs",
+						"defaultJobImage": "localmodelcache/storage-initializer:latest",
 						"fsGroup": 1000
 					}`,
 				},

@@ -86,7 +86,7 @@ func TestEnsureControllerRegistryBindingsCreatesAndUpdatesBindings(t *testing.T)
 	reconciler := &KernelCacheCaptureControllerReconciler{
 		Client:                 k8sClient,
 		Reader:                 k8sClient,
-		OperatorNamespace:      "kserve",
+		OperatorNamespace:      "localmodelcache",
 		OperatorServiceAccount: "localmodel-controller",
 	}
 	config := kernelcacheconfig.KernelCacheRegistryConfig{Auth: kernelcacheconfig.KernelCacheRegistryAuth{
@@ -109,7 +109,7 @@ func TestEnsureControllerRegistryBindingsCreatesAndUpdatesBindings(t *testing.T)
 		if binding.RoleRef.Name != roleName || binding.Labels[registryauth.ManagedLabel] != "true" {
 			t.Fatalf("unexpected controller registry binding: %#v", binding)
 		}
-		if len(binding.Subjects) != 1 || binding.Subjects[0].Name != "localmodel-controller" || binding.Subjects[0].Namespace != "kserve" {
+		if len(binding.Subjects) != 1 || binding.Subjects[0].Name != "localmodel-controller" || binding.Subjects[0].Namespace != "localmodelcache" {
 			t.Fatalf("unexpected controller registry subject: %#v", binding.Subjects)
 		}
 	}

@@ -442,7 +442,7 @@ func TestReconcileSharedPVCPreservesNotReadyOnImportJobReadError(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add core scheme: %v", err)
@@ -491,7 +491,7 @@ func TestFinalizeSharedPVCDeletesForegroundAndRetainsFinalizer(t *testing.T) {
 	}}
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := batchv1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add batch scheme: %v", err)
@@ -533,7 +533,7 @@ func TestFinalizeSharedPVCPreservesNotReadyOnJobReadError(t *testing.T) {
 	cache.Status.MarkReady(cache.Generation)
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	baseClient := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -589,7 +589,7 @@ func TestReconcileSharedPVCSurfacesCredentialErrorWithoutCreatingJob(t *testing.
 
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add core scheme: %v", err)
@@ -651,7 +651,7 @@ func TestReconcileSharedPVCMountsImagePullSecretFromCacheNamespace(t *testing.T)
 
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add core scheme: %v", err)
@@ -723,7 +723,7 @@ func TestReconcileSharedPVCMissingImagePullSecretSurfacesCredentialError(t *test
 
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add core scheme: %v", err)
@@ -773,7 +773,7 @@ func TestBuildImportJobFSGroup(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add core scheme: %v", err)
@@ -838,7 +838,7 @@ func sharedPVCFixture(t *testing.T, cache *v1alpha1.LocalModelNamespaceCache, pv
 	t.Helper()
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add core scheme: %v", err)

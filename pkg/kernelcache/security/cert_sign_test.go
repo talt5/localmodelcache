@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	signerSAN     = "spiffe://kserve-test/kc-signer"
-	signerSubject = `^spiffe://kserve-test/.*$`
+	signerSAN     = "spiffe://localmodelcache-test/kc-signer"
+	signerSubject = `^spiffe://localmodelcache-test/.*$`
 )
 
 // signerOver builds a cert-mode Signer that loads its material from src under the
@@ -63,18 +63,18 @@ func TestCertSign_RoundTrip(t *testing.T) {
 			ref, wantDigest := fixture.PushImage(t, host, "kc/sign")
 
 			src := &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-				"kserve/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, tc.pkcs8), leafPEM, ca.CertPEM),
-				"kserve/ca":     {"ca.crt": ca.CertPEM},
+				"localmodelcache/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, tc.pkcs8), leafPEM, ca.CertPEM),
+				"localmodelcache/ca":     {"ca.crt": ca.CertPEM},
 			}}
 
-			sres, err := signerOver(t, src, "kserve/signer").Sign(ctx, types.SignRequest{ImageRef: ref.Name()})
+			sres, err := signerOver(t, src, "localmodelcache/signer").Sign(ctx, types.SignRequest{ImageRef: ref.Name()})
 			require.NoError(t, err)
 			assert.Equal(t, types.ModeCert, sres.Mode)
 			assert.Equal(t, wantDigest, sres.Digest)
 
 			v, err := security.NewVerifier(ctx, types.SecurityConfig{
 				Mode: types.ModeCert,
-				Cert: types.CertConfig{TrustBundle: "kserve/ca", SubjectRegexp: signerSubject},
+				Cert: types.CertConfig{TrustBundle: "localmodelcache/ca", SubjectRegexp: signerSubject},
 			}, src)
 			require.NoError(t, err)
 			vres, err := v.Verify(ctx, types.VerifyRequest{ImageRef: ref.Name()})
@@ -95,17 +95,17 @@ func TestCertSign_IntermediateRoundTrip(t *testing.T) {
 	ref, wantDigest := fixture.PushImage(t, host, "kc/intermediate")
 
 	src := &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-		"kserve/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, true), tlsCertPEM, root.CertPEM),
-		"kserve/ca":     {"ca.crt": root.CertPEM},
+		"localmodelcache/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, true), tlsCertPEM, root.CertPEM),
+		"localmodelcache/ca":     {"ca.crt": root.CertPEM},
 	}}
 
-	sres, err := signerOver(t, src, "kserve/signer").Sign(ctx, types.SignRequest{ImageRef: ref.Name()})
+	sres, err := signerOver(t, src, "localmodelcache/signer").Sign(ctx, types.SignRequest{ImageRef: ref.Name()})
 	require.NoError(t, err)
 	assert.Equal(t, wantDigest, sres.Digest)
 
 	v, err := security.NewVerifier(ctx, types.SecurityConfig{
 		Mode: types.ModeCert,
-		Cert: types.CertConfig{TrustBundle: "kserve/ca", SubjectRegexp: signerSubject},
+		Cert: types.CertConfig{TrustBundle: "localmodelcache/ca", SubjectRegexp: signerSubject},
 	}, src)
 	require.NoError(t, err)
 	vres, err := v.Verify(ctx, types.VerifyRequest{ImageRef: ref.Name()})
@@ -124,15 +124,15 @@ func TestCertSign_CustomSecretKeys(t *testing.T) {
 	ref, _ := fixture.PushImage(t, host, "kc/customkeys")
 
 	src := &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-		"kserve/signer": {
+		"localmodelcache/signer": {
 			"signer.key": fixture.LeafKeyPEM(t, leafKey, true),
 			"signer.crt": leafPEM,
 			"chain.pem":  ca.CertPEM,
 		},
-		"kserve/ca": {"ca.crt": ca.CertPEM},
+		"localmodelcache/ca": {"ca.crt": ca.CertPEM},
 	}}
 	cfg := types.SecurityConfig{Mode: types.ModeCert, Cert: types.CertConfig{
-		TrustBundle: "kserve/ca", SubjectRegexp: signerSubject, SigningSecret: "kserve/signer",
+		TrustBundle: "localmodelcache/ca", SubjectRegexp: signerSubject, SigningSecret: "localmodelcache/signer",
 		SigningKeyKey: "signer.key", SigningCertKey: "signer.crt", SigningChainKey: "chain.pem",
 	}}
 
@@ -163,12 +163,12 @@ func TestCertSign_KeyCertMismatch(t *testing.T) {
 	_, certB := ca.IssueLeaf(t, fixture.WithSAN(signerSAN))
 
 	src := &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-		"kserve/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, keyA, true), certB, ca.CertPEM),
+		"localmodelcache/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, keyA, true), certB, ca.CertPEM),
 	}}
 
 	s, err := security.NewSigner(context.Background(), types.SecurityConfig{
 		Mode: types.ModeCert,
-		Cert: types.CertConfig{SigningSecret: "kserve/signer"},
+		Cert: types.CertConfig{SigningSecret: "localmodelcache/signer"},
 	}, src)
 	assert.Nil(t, s)
 	require.Error(t, err)
@@ -179,12 +179,12 @@ func TestCertSign_RejectsNonCAInCAChain(t *testing.T) {
 	ca := fixture.NewCA(t)
 	leafKey, leafPEM := ca.IssueLeaf(t, fixture.WithSAN(signerSAN))
 	src := &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-		"kserve/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, true), leafPEM, leafPEM),
+		"localmodelcache/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, true), leafPEM, leafPEM),
 	}}
 
 	s, err := security.NewSigner(context.Background(), types.SecurityConfig{
 		Mode: types.ModeCert,
-		Cert: types.CertConfig{SigningSecret: "kserve/signer"},
+		Cert: types.CertConfig{SigningSecret: "localmodelcache/signer"},
 	}, src)
 	assert.Nil(t, s)
 	require.Error(t, err)
@@ -196,14 +196,14 @@ func TestCertSign_RejectsNonCAInCAChain(t *testing.T) {
 // (anchored to a different trust bundle) can never validate.
 func TestCertSign_UnrelatedCAChain(t *testing.T) {
 	caA := fixture.NewCA(t)
-	caB := fixture.NewCA(t, fixture.WithCACommonName("kserve-kernelcache-unrelated-test-ca"))
+	caB := fixture.NewCA(t, fixture.WithCACommonName("localmodelcache-kernelcache-unrelated-test-ca"))
 	leafKey, leafPEM := caA.IssueLeaf(t, fixture.WithSAN(signerSAN))
 	src := &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-		"kserve/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, true), leafPEM, caB.CertPEM),
+		"localmodelcache/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, true), leafPEM, caB.CertPEM),
 	}}
 	s, err := security.NewSigner(context.Background(), types.SecurityConfig{
 		Mode: types.ModeCert,
-		Cert: types.CertConfig{SigningSecret: "kserve/signer"},
+		Cert: types.CertConfig{SigningSecret: "localmodelcache/signer"},
 	}, src)
 	assert.Nil(t, s)
 	require.Error(t, err)
@@ -220,17 +220,17 @@ func TestCertSign_RoundTripRSA_PKCS1(t *testing.T) {
 	ref, wantDigest := fixture.PushImage(t, host, "kc/sign-rsa")
 
 	src := &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-		"kserve/signer": fixture.SigningSecret(fixture.RSAKeyPEMPKCS1(t, leafKey), leafPEM, ca.CertPEM),
-		"kserve/ca":     {"ca.crt": ca.CertPEM},
+		"localmodelcache/signer": fixture.SigningSecret(fixture.RSAKeyPEMPKCS1(t, leafKey), leafPEM, ca.CertPEM),
+		"localmodelcache/ca":     {"ca.crt": ca.CertPEM},
 	}}
 
-	sres, err := signerOver(t, src, "kserve/signer").Sign(ctx, types.SignRequest{ImageRef: ref.Name()})
+	sres, err := signerOver(t, src, "localmodelcache/signer").Sign(ctx, types.SignRequest{ImageRef: ref.Name()})
 	require.NoError(t, err)
 	assert.Equal(t, wantDigest, sres.Digest)
 
 	v, err := security.NewVerifier(ctx, types.SecurityConfig{
 		Mode: types.ModeCert,
-		Cert: types.CertConfig{TrustBundle: "kserve/ca", SubjectRegexp: signerSubject},
+		Cert: types.CertConfig{TrustBundle: "localmodelcache/ca", SubjectRegexp: signerSubject},
 	}, src)
 	require.NoError(t, err)
 	vres, err := v.Verify(ctx, types.VerifyRequest{ImageRef: ref.Name()})
@@ -256,49 +256,49 @@ func TestCertSign_ConstructionErrors(t *testing.T) {
 		{
 			name: "tls.key missing",
 			src: &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-				"kserve/signer": {"tls.crt": leafPEM, "ca.crt": ca.CertPEM},
+				"localmodelcache/signer": {"tls.crt": leafPEM, "ca.crt": ca.CertPEM},
 			}},
 		},
 		{
 			name: "malformed key",
 			src: &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-				"kserve/signer": fixture.SigningSecret([]byte("not a pem key"), leafPEM, ca.CertPEM),
+				"localmodelcache/signer": fixture.SigningSecret([]byte("not a pem key"), leafPEM, ca.CertPEM),
 			}},
 		},
 		{
 			name: "malformed leaf cert",
 			src: &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-				"kserve/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, true), []byte("not a certificate"), ca.CertPEM),
+				"localmodelcache/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, true), []byte("not a certificate"), ca.CertPEM),
 			}},
 		},
 		{
 			name: "malformed ca chain",
 			src: &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-				"kserve/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, true), leafPEM, []byte("not a certificate")),
+				"localmodelcache/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, true), leafPEM, []byte("not a certificate")),
 			}},
 		},
 		{
 			name: "leaf cert blank (no PEM block)",
 			src: &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-				"kserve/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, true), []byte("   \n  "), ca.CertPEM),
+				"localmodelcache/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, leafKey, true), []byte("   \n  "), ca.CertPEM),
 			}},
 		},
 		{
 			name: "ca chain missing",
 			src: &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-				"kserve/signer": {"tls.key": fixture.LeafKeyPEM(t, leafKey, true), "tls.crt": leafPEM},
+				"localmodelcache/signer": {"tls.key": fixture.LeafKeyPEM(t, leafKey, true), "tls.crt": leafPEM},
 			}},
 		},
 		{
 			name: "expired leaf cert",
 			src: &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-				"kserve/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, expiredKey, true), expiredPEM, ca.CertPEM),
+				"localmodelcache/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, expiredKey, true), expiredPEM, ca.CertPEM),
 			}},
 		},
 		{
 			name: "not-yet-valid leaf cert",
 			src: &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-				"kserve/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, notYetKey, true), notYetPEM, ca.CertPEM),
+				"localmodelcache/signer": fixture.SigningSecret(fixture.LeafKeyPEM(t, notYetKey, true), notYetPEM, ca.CertPEM),
 			}},
 		},
 	}
@@ -306,7 +306,7 @@ func TestCertSign_ConstructionErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s, err := security.NewSigner(ctx, types.SecurityConfig{
 				Mode: types.ModeCert,
-				Cert: types.CertConfig{SigningSecret: "kserve/signer"},
+				Cert: types.CertConfig{SigningSecret: "localmodelcache/signer"},
 			}, tt.src)
 			assert.Nil(t, s)
 			assert.Error(t, err)

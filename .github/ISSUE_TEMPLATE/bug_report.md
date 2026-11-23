@@ -24,7 +24,7 @@ about: Tell us about a problem you are experiencing
 
 - Istio Version:
 - Knative Version:
-- KServe Version:
+- LocalModelCache Version:
 - Kubeflow version:
 - Cloud Environment:[k8s_istio/istio_dex/gcp_basic_auth/gcp_iap/aws/aws_cognito/ibm]
 - Minikube/Kind version:

@@ -265,7 +265,7 @@ func TestReconcileArtifactVerificationBlocksUnavailableTrustBundle(t *testing.T)
 		Mode:          string(kernelcachetypes.ModeCert),
 		FailurePolicy: string(kernelcachetypes.FailurePolicyReject),
 		Cert: kernelcacheconfig.KernelCacheArtifactCertConfig{
-			TrustBundle:   "kserve/kernel-cache-ca",
+			TrustBundle:   "localmodelcache/kernel-cache-ca",
 			SubjectRegexp: "kernel-cache-signer",
 		},
 	}}
@@ -304,7 +304,7 @@ func TestReconcileArtifactVerificationClearsStaleSuccessWhenRegistryIsUnavailabl
 		}},
 	}
 	trustBundle := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "kernel-cache-ca", Namespace: "kserve"},
+		ObjectMeta: metav1.ObjectMeta{Name: "kernel-cache-ca", Namespace: "localmodelcache"},
 		Data:       map[string][]byte{"ca.crt": ca.CertPEM},
 	}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cache, trustBundle).WithStatusSubresource(cache).Build()
@@ -314,7 +314,7 @@ func TestReconcileArtifactVerificationClearsStaleSuccessWhenRegistryIsUnavailabl
 			Mode:          string(kernelcachetypes.ModeCert),
 			FailurePolicy: string(kernelcachetypes.FailurePolicyReject),
 			Cert: kernelcacheconfig.KernelCacheArtifactCertConfig{
-				TrustBundle:   "kserve/kernel-cache-ca",
+				TrustBundle:   "localmodelcache/kernel-cache-ca",
 				SubjectRegexp: "kernel-cache-signer",
 			},
 		},

@@ -52,7 +52,7 @@ func (r *KernelCacheReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// isLocalModelConfigMap reports whether obj is the kserve-localmodel-config ConfigMap that
+// isLocalModelConfigMap reports whether obj is the localmodelcache-config ConfigMap that
 // holds the kernel cache configuration.
 func isLocalModelConfigMap(obj client.Object) bool {
 	return obj != nil && obj.GetNamespace() == constants.SystemNamespace && obj.GetName() == constants.LocalModelConfigMapName

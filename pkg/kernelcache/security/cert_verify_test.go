@@ -34,7 +34,7 @@ import (
 func verifierTrusting(t *testing.T, caPEM []byte, subjectRE string) security.Verifier {
 	t.Helper()
 	src := &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-		"kserve/ca": {"ca.crt": caPEM},
+		"localmodelcache/ca": {"ca.crt": caPEM},
 	}}
 	return verifierWith(t, src, "", subjectRE)
 }
@@ -45,14 +45,14 @@ func verifierWith(t *testing.T, src security.SecretSource, key, subjectRE string
 	v, err := security.NewVerifier(context.Background(), types.SecurityConfig{
 		Mode:          types.ModeCert,
 		FailurePolicy: types.FailurePolicyReject,
-		Cert:          types.CertConfig{TrustBundle: "kserve/ca", TrustBundleKey: key, SubjectRegexp: subjectRE},
+		Cert:          types.CertConfig{TrustBundle: "localmodelcache/ca", TrustBundleKey: key, SubjectRegexp: subjectRE},
 	}, src)
 	require.NoError(t, err)
 	return v
 }
 
 func untrustedCA(t *testing.T) *fixture.TestCA {
-	return fixture.NewCA(t, fixture.WithCACommonName("kserve-kernelcache-untrusted-test-ca"))
+	return fixture.NewCA(t, fixture.WithCACommonName("localmodelcache-kernelcache-untrusted-test-ca"))
 }
 
 // trusted CA + matching SAN -> verified, digest returned.
@@ -63,7 +63,7 @@ func TestCertVerify_TrustedMatchingSAN(t *testing.T) {
 	ref, digest := fixture.PushImage(t, host, "kc/ok")
 	fixture.Sign(t, ref, digest, leafKey, leafPEM, ca.CertPEM)
 
-	v := verifierTrusting(t, ca.CertPEM, "^spiffe://kserve-test/.*$")
+	v := verifierTrusting(t, ca.CertPEM, "^spiffe://localmodelcache-test/.*$")
 	res, err := v.Verify(context.Background(), types.VerifyRequest{ImageRef: ref.Name()})
 	require.NoError(t, err)
 	assert.True(t, res.Verified)
@@ -123,7 +123,7 @@ func TestCertVerify_MultiCARotation(t *testing.T) {
 	fixture.Sign(t, ref, digest, leafKey, leafPEM, caOld.CertPEM)
 
 	bundle := append(append([]byte{}, caOld.CertPEM...), caNew.CertPEM...)
-	v := verifierTrusting(t, bundle, "^spiffe://kserve-test/.*$")
+	v := verifierTrusting(t, bundle, "^spiffe://localmodelcache-test/.*$")
 	res, err := v.Verify(context.Background(), types.VerifyRequest{ImageRef: ref.Name()})
 	require.NoError(t, err)
 	assert.True(t, res.Verified)
@@ -153,9 +153,9 @@ func TestCertVerify_CustomBundleKey(t *testing.T) {
 	fixture.Sign(t, ref, digest, leafKey, leafPEM, ca.CertPEM)
 
 	src := &fixture.FakeSecretSource{Secrets: map[string]map[string][]byte{
-		"kserve/ca": {"cabundle.pem": ca.CertPEM},
+		"localmodelcache/ca": {"cabundle.pem": ca.CertPEM},
 	}}
-	v := verifierWith(t, src, "cabundle.pem", "^spiffe://kserve-test/.*$")
+	v := verifierWith(t, src, "cabundle.pem", "^spiffe://localmodelcache-test/.*$")
 	res, err := v.Verify(context.Background(), types.VerifyRequest{ImageRef: ref.Name()})
 	require.NoError(t, err)
 	assert.True(t, res.Verified)
@@ -170,9 +170,9 @@ func TestCertVerify_ConfigMapSource(t *testing.T) {
 	fixture.Sign(t, ref, digest, leafKey, leafPEM, ca.CertPEM)
 
 	src := &fixture.FakeSecretSource{ConfigMaps: map[string]map[string]string{
-		"kserve/ca": {"ca.crt": string(ca.CertPEM)},
+		"localmodelcache/ca": {"ca.crt": string(ca.CertPEM)},
 	}}
-	v := verifierWith(t, src, "", "^spiffe://kserve-test/.*$")
+	v := verifierWith(t, src, "", "^spiffe://localmodelcache-test/.*$")
 	res, err := v.Verify(context.Background(), types.VerifyRequest{ImageRef: ref.Name()})
 	require.NoError(t, err)
 	assert.True(t, res.Verified)
@@ -190,10 +190,10 @@ func TestCertVerify_SecretPrecedence(t *testing.T) {
 	fixture.Sign(t, ref, digest, leafKey, leafPEM, secretCA.CertPEM)
 
 	src := &fixture.FakeSecretSource{
-		Secrets:    map[string]map[string][]byte{"kserve/ca": {"ca.crt": secretCA.CertPEM}},
-		ConfigMaps: map[string]map[string]string{"kserve/ca": {"ca.crt": string(cmCA.CertPEM)}},
+		Secrets:    map[string]map[string][]byte{"localmodelcache/ca": {"ca.crt": secretCA.CertPEM}},
+		ConfigMaps: map[string]map[string]string{"localmodelcache/ca": {"ca.crt": string(cmCA.CertPEM)}},
 	}
-	v := verifierWith(t, src, "", "^spiffe://kserve-test/.*$")
+	v := verifierWith(t, src, "", "^spiffe://localmodelcache-test/.*$")
 	res, err := v.Verify(context.Background(), types.VerifyRequest{ImageRef: ref.Name()})
 	require.NoError(t, err)
 	assert.True(t, res.Verified)
@@ -211,7 +211,7 @@ func TestCertVerify_SignatureTransplant(t *testing.T) {
 	refB, digB := fixture.PushImage(t, host, "kc/transplant-b")
 	fixture.ReplaySignaturesOntoImage(t, refA, digA, refB, digB) // move A's signature onto B
 
-	v := verifierTrusting(t, ca.CertPEM, "^spiffe://kserve-test/.*$")
+	v := verifierTrusting(t, ca.CertPEM, "^spiffe://localmodelcache-test/.*$")
 	res, err := v.Verify(context.Background(), types.VerifyRequest{ImageRef: refB.Name()})
 	require.NoError(t, err)
 	assert.False(t, res.Verified, "a signature for another image must not verify")
@@ -225,7 +225,7 @@ func TestCertVerify_ExpiredCert(t *testing.T) {
 	ref, digest := fixture.PushImage(t, host, "kc/expired")
 	fixture.Sign(t, ref, digest, leafKey, leafPEM, ca.CertPEM)
 
-	v := verifierTrusting(t, ca.CertPEM, "^spiffe://kserve-test/.*$")
+	v := verifierTrusting(t, ca.CertPEM, "^spiffe://localmodelcache-test/.*$")
 	res, err := v.Verify(context.Background(), types.VerifyRequest{ImageRef: ref.Name()})
 	require.NoError(t, err)
 	assert.False(t, res.Verified, "an expired signing cert must not verify")
@@ -236,13 +236,13 @@ func TestCertVerify_ExpiredCert(t *testing.T) {
 func TestCertVerify_SubjectRegexpIsAnchored(t *testing.T) {
 	ca := fixture.NewCA(t)
 	// SAN embeds the operator's pattern as a substring but is not equal to it.
-	leafKey, leafPEM := ca.IssueLeaf(t, fixture.WithSAN("spiffe://attacker/spiffe://kserve-test/kc-signer/x"))
+	leafKey, leafPEM := ca.IssueLeaf(t, fixture.WithSAN("spiffe://attacker/spiffe://localmodelcache-test/kc-signer/x"))
 	host := fixture.StartRegistry(t)
 	ref, digest := fixture.PushImage(t, host, "kc/anchored")
 	fixture.Sign(t, ref, digest, leafKey, leafPEM, ca.CertPEM)
 
 	// unanchored pattern: a substring match would wrongly accept the lookalike.
-	v := verifierTrusting(t, ca.CertPEM, "spiffe://kserve-test/kc-signer")
+	v := verifierTrusting(t, ca.CertPEM, "spiffe://localmodelcache-test/kc-signer")
 	res, err := v.Verify(context.Background(), types.VerifyRequest{ImageRef: ref.Name()})
 	require.NoError(t, err)
 	assert.False(t, res.Verified, "a lookalike SAN must not match an anchored pattern")

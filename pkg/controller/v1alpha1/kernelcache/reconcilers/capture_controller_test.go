@@ -75,7 +75,7 @@ func newTestCaptureConfig(name, sessionID string) captureconfig.CaptureConfig {
 			SessionID: sessionID,
 		},
 		CachePaths: []v1alpha1.KernelCachePath{{
-			ContainerName: "kserve-container",
+			ContainerName: "localmodelcache-container",
 			ContainerPath: "/tmp/vllm",
 			OCIPath:       "io.vllm.cache",
 		}},
@@ -161,7 +161,7 @@ func TestCaptureControllerCreatesDeterministicCaptureAndReporterIdentity(t *test
 		Client:                 k8sClient,
 		Reader:                 k8sClient,
 		Clientset:              clientset,
-		OperatorNamespace:      "kserve",
+		OperatorNamespace:      "localmodelcache",
 		OperatorServiceAccount: "operator",
 	}
 
@@ -174,7 +174,7 @@ func TestCaptureControllerCreatesDeterministicCaptureAndReporterIdentity(t *test
 	require.Empty(t, capture.Annotations)
 	require.Equal(t, v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: deployment.Name}, capture.Spec.SourceRef)
 	require.Equal(t, "registry.example/team/cache:session", capture.Spec.TargetImage)
-	require.Equal(t, []v1alpha1.KernelCachePath{{ContainerName: "kserve-container", ContainerPath: "/tmp/vllm", OCIPath: "io.vllm.cache"}}, capture.Spec.CachePaths)
+	require.Equal(t, []v1alpha1.KernelCachePath{{ContainerName: "localmodelcache-container", ContainerPath: "/tmp/vllm", OCIPath: "io.vllm.cache"}}, capture.Spec.CachePaths)
 	require.Len(t, capture.OwnerReferences, 1)
 	require.Equal(t, replicaSet.UID, capture.OwnerReferences[0].UID)
 	require.Equal(t, "ReplicaSet", capture.OwnerReferences[0].Kind)
@@ -274,13 +274,13 @@ func TestCaptureControllerRemovesTokenRequesterBindingWhenDisabled(t *testing.T)
 			Labels:    map[string]string{reporter.TokenRequesterManagedLabel: "true"},
 		},
 		RoleRef:  rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "ClusterRole", Name: reporter.TokenRequesterRole},
-		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: "operator", Namespace: "kserve"}},
+		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: "operator", Namespace: "localmodelcache"}},
 	}
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(configMap, namespace, service, binding).Build()
 	r := &KernelCacheCaptureControllerReconciler{
 		Client:                 c,
 		Reader:                 c,
-		OperatorNamespace:      "kserve",
+		OperatorNamespace:      "localmodelcache",
 		OperatorServiceAccount: "operator",
 	}
 	req := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(service)}

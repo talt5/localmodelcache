@@ -17,9 +17,9 @@ import tempfile
 import unittest.mock as mock
 import pytest
 
-from kserve_storage import Storage
+from localmodelcache_storage import Storage
 
-STORAGE_MODULE = "kserve_storage.kserve_storage"
+STORAGE_MODULE = "localmodelcache_storage.localmodelcache_storage"
 
 
 class TestMultiDownload:

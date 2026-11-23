@@ -21,8 +21,11 @@ import unittest.mock as mock
 
 from botocore.client import Config
 from botocore import UNSIGNED
-from kserve_storage import Storage
-from kserve_storage.storage_errors import get_storage_error_message, check_http_response
+from localmodelcache_storage import Storage
+from localmodelcache_storage.storage_errors import (
+    get_storage_error_message,
+    check_http_response,
+)
 
 
 class MockPool:
@@ -51,7 +54,9 @@ class MockPool:
 
 
 # Mock multiprocessing.Pool globally for all S3 tests
-mock.patch("kserve_storage.kserve_storage.multiprocessing.Pool", MockPool).start()
+mock.patch(
+    "localmodelcache_storage.localmodelcache_storage.multiprocessing.Pool", MockPool
+).start()
 
 
 class MockSession:

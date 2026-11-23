@@ -35,7 +35,7 @@ func TestCaptureConfigRoundTrip(t *testing.T) {
 			SessionID: "session-id",
 		},
 		CachePaths: []v1alpha1.KernelCachePath{{
-			ContainerName: "kserve-container",
+			ContainerName: "localmodelcache-container",
 			ContainerPath: "/tmp/vllm",
 			OCIPath:       "io.vllm.cache",
 		}},
@@ -64,7 +64,7 @@ func TestMarshalCaptureConfigRejectsMissingRequiredFields(t *testing.T) {
 			SessionID: "session-id",
 		},
 		CachePaths: []v1alpha1.KernelCachePath{{
-			ContainerName: "kserve-container",
+			ContainerName: "localmodelcache-container",
 			ContainerPath: "/tmp/vllm",
 			OCIPath:       "io.vllm.cache",
 		}},

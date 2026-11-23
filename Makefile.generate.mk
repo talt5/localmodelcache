@@ -20,10 +20,10 @@ generate-chart-manifests: helm-docs ## After config/ or charts/_common edits: re
 
 manifests: controller-gen kustomize yq ## After API type or RBAC marker changes: CRDs, RBAC, deepcopy, chart CRDs.
 	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/cache/... output:crd:dir=config/crd/full
-	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
-	@$(CONTROLLER_GEN) rbac:roleName=kserve-kernelcache-nodegroup-manager paths=./pkg/controller/v1alpha1/kernelcache output:rbac:artifacts:config=config/rbac/kernelcache
-	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodelnode-agent-role paths=./pkg/controller/v1alpha1/localmodelnode output:rbac:artifacts:config=config/rbac/localmodelnode
-	@$(CONTROLLER_GEN) rbac:roleName=kserve-kernelcachenode-agent-role paths=./pkg/controller/v1alpha1/kernelcachenode output:rbac:artifacts:config=config/rbac/kernelcachenode
+	@$(CONTROLLER_GEN) rbac:roleName=localmodelcache-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
+	@$(CONTROLLER_GEN) rbac:roleName=localmodelcache-kernelcache-nodegroup-manager paths=./pkg/controller/v1alpha1/kernelcache output:rbac:artifacts:config=config/rbac/kernelcache
+	@$(CONTROLLER_GEN) rbac:roleName=localmodelcache-node-agent-role paths=./pkg/controller/v1alpha1/localmodelnode output:rbac:artifacts:config=config/rbac/localmodelnode
+	@$(CONTROLLER_GEN) rbac:roleName=localmodelcache-kernelcache-agent-role paths=./pkg/controller/v1alpha1/kernelcachenode output:rbac:artifacts:config=config/rbac/kernelcachenode
 	# Hook for distro-specific manifest generation (override via Makefile.overrides.mk).
 	@$(MAKE) manifests-distro
 
@@ -41,11 +41,11 @@ manifests: controller-gen kustomize yq ## After API type or RBAC marker changes:
 	@# An existing deepcopy file keeps its copyright year, a new one gets CURRENT_YEAR.
 	@dir=pkg/apis/cache/v1alpha1; \
 	year=$$(awk '/^Copyright [0-9]+ The KServe Authors/ { print $$2; exit }' "$$dir/zz_generated.deepcopy.go" 2>/dev/null); \
-	$(CONTROLLER_GEN) object:headerFile=hack/boilerplate.go.txt,year="$${year:-$(CURRENT_YEAR)}" paths="./$$dir"
+	$(CONTROLLER_GEN) object:headerFile=hack/boilerplate.deepcopy.go.txt,year="$${year:-$(CURRENT_YEAR)}" paths="./$$dir"
 
 	# envtest loads every CRD from test/crds.
 	@$(KUSTOMIZE) build config/crd/full > test/crds/local.cache.ai_all_crds.yaml
-	@for chart in kserve-localmodel-crd; do \
+	@for chart in localmodelcache-crd; do \
 		for dir in localmodel kernelcache clusterstoragecontainer; do \
 			cp -f config/crd/full/$$dir/local.cache.ai_*.yaml charts/$$chart/templates/; \
 		done; \
@@ -53,7 +53,7 @@ manifests: controller-gen kustomize yq ## After API type or RBAC marker changes:
 
 	./hack/minimal-crdgen.sh
 	@for dir in localmodel kernelcache clusterstoragecontainer; do \
-		cp -f config/crd/minimal/$$dir/local.cache.ai_*.yaml charts/kserve-localmodel-crd-minimal/templates/; \
+		cp -f config/crd/minimal/$$dir/local.cache.ai_*.yaml charts/localmodelcache-crd-minimal/templates/; \
 	done
 
 generate: manifests ## After API type changes: same as manifests (deepcopy is generated there).
@@ -64,7 +64,7 @@ uv-lock: $(UV) ## After Python dependency changes: re-lock python/storage/uv.loc
 # Sync multi-resource helpers to charts that need them (must run before helm package)
 sync-helm-multi-resource-helpers:
 	@echo "Syncing multi-resource helpers to charts..."
-	@for chart in kserve-localmodel-resources; do \
+	@for chart in localmodelcache; do \
 		cp charts/_common/_resources.tpl charts/$$chart/templates/_resources.tpl; \
 		echo "  ✓ Copied to charts/$$chart/templates/_resources.tpl"; \
 	done

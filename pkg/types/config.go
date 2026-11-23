@@ -47,7 +47,7 @@ type StorageInitializerConfig struct {
 	// self-signed certs with no distributable CA bundle). It applies to LocalModelCache / LocalModelNamespaceCache
 	// download or import Jobs only when the source URI is oci:// or oci+*. Defaults to
 	// false (secure/verified HTTPS) -- this must be an explicit opt-in, never inferred
-	// from the registry host. Wired via the KSERVE_OCI_INSECURE_REGISTRY env var.
+	// from the registry host. Wired via the LOCALMODELCACHE_OCI_INSECURE_REGISTRY env var.
 	OciInsecureRegistry bool `json:"ociInsecureRegistry"`
 	// ModelVolumeSource overrides the default emptyDir volume used as the shared
 	// model staging area between the storage-initializer init container and the

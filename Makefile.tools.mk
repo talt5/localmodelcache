@@ -3,7 +3,7 @@ $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 PYTHON_VENV = $(LOCALBIN)/.venv
 PYTHON_BIN = $(PYTHON_VENV)/bin
-DEPS_ENV ?= kserve-deps.env
+DEPS_ENV ?= deps.env
 
 ## Tool binary names.
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
@@ -19,7 +19,7 @@ RUFF = $(PYTHON_BIN)/ruff
 PYTEST = $(PYTHON_BIN)/pytest
 CODESPELL = $(PYTHON_BIN)/codespell
 
-## Tool versions are defined in kserve-deps.env (included in main Makefile)
+## Tool versions are defined in deps.env (included in main Makefile)
 
 ## Go toolchain stamp, part of the tool cache key below. Tool binaries are
 ## built from source with whatever toolchain is active, so a Go upgrade leaves

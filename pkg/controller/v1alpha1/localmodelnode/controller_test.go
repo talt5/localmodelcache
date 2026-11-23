@@ -108,7 +108,7 @@ var _ = Describe("LocalModelNode controller", func() {
 		timeout             = time.Second * 10
 		duration            = time.Second * 10
 		interval            = time.Millisecond * 250
-		modelCacheNamespace = "kserve-localmodel-jobs"
+		modelCacheNamespace = "localmodelcache-jobs"
 		sourceModelUri      = "s3://mybucket/mymodel"
 	)
 	var (
@@ -170,11 +170,11 @@ var _ = Describe("LocalModelNode controller", func() {
 		}
 		configs = map[string]string{
 			"localModel": `{
-        		"jobNamespace": "kserve-localmodel-jobs",
-                "defaultJobImage": "kserve/storage-initializer:latest"
+        		"jobNamespace": "localmodelcache-jobs",
+                "defaultJobImage": "localmodelcache/storage-initializer:latest"
             }`,
 			"storageInitializer": `{
-				"image": "kserve/storage-initializer:latest",
+				"image": "localmodelcache/storage-initializer:latest",
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"memoryRequest": "200Mi",
@@ -638,11 +638,11 @@ var _ = Describe("LocalModelNode controller", func() {
 				},
 				Data: map[string]string{
 					"localModel": `{
-						"jobNamespace": "kserve-localmodel-jobs",
-						"defaultJobImage": "kserve/storage-initializer:latest"
+						"jobNamespace": "localmodelcache-jobs",
+						"defaultJobImage": "localmodelcache/storage-initializer:latest"
 					}`,
 					"storageInitializer": `{
-						"image": "kserve/storage-initializer:latest",
+						"image": "localmodelcache/storage-initializer:latest",
 						"cpuRequest": "100m",
 						"cpuLimit": "1",
 						"memoryRequest": "200Mi",
@@ -724,7 +724,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			job := &jobs.Items[0]
 			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1))
 			container := job.Spec.Template.Spec.Containers[0]
-			Expect(container.Image).To(Equal("kserve/storage-initializer:latest"))
+			Expect(container.Image).To(Equal("localmodelcache/storage-initializer:latest"))
 			Expect(container.Args).To(Equal([]string{"hf://meta-llama/Meta-Llama-3-8B", "/mnt/models"}))
 		})
 
@@ -739,11 +739,11 @@ var _ = Describe("LocalModelNode controller", func() {
 				},
 				Data: map[string]string{
 					"localModel": `{
-						"jobNamespace": "kserve-localmodel-jobs",
-						"defaultJobImage": "kserve/storage-initializer:latest"
+						"jobNamespace": "localmodelcache-jobs",
+						"defaultJobImage": "localmodelcache/storage-initializer:latest"
 					}`,
 					"storageInitializer": `{
-						"image": "kserve/storage-initializer:latest",
+						"image": "localmodelcache/storage-initializer:latest",
 						"cpuRequest": "100m",
 						"cpuLimit": "1",
 						"memoryRequest": "200Mi",
@@ -826,11 +826,11 @@ var _ = Describe("LocalModelNode controller", func() {
 				},
 				Data: map[string]string{
 					"localModel": `{
-						"jobNamespace": "kserve-localmodel-jobs",
-						"defaultJobImage": "kserve/storage-initializer:latest"
+						"jobNamespace": "localmodelcache-jobs",
+						"defaultJobImage": "localmodelcache/storage-initializer:latest"
 					}`,
 					"storageInitializer": `{
-						"image": "kserve/storage-initializer:latest",
+						"image": "localmodelcache/storage-initializer:latest",
 						"cpuRequest": "100m",
 						"cpuLimit": "1",
 						"memoryRequest": "200Mi",
@@ -865,7 +865,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			defer k8sClient.Delete(ctx, node)
 
 			pullSecret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{Name: "reg-cred-a", Namespace: "kserve-localmodel-jobs"},
+				ObjectMeta: metav1.ObjectMeta{Name: "reg-cred-a", Namespace: "localmodelcache-jobs"},
 				Type:       corev1.SecretTypeDockerConfigJson,
 				Data:       map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
 			}
@@ -948,11 +948,11 @@ var _ = Describe("LocalModelNode controller", func() {
 				},
 				Data: map[string]string{
 					"localModel": `{
-						"jobNamespace": "kserve-localmodel-jobs",
-						"defaultJobImage": "kserve/storage-initializer:latest"
+						"jobNamespace": "localmodelcache-jobs",
+						"defaultJobImage": "localmodelcache/storage-initializer:latest"
 					}`,
 					"storageInitializer": `{
-						"image": "kserve/storage-initializer:latest",
+						"image": "localmodelcache/storage-initializer:latest",
 						"cpuRequest": "100m",
 						"cpuLimit": "1",
 						"memoryRequest": "200Mi",
@@ -1029,11 +1029,11 @@ var _ = Describe("LocalModelNode controller", func() {
 				},
 				Data: map[string]string{
 					"localModel": `{
-						"jobNamespace": "kserve-localmodel-jobs",
-						"defaultJobImage": "kserve/storage-initializer:latest"
+						"jobNamespace": "localmodelcache-jobs",
+						"defaultJobImage": "localmodelcache/storage-initializer:latest"
 					}`,
 					"storageInitializer": `{
-						"image": "kserve/storage-initializer:latest",
+						"image": "localmodelcache/storage-initializer:latest",
 						"cpuRequest": "100m",
 						"cpuLimit": "1",
 						"memoryRequest": "200Mi",
@@ -1119,11 +1119,11 @@ var _ = Describe("LocalModelNode controller", func() {
 				},
 				Data: map[string]string{
 					"localModel": `{
-						"jobNamespace": "kserve-localmodel-jobs",
-						"defaultJobImage": "kserve/storage-initializer:latest"
+						"jobNamespace": "localmodelcache-jobs",
+						"defaultJobImage": "localmodelcache/storage-initializer:latest"
 					}`,
 					"storageInitializer": `{
-						"image": "kserve/storage-initializer:latest",
+						"image": "localmodelcache/storage-initializer:latest",
 						"cpuRequest": "100m",
 						"cpuLimit": "1",
 						"memoryRequest": "200Mi",
@@ -1219,11 +1219,11 @@ var _ = Describe("LocalModelNode controller", func() {
 				},
 				Data: map[string]string{
 					"localModel": `{
-						"jobNamespace": "kserve-localmodel-jobs",
-						"defaultJobImage": "kserve/storage-initializer:latest"
+						"jobNamespace": "localmodelcache-jobs",
+						"defaultJobImage": "localmodelcache/storage-initializer:latest"
 					}`,
 					"storageInitializer": `{
-						"image": "kserve/storage-initializer:latest",
+						"image": "localmodelcache/storage-initializer:latest",
 						"cpuRequest": "100m",
 						"cpuLimit": "1",
 						"memoryRequest": "200Mi",
@@ -1327,11 +1327,11 @@ var _ = Describe("LocalModelNode controller", func() {
 				},
 				Data: map[string]string{
 					"localModel": `{
-						"jobNamespace": "kserve-localmodel-jobs",
-						"defaultJobImage": "kserve/storage-initializer:latest"
+						"jobNamespace": "localmodelcache-jobs",
+						"defaultJobImage": "localmodelcache/storage-initializer:latest"
 					}`,
 					"storageInitializer": `{
-						"image": "kserve/storage-initializer:latest",
+						"image": "localmodelcache/storage-initializer:latest",
 						"cpuRequest": "100m",
 						"cpuLimit": "1",
 						"memoryRequest": "200Mi",
@@ -1605,11 +1605,11 @@ var _ = Describe("LocalModelNode controller", func() {
 				},
 				Data: map[string]string{
 					"localModel": `{
-						"jobNamespace": "kserve-localmodel-jobs",
-						"defaultJobImage": "kserve/storage-initializer:latest"
+						"jobNamespace": "localmodelcache-jobs",
+						"defaultJobImage": "localmodelcache/storage-initializer:latest"
 					}`,
 					"storageInitializer": `{
-						"image": "kserve/storage-initializer:latest",
+						"image": "localmodelcache/storage-initializer:latest",
 						"cpuRequest": "100m",
 						"cpuLimit": "1",
 						"memoryRequest": "200Mi",

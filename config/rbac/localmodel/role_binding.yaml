@@ -1,11 +1,11 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kserve-localmodel-manager-rolebinding
+  name: localmodelcache-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kserve-localmodel-manager-role
+  name: localmodelcache-manager-role
 subjects:
 - kind: ServiceAccount
-  name: kserve-localmodel-controller-manager
+  name: localmodelcache-controller-manager

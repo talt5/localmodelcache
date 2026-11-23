@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: kserve-kernelcachenode-agent
-  namespace: kserve
+  name: localmodelcache-kernelcache-agent
+  namespace: localmodelcache
   labels:
-    app.kubernetes.io/name: kserve-kernelcachenode-agent
-    control-plane: kserve-kernelcachenode-agent
+    app.kubernetes.io/name: localmodelcache-kernelcache-agent
+    control-plane: localmodelcache-kernelcache-agent
 spec:
   selector:
     matchLabels:
-      control-plane: kserve-kernelcachenode-agent
+      control-plane: localmodelcache-kernelcache-agent
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: kserve-kernelcachenode-agent
-        control-plane: kserve-kernelcachenode-agent
+        app.kubernetes.io/name: localmodelcache-kernelcache-agent
+        control-plane: localmodelcache-kernelcache-agent
       annotations:
         kubectl.kubernetes.io/default-container: manager
     spec:
@@ -27,7 +27,7 @@ spec:
                 operator: In
                 values:
                 - disabled
-      serviceAccountName: kserve-kernelcachenode-agent
+      serviceAccountName: localmodelcache-kernelcache-agent
       securityContext:
         runAsNonRoot: true
         seccompProfile:

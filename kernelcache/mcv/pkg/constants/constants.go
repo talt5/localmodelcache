@@ -33,10 +33,10 @@ const (
 	ManifestDir      = "manifest"
 	ManifestFileName = "manifest.json"
 	VLLMHOME         = "/home/vllm"
-	DefaultHome       = "/home/kserve"
+	DefaultHome      = "/home/localmodelcache"
 	VLLMCache        = ".cache/vllm"
 	// HabanaCache is the Habana recipe cache directory relative to DefaultHome,
-	// i.e. where the recipe cache is mounted inside a KServe serving container.
+	// i.e. where the recipe cache is mounted inside a LocalModelCache serving container.
 	HabanaCache = ".cache/habana"
 
 	MCVTritonCacheDir    = "io.triton.cache/"
@@ -50,8 +50,8 @@ const (
 	DefaultCacheFilePath = "/tmp/device_cache.json"
 	StubbedCacheFile     = "/tmp/device_cache_stub.json"
 
-	// KServe Kernel Manager integration
-	KMPrefix        = "io.kserve.km"
+	// LocalModelCache Kernel Manager integration
+	KMPrefix        = "ai.cache.local.km"
 	VLLMCacheRoot   = "VLLM_CACHE_ROOT"
 	TorchCompileDir = "torch_compile_cache"
 

@@ -831,7 +831,7 @@ wheels = [
 ]
 
 [[package]]
-name = "kserve-storage"
+name = "localmodelcache-storage"
 version = "0.21.0"
 source = { virtual = "." }
 dependencies = [

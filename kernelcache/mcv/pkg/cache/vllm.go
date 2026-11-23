@@ -44,7 +44,7 @@ const (
 	cacheVLLMImageSummary    = cacheVLLMImagePrefix + "/summary"
 	cacheVLLMImageFormat     = cacheVLLMImagePrefix + "/format"
 
-	// Generic mounting labels (KServe Kernel Manager integration)
+	// Generic mounting labels (LocalModelCache Kernel Manager integration)
 	kmFramework         = constants.KMPrefix + "/framework"
 	kmCacheType         = constants.KMPrefix + "/cache-type"
 	kmCacheHash         = constants.KMPrefix + "/cache-hash"
@@ -834,7 +834,7 @@ func (v *VLLMCache) Labels() map[string]string {
 		cacheVLLMImageFormat:     cacheFormat,
 	}
 
-	// Add generic mounting labels for KServe Kernel Manager integration
+	// Add generic mounting labels for LocalModelCache Kernel Manager integration
 	if len(v.allMetadata) > 0 {
 		// 1. Framework and cache type - identifies what kind of cache this is
 		labels[kmFramework] = constants.VLLM
@@ -869,8 +869,8 @@ func (v *VLLMCache) Labels() map[string]string {
 			//     hashB/rank_0_0/model
 			//     hashC/rank_0_0/model
 			//
-			//   Mount: /home/kserve/.cache/vllm/torch_compile_cache/torch_aot_compile (RO from PVC)
-			//   Sibling writes: /home/kserve/.cache/vllm/torch_compile_cache/newHash/ (RW container FS)
+			//   Mount: /home/localmodelcache/.cache/vllm/torch_compile_cache/torch_aot_compile (RO from PVC)
+			//   Sibling writes: /home/localmodelcache/.cache/vllm/torch_compile_cache/newHash/ (RW container FS)
 			//
 			// This design supports cache-miss rebuilds: vLLM reads precompiled caches
 			// from the RO mount and writes new caches to siblings in the container FS.
@@ -916,7 +916,7 @@ func (v *VLLMCache) Labels() map[string]string {
 			}
 
 			// 4. Cache root environment variable
-			// Format: "VLLM_CACHE_ROOT=/home/kserve/.cache/vllm"
+			// Format: "VLLM_CACHE_ROOT=/home/localmodelcache/.cache/vllm"
 			labels[kmCacheRootEnv] = vllmCacheRootEnvDefault
 		}
 	}

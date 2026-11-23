@@ -5,7 +5,7 @@ A fork of KServe trimmed to model management: LocalModelCache (with LocalModelNa
 ## Constraints
 
 - **Generated files are read-only.** Never hand-edit these - they are overwritten by `make precommit`:
-  - `charts/*/README.md`, `charts/*/templates/`, `charts/kserve-localmodel-resources/files/resources.yaml` and `values.yaml`
+  - `charts/*/README.md`, `charts/*/templates/`, `charts/localmodelcache/files/resources.yaml` and `values.yaml`
   - Common Helm helpers (`_utils.tpl`, `_resources.tpl`) synced from `charts/_common/`
   - CRDs under `config/crd/`, RBAC roles under `config/rbac/*/role.yaml`, `zz_generated.deepcopy.go`
 - **Makefile is the source of truth.** Read `Makefile` and `Makefile.tools.mk` before running or modifying build steps.
@@ -17,7 +17,7 @@ A fork of KServe trimmed to model management: LocalModelCache (with LocalModelNa
 - API types: `pkg/apis/cache/v1alpha1`
 - Controllers: `pkg/controller/v1alpha1/{localmodel,localmodelnode,kernelcache,kernelcachenode}`
 - Binaries: `cmd/localmodel` (controller and webhooks), `cmd/localmodelnode` and `cmd/kernelcachenode` (node agents)
-- Settings: the `kserve-localmodel-config` ConfigMap, parsed by `pkg/localmodelcache/config.go` and `pkg/kernelcache/config`
+- Settings: the `localmodelcache-config` ConfigMap, parsed by `pkg/localmodelcache/config.go` and `pkg/kernelcache/config`
 - Python: only `python/storage` and `python/storage-initializer`, the model download image
 - Webhooks: `pkg/webhook/admission/`
 - CRDs generated from Go types via controller-gen markers

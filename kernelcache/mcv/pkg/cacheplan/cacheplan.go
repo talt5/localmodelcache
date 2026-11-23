@@ -30,7 +30,7 @@ limitations under the License.
 //
 // The package is pure: it performs no I/O and depends on no Kubernetes types.
 // It takes already-fetched labels and returns plain data, so it can be shared
-// verbatim between MCV (which authors the labels) and KServe (which actuates the
+// verbatim between MCV (which authors the labels) and LocalModelCache (which actuates the
 // resulting plan onto a pod spec). The OCI label schema remains the persisted
 // compatibility contract between the two repositories.
 package cacheplan
@@ -43,8 +43,8 @@ import (
 	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/constants"
 )
 
-// Generic KServe Kernel Manager labels stamped by each cache class's Labels()
-// method. These are the compatibility contract between MCV and KServe.
+// Generic LocalModelCache Kernel Manager labels stamped by each cache class's Labels()
+// method. These are the compatibility contract between MCV and LocalModelCache.
 const (
 	LabelCacheType         = constants.KMPrefix + "/cache-type"
 	LabelCacheRootEnv      = constants.KMPrefix + "/cache-root-env"
@@ -54,7 +54,7 @@ const (
 )
 
 // Per-class summary labels, used to infer the cache type for older images that
-// predate the io.kserve.km/cache-type label.
+// predate the ai.cache.local.km/cache-type label.
 const (
 	summaryLabelTriton = "cache.triton.image/summary"
 	summaryLabelVLLM   = "cache.vllm.image/summary"
@@ -73,7 +73,7 @@ const (
 	// should use that value instead and fall back to this default when unset.
 	DefaultHabanaRecipeCacheSizeMB = 8192
 
-	// EnvHabanaRecipeCacheSizeMB is the env var the KServe sidecar injector sets on
+	// EnvHabanaRecipeCacheSizeMB is the env var the LocalModelCache sidecar injector sets on
 	// the MCV capture container so that habana.Labels() stamps the same size into the
 	// OCI image label as was set in the predictor's PT_HPU_RECIPE_CACHE_CONFIG.
 	EnvHabanaRecipeCacheSizeMB = "HABANA_RECIPE_CACHE_SIZE_MB"
@@ -87,7 +87,7 @@ type EnvVar struct {
 }
 
 // CachePlan is the typed interpretation of a kernel cache image, derived from
-// its OCI labels. KServe consumes these fields to build the serving pod spec.
+// its OCI labels. LocalModelCache consumes these fields to build the serving pod spec.
 type CachePlan struct {
 	// CacheType is the canonical cache type identifier
 	// (constants.CacheTypeVLLMTorchCompile, constants.CacheTypeHabanaRecipe).
@@ -137,7 +137,7 @@ func IsUnsupportedCacheType(err error) bool {
 }
 
 // Derive decodes OCI image labels into a typed CachePlan. It dispatches on the
-// io.kserve.km/cache-type label, falling back to the per-class summary labels
+// ai.cache.local.km/cache-type label, falling back to the per-class summary labels
 // for older images. It returns an *UnsupportedCacheTypeError for cache types
 // with no serving plan (e.g. bare Triton, or types added by a newer MCV).
 func Derive(labels map[string]string) (CachePlan, error) {
@@ -188,7 +188,7 @@ func ProducerEnv(cacheType, path string, sizeMB int) ([]EnvVar, error) {
 	}
 }
 
-// RootEnvLabel returns the "NAME=VALUE" string for the io.kserve.km/cache-root-env
+// RootEnvLabel returns the "NAME=VALUE" string for the ai.cache.local.km/cache-root-env
 // label of a producer cache. It is used by the cache classes' Labels() encoders
 // so that the label MCV stamps and the env cacheplan derives stay identical by
 // construction.
@@ -210,7 +210,7 @@ func HabanaRecipeEnvValue(path string, sizeMB int) string {
 }
 
 // detectCacheType returns the canonical cache type identifier for the labels,
-// preferring the explicit io.kserve.km/cache-type label and falling back to the
+// preferring the explicit ai.cache.local.km/cache-type label and falling back to the
 // per-class summary labels.
 func detectCacheType(labels map[string]string) string {
 	if t := normalizeCacheType(labels[LabelCacheType]); t != "" {
@@ -279,7 +279,7 @@ func deriveHabana(labels map[string]string) (CachePlan, error) {
 // parseRootEnv splits a "NAME=VALUE" cache-root-env label into an EnvVar and the
 // bare mount directory. The mount directory is the value up to the first comma,
 // so tunable suffixes (Habana's ",false,8192") are stripped while plain values
-// (vLLM's "/home/kserve/.cache/vllm") pass through unchanged.
+// (vLLM's "/home/localmodelcache/.cache/vllm") pass through unchanged.
 func parseRootEnv(rootEnv string) (EnvVar, string, error) {
 	if rootEnv == "" {
 		return EnvVar{}, "", fmt.Errorf("cacheplan: missing %s label", LabelCacheRootEnv)

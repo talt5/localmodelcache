@@ -45,7 +45,7 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin "$BASE_REF"
-          git config user.email "ci@kserve.io"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "CI Bot"
           git merge --no-edit "origin/$BASE_REF"
 
@@ -59,18 +59,18 @@ jobs:
           # it - usually go-license-check, which compiles next to nothing.
           cache: false
 
-      # Tools are go-installed at the versions pinned in kserve-deps.env, outside
+      # Tools are go-installed at the versions pinned in deps.env, outside
       # go.sum. golangci-lint keys its cache on its config and the CPU count, and
       # cgo entries depend on the runner image, so all of these go into the key.
       - name: Go cache key
         id: key
         run: |
           echo "image=${ImageOS:-unknown}-$(nproc)cpu" >> "$GITHUB_OUTPUT"
-          echo "tools=$(grep -E '^(GOLANGCI_LINT|CONTROLLER_TOOLS|HELM_DOCS)_VERSION=' kserve-deps.env | cat - .golangci.yml | sha256sum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+          echo "tools=$(grep -E '^(GOLANGCI_LINT|CONTROLLER_TOOLS|HELM_DOCS)_VERSION=' deps.env | cat - .golangci.yml | sha256sum | cut -c1-12)" >> "$GITHUB_OUTPUT"
 
       # Module, build and golangci-lint caches for `make check`, under a key
       # no other workflow uses. The key moves with the dependency set (go.mod,
-      # go.sum, Go version, tools), not with kserve's own code: Go matches
+      # go.sum, Go version, tools), not with localmodelcache's own code: Go matches
       # build entries by content, so changed packages recompile on top of it.
       #
       # Only master push runs save it (SAVES_GO_CACHE). PR, merge queue,
@@ -90,8 +90,8 @@ jobs:
       # Go and golangci-lint trust what is already in these caches (Go checks
       # go.sum against the cached .ziphash, not the files), and entries are
       # immutable, so a bad entry stays until the key changes.
-      # To drop one: gh cache list -R kserve/kserve --key precommit-go-, then
-      # gh cache delete -R kserve/kserve <key>; the next master run rebuilds it.
+      # To drop one: gh cache list -R talt5/localmodelcache --key precommit-go-, then
+      # gh cache delete -R talt5/localmodelcache <key>; the next master run rebuilds it.
       #
       # go.yml restores this entry too. Keep its `path` list identical to this
       # one, or it silently misses and builds from scratch.

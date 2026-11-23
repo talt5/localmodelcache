@@ -51,7 +51,7 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			name:    "reports missing configmap",
-			wantErr: "kserve-localmodel-config was not found",
+			wantErr: "localmodelcache-config was not found",
 		},
 		{
 			name: "reports invalid configuration",

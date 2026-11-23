@@ -26,13 +26,13 @@ limitations under the License.
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;create;update;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=apps,resources=daemonsets,resourceNames=kserve-kernelcachenode-agent,verbs=get;patch
+// +kubebuilder:rbac:groups=apps,resources=daemonsets,resourceNames=localmodelcache-kernelcache-agent,verbs=get;patch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=replicasets,verbs=get
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;create;patch;update;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;patch;delete
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=kserve-kernelcache-token-requester,verbs=bind
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=localmodelcache-kernelcache-token-requester,verbs=bind
 
 package kernelcache
 

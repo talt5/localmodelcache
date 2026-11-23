@@ -51,7 +51,7 @@ func newLocalModelCacheClient(t *testing.T, objs ...client.Object) client.Client
 	t.Helper()
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add core scheme: %v", err)

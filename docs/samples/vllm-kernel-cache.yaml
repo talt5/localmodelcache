@@ -1,6 +1,6 @@
 # Reuse vLLM's compiled kernels across restarts with the kernel cache.
 #
-# The kernelcache key of the kserve-localmodel-config ConfigMap must set "enabled": true and
+# The kernelcache key of the localmodelcache-config ConfigMap must set "enabled": true and
 # a registry endpoint. The first Pods of a new ReplicaSet get a capture sidecar that packages
 # the compiled caches into an OCI image; once a KernelCache is ready, later Pods with the same
 # runtime image, arguments and model mount it and skip compilation.

@@ -39,7 +39,7 @@ var _ = Describe("CachedModel controller", func() {
 		timeout             = time.Second * 10
 		duration            = time.Second * 10
 		interval            = time.Millisecond * 250
-		modelCacheNamespace = "kserve-localmodel-jobs"
+		modelCacheNamespace = "localmodelcache-jobs"
 		sourceModelUri      = "s3://mybucket/mymodel"
 	)
 	var (
@@ -345,8 +345,8 @@ var _ = Describe("CachedModel controller", func() {
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace}, configMap)).Should(Succeed())
 			originalData := configMap.Data["localModel"]
 			configMap.Data["localModel"] = `{
-				"jobNamespace": "kserve-localmodel-jobs",
-				"defaultJobImage": "kserve/storage-initializer:latest",
+				"jobNamespace": "localmodelcache-jobs",
+				"defaultJobImage": "localmodelcache/storage-initializer:latest",
 				"disableVolumeManagement": true
 			}`
 			Expect(k8sClient.Update(ctx, configMap)).Should(Succeed())
@@ -520,7 +520,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 		timeout             = time.Second * 10
 		interval            = time.Millisecond * 250
 		sourceModelUri      = "s3://mybucket/mymodel"
-		modelCacheNamespace = "kserve-localmodel-jobs"
+		modelCacheNamespace = "localmodelcache-jobs"
 	)
 	var (
 		localModelNamespaceSpec = v1alpha1.LocalModelNamespaceCacheSpec{
@@ -747,8 +747,8 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace}, configMap)).Should(Succeed())
 			originalData := configMap.Data["localModel"]
 			configMap.Data["localModel"] = `{
-				"jobNamespace": "kserve-localmodel-jobs",
-				"defaultJobImage": "kserve/storage-initializer:latest",
+				"jobNamespace": "localmodelcache-jobs",
+				"defaultJobImage": "localmodelcache/storage-initializer:latest",
 				"disableVolumeManagement": true
 			}`
 			Expect(k8sClient.Update(ctx, configMap)).Should(Succeed())

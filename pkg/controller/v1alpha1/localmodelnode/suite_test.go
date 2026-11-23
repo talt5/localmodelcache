@@ -76,16 +76,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	k8sClient = envTest.Client
 
 	// Creates namespace
-	kserveNamespaceObj := &corev1.Namespace{
+	systemNamespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.SystemNamespace,
 		},
 	}
 	jobsNamespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kserve-localmodel-jobs",
+			Name: "localmodelcache-jobs",
 		},
 	}
-	Expect(k8sClient.Create(ctx, kserveNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, systemNamespaceObj)).Should(Succeed())
 	Expect(k8sClient.Create(ctx, jobsNamespaceObj)).Should(Succeed())
 })

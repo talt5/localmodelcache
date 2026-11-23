@@ -16,7 +16,7 @@ dependencies = [
     "azure-identity<2.0.0,>=1.15.0",
     # The AWS_ENDPOINT_URL / AWS_ENDPOINT_URL_STS / AWS_ENDPOINT_URL_S3 endpoint
     # overrides that the storage-initializer resolves natively (and that the
-    # KServe pod mutator copies from the serving container for IRSA and EKS
+    # LocalModelCache pod mutator copies from the serving container for IRSA and EKS
     # Pod Identity workloads) require botocore env-var endpoint overrides,
     # which are supported from 1.32.
     "boto3<2.0.0,>=1.32.0",
@@ -46,10 +46,10 @@ dependencies = [
     # Pinning because it is a transitive dependency.
     "urllib3>=2.6.3"
 ]
-name = "kserve-storage"
+name = "localmodelcache-storage"
 version = "0.21.0"
 readme = "README.md"
-description = "KServe Storage Handler. This module is responsible to download the models from the provided source"
+description = "LocalModelCache Storage Handler. This module is responsible to download the models from the provided source"
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
@@ -61,4 +61,4 @@ classifiers = [
 confidential = ["jwcrypto>=1.5.0"]
 
 [project.scripts]
-kserve-decrypt = "kserve_storage.confidential.cli:main"
+localmodelcache-decrypt = "localmodelcache_storage.confidential.cli:main"

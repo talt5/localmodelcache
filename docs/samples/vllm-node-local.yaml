@@ -18,7 +18,7 @@ spec:
     capacity:
       storage: 200Gi
     local:
-      # Must match the node agent's host path (kserve.localmodelnode.controller.hostPath).
+      # Must match the node agent's host path (localmodelcache.localmodelnode.controller.hostPath).
       # On OpenShift use /var/mnt/models.
       path: /mnt/models
     storageClassName: local-storage
@@ -26,7 +26,7 @@ spec:
       required:
         nodeSelectorTerms:
           - matchExpressions:
-              - key: kserve/localmodel
+              - key: local.cache.ai/node
                 operator: In
                 values: [worker]
   persistentVolumeClaimSpec:

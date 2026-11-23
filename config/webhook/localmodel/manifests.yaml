@@ -8,10 +8,10 @@ webhooks:
   - clientConfig:
       service:
         name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
+        namespace: $(systemNamespace)
         path: /validate-local-cache-ai-v1alpha1-localmodelcache
     failurePolicy: Fail
-    name: localmodelcache.kserve-webhook-server.validator
+    name: localmodelcache-validator.webhook.local.cache.ai
     sideEffects: None
     admissionReviewVersions: ["v1beta1"]
     rules:
@@ -30,10 +30,10 @@ webhooks:
   - clientConfig:
       service:
         name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
+        namespace: $(systemNamespace)
         path: /validate-local-cache-ai-v1alpha1-localmodelnamespacecache
     failurePolicy: Fail
-    name: localmodelnamespacecache.kserve-webhook-server.validator
+    name: localmodelnamespacecache-validator.webhook.local.cache.ai
     sideEffects: None
     admissionReviewVersions: ["v1"]
     rules:
@@ -54,15 +54,15 @@ metadata:
   creationTimestamp: null
   name: kernelcache.local.cache.ai
   annotations:
-    cert-manager.io/inject-ca-from: $(kserveNamespace)/localmodel-serving-cert
+    cert-manager.io/inject-ca-from: $(systemNamespace)/localmodel-serving-cert
 webhooks:
   - clientConfig:
       service:
         name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
+        namespace: $(systemNamespace)
         path: /mutate-kernelcache-pods
     failurePolicy: Fail
-    name: kernelcache.kserve-webhook-server.pod-mutator
+    name: kernelcache-pod-mutator.webhook.local.cache.ai
     sideEffects: None
     reinvocationPolicy: IfNeeded
     admissionReviewVersions: ["v1"]
@@ -92,15 +92,15 @@ metadata:
   creationTimestamp: null
   name: kernelcachecapture.local.cache.ai
   annotations:
-    cert-manager.io/inject-ca-from: $(kserveNamespace)/localmodel-serving-cert
+    cert-manager.io/inject-ca-from: $(systemNamespace)/localmodel-serving-cert
 webhooks:
   - clientConfig:
       service:
         name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
+        namespace: $(systemNamespace)
         path: /validate-kernelcachecapture-status
     failurePolicy: Fail
-    name: kernelcachecapture.kserve-webhook-server.status-validator
+    name: kernelcachecapture-status-validator.webhook.local.cache.ai
     sideEffects: None
     admissionReviewVersions: ["v1"]
     rules:

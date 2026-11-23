@@ -46,13 +46,13 @@ type KernelCacheArtifact struct {
 // +k8s:openapi-gen=true
 type KernelCachePath struct {
 	// ContainerName is the container that owns the cache directory. If omitted,
-	// KServe resolves the standard runtime container; set it for non-standard containers.
+	// LocalModelCache resolves the standard runtime container; set it for non-standard containers.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	ContainerName string `json:"containerName,omitempty"`
 
 	// ContainerPath is the absolute path of the cache directory in the container. If omitted,
-	// KServe resolves VLLM_CACHE_ROOT and falls back to /root/.cache/vllm.
+	// LocalModelCache resolves VLLM_CACHE_ROOT and falls back to /root/.cache/vllm.
 	// +optional
 	// +kubebuilder:validation:MinLength=2
 	// +kubebuilder:validation:MaxLength=4096

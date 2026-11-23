@@ -1,0 +1,18 @@
+apiVersion: v2
+name: localmodelcache-crd
+version: v0.1.1
+appVersion: v0.1.1
+description: Helm chart for deploying LocalModel CRDs
+type: application
+keywords:
+  - localmodelcache
+  - localmodel
+  - model-caching
+home: https://github.com/talt5/localmodelcache
+sources:
+  - https://github.com/talt5/localmodelcache
+maintainers:
+  - name: LocalModelCache
+    url: https://github.com/talt5/localmodelcache
+annotations:
+  category: AI/Machine Learning

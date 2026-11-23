@@ -28,7 +28,7 @@ const (
 	TlsCert           = "TLS_CERT"
 	TlsKey            = "TLS_KEY"
 	TlsCa             = "TLS_CA"
-	MountPath         = "/var/secrets/kserve-hdfscreds"
+	MountPath         = "/var/secrets/localmodelcache-hdfscreds"
 	HdfsVolumeName    = "hdfs-secrets"
 )
 

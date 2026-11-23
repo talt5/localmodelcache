@@ -179,7 +179,7 @@ The OCI builder packages and pushes a cache image directly to a registry. It
 also supports creating an image from cache changes recorded after a baseline
 snapshot. See [docs/oci-delta-capture.md](./docs/oci-delta-capture.md).
 
-The KServe capture sidecar uses the same OCI and snapshot flow with grouped
+The LocalModelCache capture sidecar uses the same OCI and snapshot flow with grouped
 configuration and readiness reporting. See
 [docs/capture-sidecar.md](./docs/capture-sidecar.md).
 
@@ -517,7 +517,7 @@ package main
 import (
     "fmt"
 
-    "github.com/kserve/kserve/kernelcache/mcv/pkg/client"
+    "github.com/talt5/localmodelcache/kernelcache/mcv/pkg/client"
 )
 
 func main() {
@@ -547,7 +547,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/kserve/kserve/kernelcache/mcv/pkg/client"
+    "github.com/talt5/localmodelcache/kernelcache/mcv/pkg/client"
 )
 
 func main() {
@@ -576,7 +576,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/kserve/kserve/kernelcache/mcv/pkg/client"
+    "github.com/talt5/localmodelcache/kernelcache/mcv/pkg/client"
 )
 
 func main() {
@@ -636,7 +636,7 @@ driver for rootless buildah operation.
 
 ## Using MCV image to build cache images
 
-// TODO - Update with the KServe ones once available.
+// TODO - Update with the LocalModelCache ones once available.
 
 MCV provides container images at `quay.io/gkm/mcv`. The default (`quay.io/gkm/mcv:latest`)
 is the no-gpu variant (~176MB), which can be used to wrap a vLLM/Triton cache in an OCI
@@ -664,7 +664,7 @@ directory to the container and run the following command:
 +  --security-opt apparmor=unconfined \
 +  -v <path-to-cache>/example:/example:Z \
 +  -v /tmp/mcv-storage:/home/appuser/.local/share/containers:Z \
-  ghcr.io/talt5/kserve-mcv:latest-minimal bash -lc '
+  ghcr.io/talt5/localmodelcache-mcv:latest-minimal bash -lc '
     /mcv -c -i quay.io/gkm/vector-add-cache:rocm \
         -d /example/vector-add-cache-rocm --no-gpu &&
     buildah push containers-storage:quay.io/gkm/vector-add-cache:rocm \

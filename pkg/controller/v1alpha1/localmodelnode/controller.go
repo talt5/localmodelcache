@@ -254,7 +254,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	return createdJob, err
 }
 
-// Fetches container spec for model download container, use the default KServe image if not found
+// Fetches container spec for model download container, use the default LocalModelCache image if not found
 // This function is kept for backward compatibility with ClusterStorageContainer
 func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Context, storageUri string) (*corev1.Container, error) {
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}

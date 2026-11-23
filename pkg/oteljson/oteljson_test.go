@@ -87,7 +87,7 @@ func TestApplyUsesExplicitWriter(t *testing.T) {
 }
 
 func TestApplyForcesJSONWhenDevelopmentEncoderWasSelected(t *testing.T) {
-	t.Setenv("OTEL_SERVICE_NAME", "kserve-controller-manager")
+	t.Setenv("OTEL_SERVICE_NAME", "localmodelcache-controller-manager")
 
 	var buf bytes.Buffer
 	opts := crzap.Options{Development: true}

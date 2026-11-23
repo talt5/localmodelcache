@@ -1,0 +1,20 @@
+apiVersion: v2
+name: localmodelcache
+description: LocalModelCache - Local Model Storage and Caching for Edge and On-Premise Deployments
+type: application
+version: v0.1.1
+appVersion: v0.1.1
+keywords:
+  - localmodelcache
+  - localmodel
+  - local-storage
+  - machine-learning
+  - model-serving
+home: https://github.com/talt5/localmodelcache
+sources:
+  - https://github.com/talt5/localmodelcache
+maintainers:
+  - name: LocalModelCache
+    url: https://github.com/talt5/localmodelcache
+annotations:
+  category: AI/Machine Learning

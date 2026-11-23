@@ -3,8 +3,8 @@ import re
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-INPUT = PROJECT_ROOT / "kserve-images.env"
-OUTPUT = PROJECT_ROOT / "kserve-images.sh"
+INPUT = PROJECT_ROOT / "images.env"
+OUTPUT = PROJECT_ROOT / "images.sh"
 
 with open(INPUT) as f:
     lines = f.readlines()
@@ -13,7 +13,7 @@ var_names = []
 
 with open(OUTPUT, "w") as f:
     f.write("#!/bin/bash\n")
-    f.write("# Auto-generated from kserve-images.env - DO NOT EDIT MANUALLY\n\n")
+    f.write("# Auto-generated from images.env - DO NOT EDIT MANUALLY\n\n")
 
     for line in lines:
         line = line.rstrip()
@@ -36,7 +36,7 @@ with open(OUTPUT, "w") as f:
     f.write(f"  for var in {' '.join(var_names)}; do\n")
     f.write('    echo "${var}=${!var}" >> $GITHUB_ENV\n')
     f.write("  done\n")
-    f.write('  echo "✅ Exported KServe image variables to GITHUB_ENV"\n')
+    f.write('  echo "✅ Exported LocalModelCache image variables to GITHUB_ENV"\n')
     f.write("fi\n")
 
 OUTPUT.chmod(0o755)

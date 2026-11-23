@@ -1654,7 +1654,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			overrideParams:    map[string]string{"type": "", "bucket": ""},
 			container: &corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
@@ -1663,7 +1663,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			shouldFail: false,
 			matcher: gomega.Equal(&corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
@@ -1709,7 +1709,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
 			container: &corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
@@ -1718,7 +1718,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			shouldFail: false,
 			matcher: gomega.Equal(&corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
@@ -1764,7 +1764,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
 			container: &corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
@@ -1790,7 +1790,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
 			container: &corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
@@ -1799,7 +1799,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			shouldFail: false,
 			matcher: gomega.Equal(&corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
@@ -1845,7 +1845,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			overrideParams:    map[string]string{"type": "", "bucket": "test-bucket"},
 			container: &corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
@@ -1854,7 +1854,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			shouldFail: false,
 			matcher: gomega.Equal(&corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
@@ -1900,7 +1900,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
 			container: &corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"<scheme-placeholder>://models/example-model/",
 					"/mnt/models/",
@@ -1909,7 +1909,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			shouldFail: false,
 			matcher: gomega.Equal(&corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/example-model/",
 					"/mnt/models/",
@@ -1955,7 +1955,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			overrideParams:    map[string]string{"type": "hdfs", "bucket": ""},
 			container: &corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"<scheme-placeholder>://models/example-model/",
 					"/mnt/models/",
@@ -1964,7 +1964,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			shouldFail: false,
 			matcher: gomega.Equal(&corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"hdfs://models/example-model/",
 					"/mnt/models/",
@@ -2010,7 +2010,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			overrideParams:    map[string]string{"type": "", "bucket": "test-bucket"},
 			container: &corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"gs://test-bucket/models/",
 					"/mnt/models/",
@@ -2036,7 +2036,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			overrideParams:    map[string]string{"type": "", "bucket": "test-bucket"},
 			container: &corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
@@ -2062,7 +2062,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			overrideParams:    map[string]string{"type": "", "bucket": "test-bucket"},
 			container: &corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
@@ -2088,7 +2088,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			overrideParams:    map[string]string{"type": "s3", "bucket": ""},
 			container: &corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"<scheme-placeholder>://models/example-model/",
 					"/mnt/models/",
@@ -2114,7 +2114,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
 			container: &corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
@@ -2123,7 +2123,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			shouldFail: false,
 			matcher: gomega.Equal(&corev1.Container{
 				Name:  "init-container",
-				Image: "kserve/init-container:latest",
+				Image: "localmodelcache/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",

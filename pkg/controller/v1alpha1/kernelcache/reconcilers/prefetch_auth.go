@@ -241,7 +241,7 @@ func (r *KernelCacheReconciler) validatePrefetchRoleBindingCreation(ctx context.
 	probe := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    desired.Namespace,
-			GenerateName: "kserve-kernelcache-rb-check-",
+			GenerateName: "localmodelcache-kernelcache-rb-check-",
 			Labels:       desired.Labels,
 		},
 		RoleRef:  desired.RoleRef,

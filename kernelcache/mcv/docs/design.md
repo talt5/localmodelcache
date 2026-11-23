@@ -102,13 +102,13 @@ mcv -e -i quay.io/example/triton-kernel
 
 ### OCI delta capture
 
-KServe capture uses the MCV OCI builder to avoid a local Docker or Buildah daemon. The sidecar records a baseline snapshot before workload readiness, waits for the workload to become ready, and creates an image from the cache changes that follow.
+LocalModelCache capture uses the MCV OCI builder to avoid a local Docker or Buildah daemon. The sidecar records a baseline snapshot before workload readiness, waits for the workload to become ready, and creates an image from the cache changes that follow.
 
 ```text
 baseline snapshot -> readiness -> current snapshot -> delta comparison -> push
 ```
 
-The delta path creates a directory-only image when possible. File deletions, root-level file changes, and legacy snapshots fall back to a full image. See [oci-delta-capture.md](./oci-delta-capture.md) for the CLI contract and [capture-sidecar.md](./capture-sidecar.md) for the KServe sidecar contract.
+The delta path creates a directory-only image when possible. File deletions, root-level file changes, and legacy snapshots fall back to a full image. See [oci-delta-capture.md](./oci-delta-capture.md) for the CLI contract and [capture-sidecar.md](./capture-sidecar.md) for the LocalModelCache sidecar contract.
 
 ## Debugging & Logging
 

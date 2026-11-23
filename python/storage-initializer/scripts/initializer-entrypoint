@@ -2,8 +2,8 @@
 import os
 import sys
 
-from kserve_storage import Storage
-from kserve_storage.logging import configure_logging, logger
+from localmodelcache_storage import Storage
+from localmodelcache_storage.logging import configure_logging, logger
 
 configure_logging()
 
@@ -33,7 +33,7 @@ except Exception as e:
 
 # Post-download decryption for confidential model serving
 if os.environ.get("CONFIDENTIAL_ENABLED", "").lower() == "true":
-    from kserve_storage.confidential import JWEDecryptor, CDHSecretResolver
+    from localmodelcache_storage.confidential import JWEDecryptor, CDHSecretResolver
 
     resource_id = os.environ.get("CONFIDENTIAL_RESOURCE_ID", "")
     if not resource_id:

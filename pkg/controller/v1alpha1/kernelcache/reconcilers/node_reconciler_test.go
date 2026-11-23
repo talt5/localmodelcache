@@ -355,7 +355,7 @@ func TestKernelCacheNodeReconcilerConfiguresAgentDaemonSetFromNodeGroups(t *test
 	daemonSet := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName},
 		Spec: appsv1.DaemonSetSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
-			NodeSelector: map[string]string{"kserve/localmodel": "worker"},
+			NodeSelector: map[string]string{"local.cache.ai/node": "worker"},
 		}}},
 	}
 

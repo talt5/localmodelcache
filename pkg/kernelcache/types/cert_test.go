@@ -31,7 +31,7 @@ func TestCertConfigValidate(t *testing.T) {
 		cert    CertConfig
 		wantErr bool
 	}{
-		{"valid", CertConfig{TrustBundle: "kserve/ca", SubjectRegexp: ".*@kserve"}, false},
+		{"valid", CertConfig{TrustBundle: "localmodelcache/ca", SubjectRegexp: ".*@localmodelcache"}, false},
 		{"empty is accepted here", CertConfig{}, false},
 		{"invalid subjectRegexp", CertConfig{SubjectRegexp: "([a-z"}, true},
 	}

@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	TokenRequesterRole            = "kserve-kernelcache-token-requester" // #nosec G101 -- this is an RBAC role name, not a credential
+	TokenRequesterRole            = "localmodelcache-kernelcache-token-requester" // #nosec G101 -- this is an RBAC role name, not a credential
 	ManagedLabel                  = "internal.local.cache.ai/kernelcache-registry"
 	AccessSecretAnnotation        = "internal.local.cache.ai/kernelcache-access-secret"
 	AccessNamePrefix              = "mcv-registry-"

@@ -1,0 +1,113 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: localmodelcache-config
+data:
+  localModel: |-
+    {
+      "jobNamespace": "{{ .Values.localmodelcache.localmodel.jobNamespace }}",
+      "jobTTLSecondsAfterFinished": {{ .Values.localmodelcache.localmodel.jobTTLSecondsAfterFinished }},
+      "defaultJobImage": "{{ .Values.localmodelcache.localmodel.defaultJobImage }}:{{ .Values.localmodelcache.localmodel.defaultJobTag | default .Values.localmodelcache.version }}",
+      "fsGroup": {{ .Values.localmodelcache.localmodel.securityContext.fsGroup }},
+      {{- $importFSGroup := .Values.localmodelcache.localmodel.sharedPVCImportFSGroup }}
+      {{- if .Values.openshift.enabled }}
+      {{- $importFSGroup = .Values.openshift.sharedPVCImportFSGroup }}
+      {{- end }}
+      {{- if not (kindIs "invalid" $importFSGroup) }}
+      "sharedPVCImportFSGroup": {{ $importFSGroup }},
+      {{- end }}
+      "reconcilationFrequencyInSecs": {{ .Values.localmodelcache.localmodel.agent.reconcilationFrequencyInSecs }},
+      "disableVolumeManagement": {{ .Values.localmodelcache.localmodel.disableVolumeManagement }}
+    }
+  storageInitializer: |-
+    {
+        "image" : "{{ .Values.localmodelcache.storage.image }}:{{ .Values.localmodelcache.storage.tag | default .Values.localmodelcache.version }}",
+        "memoryRequest": "{{ .Values.localmodelcache.storage.resources.requests.memory }}",
+        "memoryLimit": "{{ .Values.localmodelcache.storage.resources.limits.memory }}",
+        "cpuRequest": "{{ .Values.localmodelcache.storage.resources.requests.cpu }}",
+        "cpuLimit": "{{ .Values.localmodelcache.storage.resources.limits.cpu }}",
+        "caBundleConfigMapName": "{{ .Values.localmodelcache.storage.caBundleConfigMapName }}",
+        "caBundleVolumeMountPath": "{{ .Values.localmodelcache.storage.caBundleVolumeMountPath }}"
+        {{- if .Values.localmodelcache.storage.enableOciModelSupport }},
+        "enableOciModelSupport": {{ .Values.localmodelcache.storage.enableOciModelSupport }}
+        {{- end }}
+        {{- if .Values.localmodelcache.storage.ociModelMode }},
+        "ociModelMode": "{{ .Values.localmodelcache.storage.ociModelMode }}"
+        {{- end }}
+    }
+  credentials: |-
+    {
+       "storageSpecSecretName": "{{ .Values.localmodelcache.storage.storageSpecSecretName }}",
+       "storageSecretNameAnnotation": "{{ .Values.localmodelcache.storage.storageSecretNameAnnotation }}",
+       "gcs": {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3": {
+           "s3AccessKeyIDName": "{{ .Values.localmodelcache.storage.s3.accessKeyIdName }}",
+           "s3SecretAccessKeyName": "{{ .Values.localmodelcache.storage.s3.secretAccessKeyName }}",
+           "s3Endpoint": "{{ .Values.localmodelcache.storage.s3.endpoint }}",
+           "s3UseHttps": "{{ .Values.localmodelcache.storage.s3.useHttps }}",
+           "s3Region": "{{ .Values.localmodelcache.storage.s3.region }}",
+           "s3VerifySSL": "{{ .Values.localmodelcache.storage.s3.verifySSL }}",
+           "s3UseVirtualBucket": "{{ .Values.localmodelcache.storage.s3.useVirtualBucket }}",
+           "s3UseAnonymousCredential": "{{ .Values.localmodelcache.storage.s3.useAnonymousCredential }}",
+           "s3CABundleConfigMap": "{{ .Values.localmodelcache.storage.s3.CABundleConfigMap }}",
+           "s3CABundle": "{{ .Values.localmodelcache.storage.s3.CABundle }}"
+       }
+    }
+  kernelcache: |-
+    {
+      "enabled": {{ .Values.localmodelcache.kernelcache.enabled }},
+      "defaultSidecarInjection": {{ .Values.localmodelcache.kernelcache.defaultSidecarInjection }},
+      "defaultMountType": "{{ .Values.localmodelcache.kernelcache.defaultMountType }}",
+      "defaultNodeGroup": "{{ .Values.localmodelcache.kernelcache.defaultNodeGroup }}",
+      "jobNamespace": "{{ .Values.localmodelcache.kernelcache.jobNamespace }}",
+      "mcvImage": "{{ .Values.localmodelcache.kernelcache.mcvImage }}:{{ .Values.localmodelcache.kernelcache.mcvTag | default (printf "%s-minimal" .Values.localmodelcache.version) }}",
+      "prefetchImage": "{{ .Values.localmodelcache.kernelcache.prefetchImage }}{{ if .Values.localmodelcache.kernelcache.prefetchTag }}:{{ .Values.localmodelcache.kernelcache.prefetchTag }}{{ end }}",
+      "runtimeImagePrefetch": {
+        "enabled": {{ .Values.localmodelcache.kernelcache.runtimeImagePrefetch.enabled }},
+        "jobTTLSecondsAfterFinished": {{ .Values.localmodelcache.kernelcache.runtimeImagePrefetch.jobTTLSecondsAfterFinished }}
+      },
+      "registry": {
+        "endpoint": {{ .Values.localmodelcache.kernelcache.registry.endpoint | toJson }},
+{{ if or .Values.localmodelcache.kernelcache.registry.caConfigMapRef.name .Values.localmodelcache.kernelcache.registry.caConfigMapRef.key }}
+        "caConfigMapRef": {
+          "name": {{ .Values.localmodelcache.kernelcache.registry.caConfigMapRef.name | toJson }},
+          "key": {{ .Values.localmodelcache.kernelcache.registry.caConfigMapRef.key | toJson }}
+        },
+{{ end }}
+        "auth": {
+          "type": {{ .Values.localmodelcache.kernelcache.registry.auth.type | toJson }},
+          "tokenTTLSeconds": {{ .Values.localmodelcache.kernelcache.registry.auth.tokenTTLSeconds }}{{ if or .Values.localmodelcache.kernelcache.registry.auth.pushRoleRef.kind .Values.localmodelcache.kernelcache.registry.auth.pushRoleRef.name .Values.localmodelcache.kernelcache.registry.auth.pullRoleRef.kind .Values.localmodelcache.kernelcache.registry.auth.pullRoleRef.name }},{{ end }}
+{{ if or .Values.localmodelcache.kernelcache.registry.auth.pushRoleRef.kind .Values.localmodelcache.kernelcache.registry.auth.pushRoleRef.name }}
+          "pushRoleRef": {
+            "kind": {{ .Values.localmodelcache.kernelcache.registry.auth.pushRoleRef.kind | toJson }},
+            "name": {{ .Values.localmodelcache.kernelcache.registry.auth.pushRoleRef.name | toJson }}
+          }{{ if or .Values.localmodelcache.kernelcache.registry.auth.pullRoleRef.kind .Values.localmodelcache.kernelcache.registry.auth.pullRoleRef.name }},{{ end }}
+{{ end }}
+{{ if or .Values.localmodelcache.kernelcache.registry.auth.pullRoleRef.kind .Values.localmodelcache.kernelcache.registry.auth.pullRoleRef.name }}
+          "pullRoleRef": {
+            "kind": {{ .Values.localmodelcache.kernelcache.registry.auth.pullRoleRef.kind | toJson }},
+            "name": {{ .Values.localmodelcache.kernelcache.registry.auth.pullRoleRef.name | toJson }}
+          }
+{{ end }}
+        }
+      },
+      "artifactSecurity": {
+        "mode": {{ .Values.localmodelcache.kernelcache.artifactSecurity.mode | toJson }},
+        "failurePolicy": {{ .Values.localmodelcache.kernelcache.artifactSecurity.failurePolicy | toJson }}{{ if or .Values.localmodelcache.kernelcache.artifactSecurity.cert.signingProfileRef .Values.localmodelcache.kernelcache.artifactSecurity.cert.trustBundle .Values.localmodelcache.kernelcache.artifactSecurity.cert.trustBundleKey .Values.localmodelcache.kernelcache.artifactSecurity.cert.subjectRegexp }},{{ end }}
+{{ if or .Values.localmodelcache.kernelcache.artifactSecurity.cert.signingProfileRef .Values.localmodelcache.kernelcache.artifactSecurity.cert.trustBundle .Values.localmodelcache.kernelcache.artifactSecurity.cert.trustBundleKey .Values.localmodelcache.kernelcache.artifactSecurity.cert.subjectRegexp }}
+        "cert": {
+          "signingProfileRef": {{ .Values.localmodelcache.kernelcache.artifactSecurity.cert.signingProfileRef | toJson }},
+          "trustBundle": {{ .Values.localmodelcache.kernelcache.artifactSecurity.cert.trustBundle | toJson }},
+          "trustBundleKey": {{ .Values.localmodelcache.kernelcache.artifactSecurity.cert.trustBundleKey | toJson }},
+          "subjectRegexp": {{ .Values.localmodelcache.kernelcache.artifactSecurity.cert.subjectRegexp | toJson }}
+        }
+{{ end }}
+      },
+      "abandonedCapturePolicy": "{{ .Values.localmodelcache.kernelcache.abandonedCapturePolicy }}",
+      "jobTTLSecondsAfterFinished": {{ .Values.localmodelcache.kernelcache.jobTTLSecondsAfterFinished }},
+      "mcvCaptureReadinessTimeoutSeconds": {{ .Values.localmodelcache.kernelcache.mcvCaptureReadinessTimeoutSeconds }},
+      "reconcileIntervalSeconds": {{ .Values.localmodelcache.kernelcache.reconcileIntervalSeconds }}
+    }

@@ -30,12 +30,12 @@ func TestKubernetesSecretSource(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "kernel-cache-ca", Namespace: "kserve"},
+		ObjectMeta: metav1.ObjectMeta{Name: "kernel-cache-ca", Namespace: "localmodelcache"},
 		Data:       map[string][]byte{"ca.crt": []byte("test")},
 	}
 	source := NewKubernetesSecretSource(fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build())
 
-	data, err := source.GetSecret(t.Context(), "kserve/kernel-cache-ca")
+	data, err := source.GetSecret(t.Context(), "localmodelcache/kernel-cache-ca")
 	require.NoError(t, err)
 	require.Equal(t, []byte("test"), data["ca.crt"])
 

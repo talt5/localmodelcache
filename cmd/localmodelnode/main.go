@@ -41,7 +41,7 @@ import (
 var setupLog = ctrl.Log.WithName("setup")
 
 const (
-	LeaderLockName = "kserve-local-model-node-manager-leader-lock"
+	LeaderLockName = "localmodelcache-node-manager-leader-lock"
 )
 
 // Options defines the program configurable options that may be passed on the command line.
@@ -73,8 +73,8 @@ func GetOptions() Options {
 	opts := DefaultOptions()
 	flag.StringVar(&opts.metricsAddr, "metrics-addr", opts.metricsAddr, "The address the metric endpoint binds to.")
 	flag.BoolVar(&opts.enableLeaderElection, "leader-elect", opts.enableLeaderElection,
-		"Enable leader election for kserve controller manager. "+
-			"Enabling this will ensure there is only one active kserve controller manager.")
+		"Enable leader election for localmodelcache controller manager. "+
+			"Enabling this will ensure there is only one active localmodelcache controller manager.")
 	flag.BoolVar(&opts.metricsSecure, "metrics-secure", opts.metricsSecure, "Serve metrics over HTTPS with Kubernetes authentication and authorization.")
 	flag.StringVar(&opts.metricsCertPath, "metrics-cert-path", opts.metricsCertPath, "Directory containing tls.crt and tls.key for the metrics server. If empty, self-signed certificates are generated.")
 	flag.StringVar(&opts.tlsMinVersion, "tls-min-version", opts.tlsMinVersion, "Minimum TLS version (VersionTLS12, VersionTLS13). Defaults to VersionTLS12.")
@@ -88,7 +88,7 @@ func GetOptions() Options {
 func main() {
 	options := GetOptions()
 	if options.logFormat == oteljson.FormatOTelJSON {
-		oteljson.Apply(&options.zapOpts, "kserve-localmodelnode-controller", os.Stdout)
+		oteljson.Apply(&options.zapOpts, "localmodelcache-node-controller", os.Stdout)
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&options.zapOpts)))
 

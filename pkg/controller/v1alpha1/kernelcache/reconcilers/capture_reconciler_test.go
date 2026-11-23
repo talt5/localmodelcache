@@ -116,7 +116,7 @@ func TestCompleteCaptureStatusIncludesPodRuntimeConfigFactors(t *testing.T) {
 			Labels:    map[string]string{constants.KernelCacheWorkloadLabelKey: "model"},
 		},
 		Spec: corev1.PodSpec{Containers: []corev1.Container{{
-			Name:    "kserve-container",
+			Name:    "localmodelcache-container",
 			Image:   "registry.example/vllm@sha256:" + strings.Repeat("b", 64),
 			Command: []string{"vllm", "--dtype", "bfloat16"},
 			Args:    []string{"--max-model-len=4096"},
@@ -131,7 +131,7 @@ func TestCompleteCaptureStatusIncludesPodRuntimeConfigFactors(t *testing.T) {
 		Spec: v1alpha1.KernelCacheCaptureSpec{
 			SourceRef: v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: "model"},
 			CachePaths: []v1alpha1.KernelCachePath{{
-				ContainerName: "kserve-container", OCIPath: "io.vllm.cache",
+				ContainerName: "localmodelcache-container", OCIPath: "io.vllm.cache",
 			}},
 		},
 		Status: v1alpha1.KernelCacheCaptureStatus{RuntimeResult: map[string]string{
@@ -196,7 +196,7 @@ func TestSuccessfulCaptureWithMissingProducerFailsWithoutArtifact(t *testing.T) 
 		ObjectMeta: metav1.ObjectMeta{Name: "capture", Namespace: "team"},
 		Spec: v1alpha1.KernelCacheCaptureSpec{
 			SourceRef:  v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: "model"},
-			CachePaths: []v1alpha1.KernelCachePath{{ContainerName: "kserve-container", ContainerPath: "/runtime/vllm", OCIPath: "io.vllm.cache"}},
+			CachePaths: []v1alpha1.KernelCachePath{{ContainerName: "localmodelcache-container", ContainerPath: "/runtime/vllm", OCIPath: "io.vllm.cache"}},
 		},
 		Status: v1alpha1.KernelCacheCaptureStatus{
 			ActiveSession: &v1alpha1.KernelCacheCaptureSession{ID: "session", PodName: "missing-pod"},

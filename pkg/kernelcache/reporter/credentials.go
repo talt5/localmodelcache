@@ -37,7 +37,7 @@ const (
 	AccessSecretAnnotation           = "internal.local.cache.ai/kernelcache-reporter-secret"
 	AccessKey                        = "access.json"
 	ManagedLabel                     = "internal.local.cache.ai/kernelcache-reporter"
-	TokenRequesterRole               = "kserve-kernelcache-token-requester" // #nosec G101 -- Kubernetes RBAC role name, not a credential.
+	TokenRequesterRole               = "localmodelcache-kernelcache-token-requester" // #nosec G101 -- Kubernetes RBAC role name, not a credential.
 	TokenRequesterManagedLabel       = "internal.local.cache.ai/kernelcache-token-requester"
 	tokenRefreshBuffer               = time.Minute
 	defaultTokenTTLSeconds     int64 = 600

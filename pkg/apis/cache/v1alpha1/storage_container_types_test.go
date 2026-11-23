@@ -28,7 +28,7 @@ func TestStorageContainerSpec_IsStorageUriSupported(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	customSpec := StorageContainerSpec{
 		Container: corev1.Container{
-			Image: "kserve/custom:latest",
+			Image: "localmodelcache/custom:latest",
 			Resources: corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
 					corev1.ResourceMemory: resource.MustParse("200Mi"),
@@ -39,7 +39,7 @@ func TestStorageContainerSpec_IsStorageUriSupported(t *testing.T) {
 	}
 	s3AzureSpec := StorageContainerSpec{
 		Container: corev1.Container{
-			Image: "kserve/storage-initializer:latest",
+			Image: "localmodelcache/storage-initializer:latest",
 			Resources: corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
 					corev1.ResourceMemory: resource.MustParse("200Mi"),

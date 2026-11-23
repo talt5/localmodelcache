@@ -160,7 +160,7 @@ func TestKernelCacheReconcilerCreatesKernelCacheFromCompletedCapture(t *testing.
 			Artifact: &v1alpha1.KernelCacheArtifact{
 				ImageReference: "registry.example.com/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				CachePaths: []v1alpha1.KernelCachePath{{
-					ContainerName: "kserve-container",
+					ContainerName: "localmodelcache-container",
 					ContainerPath: "/tmp/vllm",
 					OCIPath:       "io.vllm.cache",
 				}},
@@ -482,7 +482,7 @@ func newCaptureNodeGroupHarness(
 			Artifact: &v1alpha1.KernelCacheArtifact{
 				ImageReference: image,
 				CachePaths: []v1alpha1.KernelCachePath{{
-					ContainerName: "kserve-container", ContainerPath: "/tmp/vllm", OCIPath: "io.vllm.cache",
+					ContainerName: "localmodelcache-container", ContainerPath: "/tmp/vllm", OCIPath: "io.vllm.cache",
 				}},
 			},
 			Signing: &v1alpha1.KernelCacheSigningStatus{Mode: "none", State: v1alpha1.KernelCacheArtifactSecurityStateSkipped},

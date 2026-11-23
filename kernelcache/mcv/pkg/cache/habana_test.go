@@ -178,14 +178,14 @@ func TestHabanaLabels(t *testing.T) {
 
 	// The cache-root-env label must carry the full PT_HPU_RECIPE_CACHE_CONFIG
 	// value (name, dir, and the ",false,8192" tunables), not just the env name.
-	want := "PT_HPU_RECIPE_CACHE_CONFIG=/home/kserve/.cache/habana,false,8192"
-	if got := labels["io.kserve.km/cache-root-env"]; got != want {
+	want := "PT_HPU_RECIPE_CACHE_CONFIG=/home/localmodelcache/.cache/habana,false,8192"
+	if got := labels["ai.cache.local.km/cache-root-env"]; got != want {
 		t.Errorf("cache-root-env: got %q, want %q", got, want)
 	}
-	if got := labels["io.kserve.km/cache-type"]; got != "habana-recipe" {
+	if got := labels["ai.cache.local.km/cache-type"]; got != "habana-recipe" {
 		t.Errorf("cache-type: got %q, want %q", got, "habana-recipe")
 	}
-	if got := labels["io.kserve.km/cache-mount-subpath"]; got != "." {
+	if got := labels["ai.cache.local.km/cache-mount-subpath"]; got != "." {
 		t.Errorf("cache-mount-subpath: got %q, want %q", got, ".")
 	}
 }

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package config loads the KernelCache section from the kserve-localmodel-config
+// Package config loads the KernelCache section from the localmodelcache-config
 // ConfigMap.
 package config
 
@@ -29,7 +29,7 @@ import (
 	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
-// Load gets and parses the KernelCache configuration from the kserve-localmodel-config
+// Load gets and parses the KernelCache configuration from the localmodelcache-config
 // ConfigMap in constants.SystemNamespace.
 func Load(ctx context.Context, reader client.Reader) (*KernelCacheConfig, error) {
 	configMap := &corev1.ConfigMap{}

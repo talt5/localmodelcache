@@ -38,7 +38,7 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
-          git config user.email "ci@kserve.io"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
@@ -55,15 +55,15 @@ jobs:
         run: pip install uv
         
       # The model downloader (storage-initializer image) is the only Python package.
-      - name: Install kserve-storage
+      - name: Install localmodelcache-storage
         run: |
           cd python/storage
           uv venv .venv
           uv pip install --python .venv/bin/python ".[confidential]" pytest pytest-cov zstandard
-      - name: Test kserve-storage
+      - name: Test localmodelcache-storage
         run: |
           cd python/storage
-          .venv/bin/python -m pytest --cov=kserve_storage --junitxml=/tmp/junit_unit_storage.xml ./test
+          .venv/bin/python -m pytest --cov=localmodelcache_storage --junitxml=/tmp/junit_unit_storage.xml ./test
 
       - name: Upload unit test results
         if: always()

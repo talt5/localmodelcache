@@ -62,7 +62,7 @@ func TestKernelCacheWebhookMatchConditionSelectsOptedInPods(t *testing.T) {
 			continue
 		}
 		for _, webhook := range object.Webhooks {
-			if webhook.Name != "kernelcache.kserve-webhook-server.pod-mutator" {
+			if webhook.Name != "kernelcache-pod-mutator.webhook.local.cache.ai" {
 				continue
 			}
 			found = true

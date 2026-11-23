@@ -25,7 +25,7 @@ GROUPED_CAPTURE_CONFIG = {
     },
     "cachePaths": [
         {
-            "containerName": "kserve-container",
+            "containerName": "localmodelcache-container",
             "containerPath": "/tmp/vllm",
             "ociPath": "io.vllm.cache",
         }

@@ -24,6 +24,7 @@ import (
 	"os"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	logging "github.com/sirupsen/logrus"
 	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/accelerator"
 	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/accelerator/devices"
 	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/config"
@@ -32,7 +33,6 @@ import (
 	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/logformat"
 	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/preflightcheck"
 	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/registryauth"
-	logging "github.com/sirupsen/logrus"
 )
 
 // Options encapsulates configurable settings for cache extraction operations.

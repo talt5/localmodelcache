@@ -1,0 +1,70 @@
+localmodelcache:
+  localmodel:
+    controller:
+      image: ghcr.io/talt5/localmodelcache-controller
+      # -- Additional container arguments. Example: ["--log-format=otel-json"].
+      extraArgs: []
+      tag: ''
+      imagePullPolicy: IfNotPresent
+      resources:
+        limits:
+          cpu: 100m
+          memory: 300Mi
+        requests:
+          cpu: 100m
+          memory: 200Mi
+  localmodelnode:
+    controller:
+      image: ghcr.io/talt5/localmodelcache-node-agent
+      # -- Additional container arguments. Example: ["--log-format=otel-json"].
+      extraArgs: []
+      tag: ''
+      imagePullPolicy: IfNotPresent
+      resources:
+        limits:
+          cpu: 100m
+          memory: 300Mi
+        requests:
+          cpu: 100m
+          memory: 200Mi
+      nodeSelector:
+        local.cache.ai/node: worker
+      affinity: {}
+      tolerations: []
+      # -- Node directory that holds the model cache. It must match the path of the PersistentVolume in your LocalModelNodeGroup. On OpenShift (RHCOS) the root filesystem is immutable, so use a path under /var, such as /var/mnt/models.
+      hostPath: /models
+  kernelcachenode:
+    controller:
+      image: ghcr.io/talt5/localmodelcache-kernelcache-agent
+      # -- Additional container arguments.
+      extraArgs: []
+      tag: ''
+      imagePullPolicy: IfNotPresent
+      resources:
+        limits:
+          cpu: 100m
+          memory: 300Mi
+        requests:
+          cpu: 10m
+          memory: 128Mi
+      affinity: {}
+      tolerations: []
+openshift:
+  # -- Deploy on OpenShift. Creates SecurityContextConstraints (SCCs), grants them to the chart's ServiceAccounts and the download Job ServiceAccount, and pins each pod to its SCC.
+  enabled: false
+  # -- ServiceAccount in localmodelcache.localmodel.jobNamespace that runs the model download Jobs. It is granted the download Job SCC, which permits the Jobs' fsGroup.
+  downloadJobServiceAccount: default
+  # -- fsGroup of shared-PVC import Jobs on OpenShift, replacing localmodelcache.localmodel.sharedPVCImportFSGroup. The Jobs run in the cache's namespace under restricted-v2, which rejects a group outside the namespace's range. Leave it null so admission assigns the namespace's group, which the pods mounting the claim also get.
+  sharedPVCImportFSGroup: null
+  localmodelnode:
+    # -- UID the node agent runs as. It owns the model cache on the node.
+    runAsUser: 1000
+    # -- GID the node agent runs as. Download Jobs share it through their fsGroup (localmodelcache.localmodel.securityContext.fsGroup), so both can write the cache.
+    runAsGroup: 1000
+    # -- SELinux type for the node agent pod, including its init container. spc_t lets the agent read cache files whatever SELinux categories the pods that wrote or mounted them used, and lets the init container relabel the host directory. Empty uses the runtime default (container_t).
+    seLinuxType: spc_t
+    prepareHostPath:
+      # -- Run an init container that creates the cache directory, gives it to runAsUser:runAsGroup and labels it container_file_t so SELinux lets pods write it. Disable it if you prepare the nodes yourself, for example with a MachineConfig.
+      enabled: true
+      # -- Image for the init container. It needs sh, mkdir, chown, chmod and chcon.
+      image: registry.access.redhat.com/ubi9/ubi-minimal:latest

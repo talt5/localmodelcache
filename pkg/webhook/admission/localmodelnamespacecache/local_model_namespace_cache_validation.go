@@ -48,7 +48,7 @@ type LocalModelNamespaceCacheValidator struct {
 	Reader client.Reader
 }
 
-// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-localmodelnamespacecaches,mutating=false,failurePolicy=fail,groups=local.cache.ai,resources=localmodelnamespacecaches,versions=v1alpha1,name=localmodelnamespacecache.kserve-webhook-server.validator
+// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-localmodelnamespacecaches,mutating=false,failurePolicy=fail,groups=local.cache.ai,resources=localmodelnamespacecaches,versions=v1alpha1,name=localmodelnamespacecache-validator.webhook.local.cache.ai
 var _ admission.Validator[*v1alpha1.LocalModelNamespaceCache] = &LocalModelNamespaceCacheValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
