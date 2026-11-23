@@ -55,9 +55,9 @@ type LocalModelNamespaceCacheReconciler struct {
 
 // Reconcile
 // Step 1 - Checks if the CR is in the deletion process. Deletion completes when all LocalModelNodes have been updated
-// Step 2 - Adds this model to LocalModelNode resources in the node group
-// Step 3 - Creates PV & PVC for model download (in the job namespace)
-// Step 4 - Creates the PV & PVC that workloads in the cache's namespace mount
+// Step 2 - Creates the PV & PVC that workloads in the cache's namespace mount
+// Step 3 - Adds this model to LocalModelNode resources in the node group
+// Step 4 - Creates PV & PVC for model download (in the job namespace)
 func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Reconciling namespace-scoped localmodel", "name", req.Name, "namespace", req.Namespace)
 	configMap, err := localmodelcache.GetConfigMap(ctx, c.Clientset)
@@ -108,23 +108,29 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		return DeleteModelFromNodes(ctx, c.Client, c.Clientset, c.Log, nil, localModel, nodeGroups)
 	}
 
+	// Step 2 - Creates the PV & PVC that workloads in the cache's namespace mount. Their root is
+	// the model's folder. Users who manage the volumes themselves need its path instead.
 	var claims []string
-	if !localModelConfig.DisableVolumeManagement {
-		claims = localmodelcache.NamespaceCacheClaimNames(localModel)
+	var subPath string
+	var volumesErr error
+	if localModelConfig.DisableVolumeManagement {
+		subPath = v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri)
+	} else {
+		claims, volumesErr = ReconcileNamespaceCacheVolumes(ctx, c.Clientset, c.Scheme, c.Log, localModel, nodeGroups)
 	}
 
-	// Step 2 - Adds this model to LocalModelNode resources in the node group
-	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, nil, localModel, nodeGroups, claims); err != nil {
+	// Step 3 - Adds this model to LocalModelNode resources in the node group
+	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, nil, localModel, nodeGroups, claims, subPath); err != nil {
 		c.Log.Error(err, "failed to reconcile LocalModelNode for namespace cache")
 	}
 
-	// Step 3 - Creates PV & PVC for model download (in jobNamespace, same as cluster-scoped)
+	// Step 4 - Creates PV & PVC for model download (in jobNamespace, same as cluster-scoped)
 	for _, nodeGroup := range nodeGroups {
 		pvSpec := nodeGroup.Spec.PersistentVolumeSpec
 		pv := corev1.PersistentVolume{Spec: pvSpec, ObjectMeta: metav1.ObjectMeta{
 			Name: localModel.Name + "-" + nodeGroup.Name + "-" + localModel.Namespace + "-download",
 		}}
-		if err := CreatePV(ctx, c.Clientset, c.Scheme, c.Log, pv, nil, localModel); err != nil {
+		if _, err := CreatePV(ctx, c.Clientset, c.Scheme, c.Log, pv, nil, localModel); err != nil {
 			c.Log.Error(err, "Create PV err", "name", pv.Name)
 		}
 
@@ -136,20 +142,12 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		}
 		pvc.Spec.VolumeName = pv.Name
 
-		if err := CreatePVC(ctx, c.Clientset, c.Scheme, c.Log, pvc, localModelConfig.JobNamespace, nil, localModel); err != nil {
+		if _, err := CreatePVC(ctx, c.Clientset, c.Scheme, c.Log, pvc, localModelConfig.JobNamespace, nil, localModel); err != nil {
 			c.Log.Error(err, "Create PVC err", "name", pvc.Name)
 		}
 	}
 
-	if localModelConfig.DisableVolumeManagement {
-		return ctrl.Result{}, nil
-	}
-
-	// Step 4 - Creates the PV & PVC that workloads in the cache's namespace mount
-	if err := ReconcileNamespaceCacheVolumes(ctx, c.Clientset, c.Scheme, c.Log, localModel, nodeGroups); err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, volumesErr
 }
 
 // Given a node object, checks if it matches any node group CR, then reconcile all namespace local models that has this node group.

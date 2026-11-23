@@ -29,7 +29,9 @@ type LocalModelCacheStatus struct {
 	// +optional
 	ModelCopies *ModelCopies `json:"copies,omitempty"`
 	// SubPath is the directory, relative to the root of the cache's volume, that holds the
-	// model files: models/<storage key>. Mount it with volumeMounts[].subPath.
+	// model files: models/<storage key>. Mount it with volumeMounts[].subPath. It is empty for
+	// a node-local LocalModelNamespaceCache whose claims the controller creates, since the root
+	// of each claim already is that directory.
 	// +optional
 	SubPath string `json:"subPath,omitempty"`
 	// PersistentVolumeClaims lists the claims in the cache's namespace that expose the model to

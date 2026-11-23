@@ -88,7 +88,7 @@ func (spec *LocalModelNamespaceCacheSpec) SharedPVCMode() bool {
 
 // LocalModelNamespaceCache is a namespace-scoped version of LocalModelCache. Workloads in its
 // namespace mount the cached model through the claims listed in status.persistentVolumeClaims,
-// at status.subPath.
+// at status.subPath when it is set.
 // +k8s:openapi-gen=true
 // +genclient
 // +kubebuilder:object:root=true

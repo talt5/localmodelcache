@@ -705,6 +705,15 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: servingPVName}, servingPV)
 			}, timeout, interval).Should(Succeed(), "serving PV should be created without any consumer")
 			Expect(servingPV.Spec.NodeAffinity).To(Equal(localModelNodeGroupSpec1.PersistentVolumeSpec.NodeAffinity))
+			Expect(servingPV.Spec.HostPath.Path).To(Equal("/models/"+v1alpha1.GetStorageSubPath(sourceModelUri)),
+				"the serving PV should expose only this model's folder")
+
+			// The download Job mounts models/<storage key> itself, so its PV keeps the root.
+			downloadPV := &corev1.PersistentVolume{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: servingPVName + "-download"}, downloadPV)
+			}, timeout, interval).Should(Succeed())
+			Expect(downloadPV.Spec.HostPath.Path).To(Equal("/models"))
 
 			servingPVC := &corev1.PersistentVolumeClaim{}
 			Eventually(func() error {
@@ -715,9 +724,9 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: modelName, Namespace: testNamespace}, cachedModel)).To(Succeed())
-				g.Expect(cachedModel.Status.SubPath).To(Equal(v1alpha1.GetStorageSubPath(sourceModelUri)))
 				g.Expect(cachedModel.Status.PersistentVolumeClaims).To(Equal([]string{servingPVCName}))
-			}, timeout, interval).Should(Succeed(), "status should tell workloads which claim and subPath to mount")
+				g.Expect(cachedModel.Status.SubPath).To(BeEmpty())
+			}, timeout, interval).Should(Succeed(), "status should tell workloads which claim to mount, with no subPath")
 
 			// Deleting the cache deletes the cluster-scoped serving PV, which it cannot own. The
 			// admission-added pv-protection finalizer keeps it Terminating in envtest, where no
@@ -778,6 +787,51 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 			}, time.Second*2, interval).Should(BeTrue(), "no serving PVC when volume management is disabled")
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: modelName, Namespace: testNamespace}, cachedModel)).Should(Succeed())
 			Expect(cachedModel.Status.PersistentVolumeClaims).To(BeEmpty())
+			Expect(cachedModel.Status.SubPath).To(Equal(v1alpha1.GetStorageSubPath(sourceModelUri)),
+				"users who manage the volume need the model's path in it")
+		})
+
+		It("Should not offer a claim backed by a PV that exposes another path", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			testNamespace := fmt.Sprintf("test-ns-stalepv-%d", time.Now().UnixNano())
+			namespaceObj := createTestNamespace(ctx, testNamespace)
+			defer k8sClient.Delete(ctx, namespaceObj)
+
+			modelName := "ns-stalepv"
+			// A PV left by an earlier version, or by a deleted cache of another model.
+			stalePV := &corev1.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{Name: modelName + "-gpu1-" + testNamespace},
+				Spec:       *localModelNodeGroupSpec1.PersistentVolumeSpec.DeepCopy(),
+			}
+			Expect(k8sClient.Create(ctx, stalePV)).Should(Succeed())
+			defer k8sClient.Delete(ctx, stalePV)
+
+			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{Name: "gpu1"},
+				Spec:       localModelNodeGroupSpec1,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup1)
+
+			cachedModel := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: modelName, Namespace: testNamespace},
+				Spec:       localModelNamespaceSpec,
+			}
+			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
+			defer k8sClient.Delete(ctx, cachedModel)
+
+			// The download still goes ahead.
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: stalePV.Name + "-download", Namespace: modelCacheNamespace}, &corev1.PersistentVolumeClaim{})
+			}, timeout, interval).Should(Succeed())
+			Consistently(func(g Gomega) {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName + "-gpu1", Namespace: testNamespace}, &corev1.PersistentVolumeClaim{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue(), "no claim should be bound to the stale PV")
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: modelName, Namespace: testNamespace}, cachedModel)).To(Succeed())
+				g.Expect(cachedModel.Status.PersistentVolumeClaims).To(BeEmpty())
+			}, time.Second*2, interval).Should(Succeed())
 		})
 
 		It("Should delete LocalModelNamespaceCache and run finalizer cleanup", func() {

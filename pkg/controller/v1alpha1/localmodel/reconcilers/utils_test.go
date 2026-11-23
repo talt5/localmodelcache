@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -72,7 +73,7 @@ func TestReconcileLocalModelNodeRecordsMountReferencesWithoutNodeGroups(t *testi
 	cl := newLocalModelCacheClient(t, cache)
 
 	err := ReconcileLocalModelNode(context.Background(), cl, logr.Discard(), cache, nil,
-		map[string]*v1alpha1.LocalModelNodeGroup{}, []string{"cache-gpu"})
+		map[string]*v1alpha1.LocalModelNodeGroup{}, []string{"cache-gpu"}, v1alpha1.GetStorageSubPath(testSourceModelUri))
 	if err != nil {
 		t.Fatalf("ReconcileLocalModelNode() error = %v", err)
 	}
@@ -100,7 +101,7 @@ func TestReconcileLocalModelNodeRecordsMountReferencesOnNodeGroupError(t *testin
 		"gpu": {ObjectMeta: metav1.ObjectMeta{Name: "gpu"}},
 	}
 
-	err := ReconcileLocalModelNode(context.Background(), cl, logr.Discard(), cache, nil, nodeGroups, nil)
+	err := ReconcileLocalModelNode(context.Background(), cl, logr.Discard(), cache, nil, nodeGroups, nil, v1alpha1.GetStorageSubPath(testSourceModelUri))
 	if !errors.Is(err, listErr) {
 		t.Fatalf("ReconcileLocalModelNode() error = %v, want %v", err, listErr)
 	}
@@ -114,6 +115,87 @@ func TestReconcileLocalModelNodeRecordsMountReferencesOnNodeGroupError(t *testin
 	}
 	if persisted.Status.PersistentVolumeClaims != nil {
 		t.Fatalf("Status.PersistentVolumeClaims = %#v, want none for a cluster-scoped cache", persisted.Status.PersistentVolumeClaims)
+	}
+}
+
+func TestReconcileLocalModelNodeClearsStaleSubPath(t *testing.T) {
+	cache := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache"},
+		Spec:       v1alpha1.LocalModelCacheSpec{SourceModelUri: testSourceModelUri},
+		Status:     v1alpha1.LocalModelCacheStatus{SubPath: v1alpha1.GetStorageSubPath(testSourceModelUri)},
+	}
+	cl := newLocalModelCacheClient(t, cache)
+
+	if err := ReconcileLocalModelNode(t.Context(), cl, logr.Discard(), cache, nil,
+		map[string]*v1alpha1.LocalModelNodeGroup{}, []string{"cache-gpu"}, ""); err != nil {
+		t.Fatalf("ReconcileLocalModelNode() error = %v", err)
+	}
+
+	persisted := &v1alpha1.LocalModelCache{}
+	if err := cl.Get(t.Context(), types.NamespacedName{Name: "cache"}, persisted); err != nil {
+		t.Fatalf("get cache: %v", err)
+	}
+	if persisted.Status.SubPath != "" {
+		t.Fatalf("Status.SubPath = %q, want it cleared", persisted.Status.SubPath)
+	}
+}
+
+func TestServingPersistentVolumeSpec(t *testing.T) {
+	subPath := v1alpha1.GetStorageSubPath(testSourceModelUri)
+	tests := map[string]struct {
+		source  corev1.PersistentVolumeSource
+		want    corev1.PersistentVolumeSource
+		wantErr bool
+	}{
+		"local": {
+			source: corev1.PersistentVolumeSource{Local: &corev1.LocalVolumeSource{Path: "/mnt/models"}},
+			want:   corev1.PersistentVolumeSource{Local: &corev1.LocalVolumeSource{Path: "/mnt/models/" + subPath}},
+		},
+		"trailing slash": {
+			source: corev1.PersistentVolumeSource{Local: &corev1.LocalVolumeSource{Path: "/mnt/models/"}},
+			want:   corev1.PersistentVolumeSource{Local: &corev1.LocalVolumeSource{Path: "/mnt/models/" + subPath}},
+		},
+		"hostPath never creates the folder": {
+			source: corev1.PersistentVolumeSource{HostPath: &corev1.HostPathVolumeSource{
+				Path: "/mnt/models", Type: ptr.To(corev1.HostPathDirectoryOrCreate),
+			}},
+			want: corev1.PersistentVolumeSource{HostPath: &corev1.HostPathVolumeSource{
+				Path: "/mnt/models/" + subPath, Type: ptr.To(corev1.HostPathDirectory),
+			}},
+		},
+		"other volume types are rejected": {
+			source:  corev1.PersistentVolumeSource{NFS: &corev1.NFSVolumeSource{Server: "nfs", Path: "/models"}},
+			wantErr: true,
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{Name: "gpu"},
+				Spec: v1alpha1.LocalModelNodeGroupSpec{PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+					StorageClassName:       "local-storage",
+					PersistentVolumeSource: tc.source,
+				}},
+			}
+			before := nodeGroup.DeepCopy()
+
+			got, err := servingPersistentVolumeSpec(nodeGroup, testSourceModelUri)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("servingPersistentVolumeSpec() error = %v, wantErr %v", err, tc.wantErr)
+			}
+			if !reflect.DeepEqual(nodeGroup, before) {
+				t.Fatal("servingPersistentVolumeSpec() modified the node group")
+			}
+			if tc.wantErr {
+				return
+			}
+			if !reflect.DeepEqual(got.PersistentVolumeSource, tc.want) {
+				t.Fatalf("source = %#v, want %#v", got.PersistentVolumeSource, tc.want)
+			}
+			if got.StorageClassName != "local-storage" {
+				t.Fatalf("StorageClassName = %q, want the node group's", got.StorageClassName)
+			}
+		})
 	}
 }
 

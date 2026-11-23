@@ -19,7 +19,9 @@ package reconcilers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
+	"path"
 	"reflect"
 	"slices"
 
@@ -30,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -349,7 +352,8 @@ func DeletePVC(ctx context.Context, clientset *kubernetes.Clientset, log logr.Lo
 	return nil
 }
 
-// CreatePV creates a PersistentVolume and sets the owner reference
+// CreatePV returns the PersistentVolume, creating it with the owner reference if it does not exist.
+// An existing PV is returned as it is.
 // Only one of localModelCache or localModelNamespaceCache should be non-nil
 // Note: For namespace-scoped LocalModelNamespaceCache, owner reference is NOT set because
 // PVs are cluster-scoped and cannot be owned by namespace-scoped resources
@@ -361,32 +365,36 @@ func CreatePV(
 	spec corev1.PersistentVolume,
 	localModelCache *v1alpha1.LocalModelCache,
 	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
-) error {
+) (*corev1.PersistentVolume, error) {
 	persistentVolumes := clientset.CoreV1().PersistentVolumes()
-	if _, err := persistentVolumes.Get(ctx, spec.Name, metav1.GetOptions{}); err != nil {
-		if !apierr.IsNotFound(err) {
-			log.Error(err, "Failed to get PV")
-			return err
-		}
-		log.Info("Create PV", "name", spec.Name)
+	existing, err := persistentVolumes.Get(ctx, spec.Name, metav1.GetOptions{})
+	if err == nil {
+		return existing, nil
+	}
+	if !apierr.IsNotFound(err) {
+		log.Error(err, "Failed to get PV")
+		return nil, err
+	}
+	log.Info("Create PV", "name", spec.Name)
 
-		// Set controller reference only for cluster-scoped LocalModelCache
-		if localModelCache != nil {
-			if err := controllerutil.SetControllerReference(localModelCache, &spec, scheme); err != nil {
-				log.Error(err, "Failed to set controller reference")
-				return err
-			}
-		}
-
-		if _, err := persistentVolumes.Create(ctx, &spec, metav1.CreateOptions{}); err != nil {
-			log.Error(err, "Failed to create PV", "name", spec.Name)
-			return err
+	// Set controller reference only for cluster-scoped LocalModelCache
+	if localModelCache != nil {
+		if err := controllerutil.SetControllerReference(localModelCache, &spec, scheme); err != nil {
+			log.Error(err, "Failed to set controller reference")
+			return nil, err
 		}
 	}
-	return nil
+
+	created, err := persistentVolumes.Create(ctx, &spec, metav1.CreateOptions{})
+	if err != nil {
+		log.Error(err, "Failed to create PV", "name", spec.Name)
+		return nil, err
+	}
+	return created, nil
 }
 
-// CreatePVC creates a PersistentVolumeClaim and sets the owner reference
+// CreatePVC returns the PersistentVolumeClaim, creating it with the owner reference if it does not
+// exist. An existing PVC is returned as it is.
 // Only one of localModelCache or localModelNamespaceCache should be non-nil
 func CreatePVC(
 	ctx context.Context,
@@ -397,54 +405,90 @@ func CreatePVC(
 	namespace string,
 	localModelCache *v1alpha1.LocalModelCache,
 	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
-) error {
+) (*corev1.PersistentVolumeClaim, error) {
 	persistentVolumeClaims := clientset.CoreV1().PersistentVolumeClaims(namespace)
-	if _, err := persistentVolumeClaims.Get(ctx, spec.Name, metav1.GetOptions{}); err != nil {
-		if !apierr.IsNotFound(err) {
-			log.Error(err, "Failed to get PVC")
-			return err
+	existing, err := persistentVolumeClaims.Get(ctx, spec.Name, metav1.GetOptions{})
+	if err == nil {
+		return existing, nil
+	}
+	if !apierr.IsNotFound(err) {
+		log.Error(err, "Failed to get PVC")
+		return nil, err
+	}
+	log.Info("Create PVC", "name", spec.Name, "namespace", namespace)
+
+	spec.Namespace = namespace
+
+	if localModelCache != nil {
+		if err := controllerutil.SetControllerReference(localModelCache, &spec, scheme); err != nil {
+			log.Error(err, "Set controller reference")
+			return nil, err
 		}
-		log.Info("Create PVC", "name", spec.Name, "namespace", namespace)
-
-		spec.Namespace = namespace
-
-		if localModelCache != nil {
-			if err := controllerutil.SetControllerReference(localModelCache, &spec, scheme); err != nil {
+	} else if localModelNamespaceCache != nil {
+		// Only set owner reference if PVC is in the same namespace as the cache
+		if namespace == localModelNamespaceCache.Namespace {
+			if err := controllerutil.SetControllerReference(localModelNamespaceCache, &spec, scheme); err != nil {
 				log.Error(err, "Set controller reference")
-				return err
+				return nil, err
 			}
-		} else if localModelNamespaceCache != nil {
-			// Only set owner reference if PVC is in the same namespace as the cache
-			if namespace == localModelNamespaceCache.Namespace {
-				if err := controllerutil.SetControllerReference(localModelNamespaceCache, &spec, scheme); err != nil {
-					log.Error(err, "Set controller reference")
-					return err
-				}
-			}
-		}
-
-		if _, err := persistentVolumeClaims.Create(ctx, &spec, metav1.CreateOptions{}); err != nil {
-			log.Error(err, "Failed to create PVC", "name", spec.Name)
-			return err
 		}
 	}
-	return nil
+
+	created, err := persistentVolumeClaims.Create(ctx, &spec, metav1.CreateOptions{})
+	if err != nil {
+		log.Error(err, "Failed to create PVC", "name", spec.Name)
+		return nil, err
+	}
+	return created, nil
 }
 
-// setMountReferences records where workloads find the model: the claims that expose it and
-// the directory inside them that holds the files.
-func setMountReferences(status *v1alpha1.LocalModelCacheStatus, sourceModelUri string, claims []string) {
-	status.SubPath = v1alpha1.GetStorageSubPath(sourceModelUri)
+// setMountReferences records where workloads find the model: the claims that expose it and,
+// when the model is not at the root of the volume, the directory that holds its files.
+func setMountReferences(status *v1alpha1.LocalModelCacheStatus, claims []string, subPath string) {
+	status.SubPath = subPath
 	if len(claims) == 0 {
 		claims = nil
 	}
 	status.PersistentVolumeClaims = claims
 }
 
+// servingPersistentVolumeSpec is the node group's PersistentVolume spec narrowed to the model's
+// folder, so that workloads mount the model at the root of the claim. Neither volume type
+// creates a missing folder: a Pod on a node that has not started the download waits for it.
+func servingPersistentVolumeSpec(nodeGroup *v1alpha1.LocalModelNodeGroup, sourceModelUri string) (*corev1.PersistentVolumeSpec, error) {
+	spec := nodeGroup.Spec.PersistentVolumeSpec.DeepCopy()
+	subPath := v1alpha1.GetStorageSubPath(sourceModelUri)
+	switch {
+	case spec.Local != nil:
+		spec.Local.Path = path.Join(spec.Local.Path, subPath)
+	case spec.HostPath != nil:
+		spec.HostPath.Path = path.Join(spec.HostPath.Path, subPath)
+		spec.HostPath.Type = ptr.To(corev1.HostPathDirectory)
+	default:
+		return nil, fmt.Errorf("LocalModelNodeGroup %s: persistentVolumeSpec must be a local or hostPath volume", nodeGroup.Name)
+	}
+	return spec, nil
+}
+
+// nodePath is the node directory a local or hostPath volume exposes.
+func nodePath(source corev1.PersistentVolumeSource) string {
+	switch {
+	case source.Local != nil:
+		return source.Local.Path
+	case source.HostPath != nil:
+		return source.HostPath.Path
+	}
+	return ""
+}
+
 // ReconcileNamespaceCacheVolumes creates, for each node group of a node-local
 // LocalModelNamespaceCache, the PV <cache>-<node group>-<namespace> and the PVC
 // <cache>-<node group> that workloads in the cache's namespace mount. The PVC is owned by
 // the cache. The PV is cluster-scoped and cannot be, so DeleteModelFromNodes deletes it.
+//
+// It returns the claims that expose the model. A claim is left out, with an error, while a
+// PV or PVC of the same name is being deleted or exposes something else, since a workload
+// that mounted it would see other files.
 func ReconcileNamespaceCacheVolumes(
 	ctx context.Context,
 	clientset *kubernetes.Clientset,
@@ -452,33 +496,71 @@ func ReconcileNamespaceCacheVolumes(
 	log logr.Logger,
 	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
 	nodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
-) error {
-	namespace := localModelNamespaceCache.Namespace
+) ([]string, error) {
+	var claims []string
 	var errs []error
 	for _, nodeGroupName := range localModelNamespaceCache.Spec.NodeGroups {
 		nodeGroup, ok := nodeGroups[nodeGroupName]
 		if !ok {
 			continue
 		}
-		pvcName := localModelNamespaceCache.Name + "-" + nodeGroupName
-		pv := corev1.PersistentVolume{
-			ObjectMeta: metav1.ObjectMeta{Name: pvcName + "-" + namespace},
-			Spec:       nodeGroup.Spec.PersistentVolumeSpec,
-		}
-		if err := CreatePV(ctx, clientset, scheme, log, pv, nil, localModelNamespaceCache); err != nil {
+		claim, err := reconcileServingVolume(ctx, clientset, scheme, log, localModelNamespaceCache, nodeGroup)
+		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
-		pvc := corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{Name: pvcName, Namespace: namespace},
-			Spec:       nodeGroup.Spec.PersistentVolumeClaimSpec,
-		}
-		pvc.Spec.VolumeName = pv.Name
-		if err := CreatePVC(ctx, clientset, scheme, log, pvc, namespace, nil, localModelNamespaceCache); err != nil {
-			errs = append(errs, err)
-		}
+		claims = append(claims, claim)
 	}
-	return errors.Join(errs...)
+	return claims, errors.Join(errs...)
+}
+
+// reconcileServingVolume creates the serving PV and PVC for one node group and returns the
+// name of the claim.
+func reconcileServingVolume(
+	ctx context.Context,
+	clientset *kubernetes.Clientset,
+	scheme *runtime.Scheme,
+	log logr.Logger,
+	cache *v1alpha1.LocalModelNamespaceCache,
+	nodeGroup *v1alpha1.LocalModelNodeGroup,
+) (string, error) {
+	pvSpec, err := servingPersistentVolumeSpec(nodeGroup, cache.Spec.SourceModelUri)
+	if err != nil {
+		return "", err
+	}
+	pvcName := cache.Name + "-" + nodeGroup.Name
+	pv, err := CreatePV(ctx, clientset, scheme, log, corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{Name: pvcName + "-" + cache.Namespace},
+		Spec:       *pvSpec,
+	}, nil, cache)
+	if err != nil {
+		return "", err
+	}
+	if !pv.DeletionTimestamp.IsZero() {
+		return "", fmt.Errorf("PersistentVolume %s is being deleted", pv.Name)
+	}
+	if got, want := nodePath(pv.Spec.PersistentVolumeSource), nodePath(pvSpec.PersistentVolumeSource); got != want {
+		return "", fmt.Errorf("PersistentVolume %s exposes %q instead of %q: delete and recreate LocalModelNamespaceCache %s/%s",
+			pv.Name, got, want, cache.Namespace, cache.Name)
+	}
+
+	pvc := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: pvcName, Namespace: cache.Namespace},
+		Spec:       *nodeGroup.Spec.PersistentVolumeClaimSpec.DeepCopy(),
+	}
+	pvc.Spec.VolumeName = pv.Name
+	created, err := CreatePVC(ctx, clientset, scheme, log, pvc, cache.Namespace, nil, cache)
+	if err != nil {
+		return "", err
+	}
+	if !created.DeletionTimestamp.IsZero() {
+		return "", fmt.Errorf("PersistentVolumeClaim %s/%s is being deleted", cache.Namespace, pvcName)
+	}
+	if created.Spec.VolumeName != pv.Name {
+		return "", fmt.Errorf("PersistentVolumeClaim %s/%s is bound to volume %q instead of %q",
+			cache.Namespace, pvcName, created.Spec.VolumeName, pv.Name)
+	}
+	return pvcName, nil
 }
 
 // UpdateLocalModelNode updates or adds a model to a LocalModelNode
@@ -536,6 +618,7 @@ func ReconcileLocalModelNode(
 	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
 	nodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
 	claims []string,
+	subPath string,
 ) error {
 	params := ExtractLocalModelParams(localModelCache, localModelNamespaceCache)
 
@@ -561,7 +644,7 @@ func ReconcileLocalModelNode(
 	statusBefore := status.DeepCopy()
 	// Record the mount references before the node fan-out so that a transient node-group
 	// error never leaves them unset.
-	setMountReferences(status, params.SourceModelUri, claims)
+	setMountReferences(status, claims, subPath)
 
 	reconcileErr := reconcileNodeGroupStatus(ctx, c, log, localModelCache, localModelNamespaceCache, nodeGroups, nodeStatus, status)
 

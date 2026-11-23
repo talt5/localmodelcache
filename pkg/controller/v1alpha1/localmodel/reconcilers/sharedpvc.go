@@ -642,7 +642,7 @@ func (c *LocalModelNamespaceCacheReconciler) applySharedStatus(ctx context.Conte
 	if localModel.Spec.SharedPVCMode() {
 		claims = []string{*localModel.Spec.PVCRef}
 	}
-	setMountReferences(&desired.Status, localModel.Spec.SourceModelUri, claims)
+	setMountReferences(&desired.Status, claims, v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri))
 	switch {
 	case state.imported != nil:
 		desired.Status.SharedPVCImport = state.imported

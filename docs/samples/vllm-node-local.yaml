@@ -1,11 +1,11 @@
 # Cache a model on the local disks of a node group and serve it with vLLM.
 #
 # The node agent downloads the model to <hostPath>/models/<storage key> on every node of
-# the group. The LocalModelNamespaceCache creates the PVC qwen3-gpu in its namespace; its
-# volume is pinned to the node group, so the vLLM Pod is scheduled onto a node that has the
-# model. Read the subPath to mount from the cache's status:
+# the group. The LocalModelNamespaceCache creates the PVC qwen3-gpu in its namespace. The root
+# of the claim is the model's folder, and its volume is pinned to the node group. Deploy once
+# every node has the model:
 #
-#   kubectl get localmodelnamespacecache qwen3 -n inference -o jsonpath='{.status.subPath}'
+#   kubectl get localmodelnamespacecache qwen3 -n inference -o jsonpath='{.status.copies}'
 ---
 apiVersion: serving.kserve.io/v1alpha1
 kind: LocalModelNodeGroup
@@ -70,12 +70,10 @@ spec:
           volumeMounts:
             - name: model
               mountPath: /models/qwen3
-              # status.subPath of the cache: models/<first 16 hex characters of the
-              # SHA-256 of sourceModelUri>.
-              subPath: models/REPLACE_WITH_STATUS_SUBPATH_KEY
               readOnly: true
       volumes:
         - name: model
           persistentVolumeClaim:
             claimName: qwen3-gpu
+            # Without this, OpenShift relabels the files so that only this Pod can read them.
             readOnly: true

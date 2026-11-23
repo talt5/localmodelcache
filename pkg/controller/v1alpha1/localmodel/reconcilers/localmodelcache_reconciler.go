@@ -102,7 +102,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Step 2 - Adds this model to LocalModelNode resources in the node group
-	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, localModel, nil, nodeGroups, nil); err != nil {
+	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, localModel, nil, nodeGroups, nil, v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri)); err != nil {
 		c.Log.Error(err, "failed to reconcile LocalModelNode")
 	}
 
@@ -112,7 +112,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		pv := corev1.PersistentVolume{Spec: pvSpec, ObjectMeta: metav1.ObjectMeta{
 			Name: localModel.Name + "-" + nodeGroup.Name + "-download",
 		}}
-		if err := CreatePV(ctx, c.Clientset, c.Scheme, c.Log, pv, localModel, nil); err != nil {
+		if _, err := CreatePV(ctx, c.Clientset, c.Scheme, c.Log, pv, localModel, nil); err != nil {
 			c.Log.Error(err, "Create PV err", "name", pv.Name)
 		}
 
@@ -124,7 +124,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 		pvc.Spec.VolumeName = pv.Name
 
-		if err := CreatePVC(ctx, c.Clientset, c.Scheme, c.Log, pvc, localModelConfig.JobNamespace, localModel, nil); err != nil {
+		if _, err := CreatePVC(ctx, c.Clientset, c.Scheme, c.Log, pvc, localModelConfig.JobNamespace, localModel, nil); err != nil {
 			c.Log.Error(err, "Create PVC err", "name", pv.Name)
 		}
 	}

@@ -106,15 +106,8 @@ spec:
 ```
 
 The controller downloads the model to every node in the group and creates the PVC
-`qwen3-gpu` in `inference`. Its status says what to mount:
-
-```sh
-kubectl get localmodelnamespacecache qwen3 -n inference \
-  -o jsonpath='{.status.persistentVolumeClaims} {.status.subPath}'
-```
-
-Mount the claim with that `subPath` at any directory. The PVC's volume is pinned to the node
-group, so the Pod lands on a node that has the model:
+`qwen3-gpu` in `inference`, which `status.persistentVolumeClaims` lists. The root of the claim
+is the model's own folder, so mount it at any directory without a `subPath`:
 
 ```yaml
 spec:
@@ -125,14 +118,26 @@ spec:
       volumeMounts:
         - name: model
           mountPath: /models/qwen3
-          subPath: models/<storage key>   # status.subPath
           readOnly: true
   volumes:
     - name: model
       persistentVolumeClaim:
         claimName: qwen3-gpu
-        readOnly: true
+        readOnly: true   # keep it: otherwise OpenShift relabels the files for this Pod only
 ```
+
+The volume is pinned to the node group, so the Pod runs on one of its nodes. On a node where the
+download has not started, the Pod waits in `ContainerCreating` until the folder exists. It does
+not wait for the download to finish, so check that `status.copies.available` equals
+`status.copies.total` before you deploy. The node group's volume must be `local` or `hostPath`.
+
+A claim always exposes the model it was created for. If a PersistentVolume of the same name
+exposes another path, for example one created by a version that used `subPath`, the controller
+logs an error and leaves the claim out of the status. Delete and recreate that cache, and remove
+`subPath` from its workloads.
+
+With `disableVolumeManagement` the controller creates no claims, and `status.subPath` gives the
+model's path inside the node group's volume.
 
 Deleting the cache is refused while a running Pod mounts its claim. The whole example is in
 [docs/samples/vllm-node-local.yaml](docs/samples/vllm-node-local.yaml).
