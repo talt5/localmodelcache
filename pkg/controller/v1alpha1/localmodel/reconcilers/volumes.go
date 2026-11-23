@@ -296,13 +296,13 @@ func downloadVolumeSpec(nodeGroup *v1alpha1.LocalModelNodeGroup) *corev1.Persist
 // it, and the node agent can no longer delete it. The kubelet leaves the files of a hostPath
 // volume as they are. Its type never creates a missing folder, so a Pod on a node that has not
 // started the download waits for it.
-func servingVolumeSpec(nodeGroup *v1alpha1.LocalModelNodeGroup, sourceModelUri string) (*corev1.PersistentVolumeSpec, error) {
+func servingVolumeSpec(nodeGroup *v1alpha1.LocalModelNodeGroup, subPath string) (*corev1.PersistentVolumeSpec, error) {
 	spec := nodeGroup.Spec.PersistentVolumeSpec.DeepCopy()
 	if spec.Local == nil && spec.HostPath == nil {
 		return nil, fmt.Errorf("LocalModelNodeGroup %s: persistentVolumeSpec must be a local or hostPath volume", nodeGroup.Name)
 	}
 	spec.PersistentVolumeSource = corev1.PersistentVolumeSource{HostPath: &corev1.HostPathVolumeSource{
-		Path: path.Join(nodePath(spec.PersistentVolumeSource), v1alpha1.GetStorageSubPath(sourceModelUri)),
+		Path: path.Join(nodePath(spec.PersistentVolumeSource), subPath),
 		Type: ptr.To(corev1.HostPathDirectory),
 	}}
 	spec.PersistentVolumeReclaimPolicy = corev1.PersistentVolumeReclaimRetain

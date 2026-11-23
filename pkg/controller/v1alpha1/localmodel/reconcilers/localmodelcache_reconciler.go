@@ -98,7 +98,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	errs = append(errs,
 		volumes.prune(ctx, c.Client),
-		ReconcileCacheStatus(ctx, c.Client, c.Log, localModel, nil, nodeGroups, nil, v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri)))
+		ReconcileCacheStatus(ctx, c.Client, c.Log, localModel, nil, nodeGroups, nil, v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri, localModel.Spec.Storage)))
 	return ctrl.Result{}, errors.Join(errs...)
 }
 

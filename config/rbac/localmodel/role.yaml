@@ -8,24 +8,17 @@ rules:
   - ""
   resources:
   - configmaps
+  - secrets
+  - serviceaccounts
   verbs:
   - get
 - apiGroups:
   - ""
   resources:
   - nodes
-  - secrets
-  - serviceaccounts
   verbs:
   - get
   - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - nodes/status
-  verbs:
-  - get
   - watch
 - apiGroups:
   - ""
@@ -72,12 +65,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - batch
-  resources:
-  - jobs/status
-  verbs:
-  - get
-- apiGroups:
   - local.cache.ai
   resources:
   - clusterstoragecontainers
@@ -91,14 +78,10 @@ rules:
   resources:
   - localmodelcaches
   - localmodelnamespacecaches
-  - localmodelnodes
   verbs:
-  - create
-  - delete
   - get
   - list
   - patch
-  - update
   - watch
 - apiGroups:
   - local.cache.ai
@@ -119,7 +102,11 @@ rules:
 - apiGroups:
   - local.cache.ai
   resources:
-  - localmodelnodes/status
+  - localmodelnodes
   verbs:
+  - create
+  - delete
   - get
+  - list
+  - patch
   - watch

@@ -224,7 +224,8 @@ func nodeStatusOfCache(ctx context.Context, reader client.Reader, log logr.Logge
 func modelStatusOnNode(localModelNode *v1alpha1.LocalModelNode, params *LocalModelParams) v1alpha1.ModelStatus {
 	for i := range localModelNode.Spec.LocalModels {
 		info := &localModelNode.Spec.LocalModels[i]
-		if info.ModelName == params.Name && info.Namespace == params.Namespace && info.SourceModelUri == params.SourceModelUri {
+		if info.ModelName == params.Name && info.Namespace == params.Namespace &&
+			info.StorageKey() == v1alpha1.GetStorageKey(params.SourceModelUri, params.Storage) {
 			return localModelNode.Status.ModelStatus[info.GetStatusKey()]
 		}
 	}

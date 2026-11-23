@@ -114,7 +114,7 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 	var claims []string
 	var subPath string
 	if localModelConfig.DisableVolumeManagement {
-		subPath = v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri)
+		subPath = v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri, localModel.Spec.Storage)
 	} else {
 		var servingErr error
 		claims, servingErr = ensureServingVolumes(ctx, volumes, localModel, nodeGroups)
@@ -172,7 +172,7 @@ func ensureServingVolumes(ctx context.Context, volumes *cacheVolumes, localModel
 	var claims []string
 	var errs []error
 	for i := range nodeGroups {
-		spec, err := servingVolumeSpec(&nodeGroups[i], localModel.Spec.SourceModelUri)
+		spec, err := servingVolumeSpec(&nodeGroups[i], v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri, localModel.Spec.Storage))
 		if err == nil {
 			pvName, claim := servingVolumeNames(localModel, nodeGroups[i].Name)
 			if err = volumes.ensure(ctx, pvName, spec, claim, &nodeGroups[i].Spec.PersistentVolumeClaimSpec); err == nil {
@@ -283,14 +283,14 @@ func (c *LocalModelNamespaceCacheReconciler) deletedCacheFuncNamespaceCache(ctx 
 		return nil
 	}
 
-	storageKey := v1alpha1.GetStorageKey(deleted.Spec.SourceModelUri)
+	storageKey := deleted.Spec.StorageKey()
 	requests := []reconcile.Request{}
 	for i := range caches.Items {
 		cache := &caches.Items[i]
 		if !cache.Spec.SharedPVCMode() || *cache.Spec.PVCRef != *deleted.Spec.PVCRef {
 			continue
 		}
-		if v1alpha1.GetStorageKey(cache.Spec.SourceModelUri) != storageKey {
+		if cache.Spec.StorageKey() != storageKey {
 			continue
 		}
 		requests = append(requests, reconcile.Request{

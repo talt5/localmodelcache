@@ -187,7 +187,7 @@ var _ = Describe("LocalModelNode controller", func() {
 		It("Should create download jobs, update model status from jobs, and handle model deletion", func() {
 			ctx := context.Background()
 			fsMock.clear()
-			storageKey := v1alpha1.GetStorageKey(sourceModelUri)
+			storageKey := v1alpha1.GetStorageKey(sourceModelUri, nil)
 			fsMock.mockModel(&MockFileInfo{name: storageKey, isDir: true})
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -297,7 +297,7 @@ var _ = Describe("LocalModelNode controller", func() {
 		It("Should use storageKey hash as the download job SubPath for storage deduplication", func() {
 			ctx := context.Background()
 			fsMock.clear()
-			storageKey := v1alpha1.GetStorageKey(sourceModelUri)
+			storageKey := v1alpha1.GetStorageKey(sourceModelUri, nil)
 
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -378,7 +378,7 @@ var _ = Describe("LocalModelNode controller", func() {
 		})
 		It("Should recreate download jobs if the model is missing from local disk", func() {
 			fsMock.clear()
-			storageKey := v1alpha1.GetStorageKey(sourceModelUri)
+			storageKey := v1alpha1.GetStorageKey(sourceModelUri, nil)
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			configMap := &corev1.ConfigMap{
@@ -550,7 +550,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			fsMock.clear()
-			storageKey := v1alpha1.GetStorageKey(sourceModelUri)
+			storageKey := v1alpha1.GetStorageKey(sourceModelUri, nil)
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
@@ -1264,7 +1264,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			defer k8sClient.Delete(ctx, node)
 
 			nsModelName := "ns-status-model"
-			storageKey := v1alpha1.GetStorageKey(sourceModelUri)
+			storageKey := v1alpha1.GetStorageKey(sourceModelUri, nil)
 			fsMock.mockModel(&MockFileInfo{name: storageKey, isDir: true})
 
 			localModelNode := &v1alpha1.LocalModelNode{
@@ -1648,8 +1648,8 @@ var _ = Describe("LocalModelNode controller", func() {
 			clusterUri := "s3://bucket/cluster-model"
 			nsUri := "s3://bucket/ns-model"
 
-			clusterStorageKey := v1alpha1.GetStorageKey(clusterUri)
-			nsStorageKey := v1alpha1.GetStorageKey(nsUri)
+			clusterStorageKey := v1alpha1.GetStorageKey(clusterUri, nil)
+			nsStorageKey := v1alpha1.GetStorageKey(nsUri, nil)
 			fsMock.mockModel(&MockFileInfo{name: clusterStorageKey, isDir: true})
 			fsMock.mockModel(&MockFileInfo{name: nsStorageKey, isDir: true})
 

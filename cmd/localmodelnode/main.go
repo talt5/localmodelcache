@@ -19,13 +19,17 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 
+	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -33,6 +37,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	localmodelnodecontroller "github.com/talt5/localmodelcache/pkg/controller/v1alpha1/localmodelnode"
+	"github.com/talt5/localmodelcache/pkg/localmodelcache"
 	lmcmetrics "github.com/talt5/localmodelcache/pkg/metrics"
 	"github.com/talt5/localmodelcache/pkg/oteljson"
 	lmcscheme "github.com/talt5/localmodelcache/pkg/scheme"
@@ -126,7 +131,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	jobNamespace, err := downloadJobNamespace(context.Background(), clientSet)
+	if err != nil {
+		setupLog.Error(err, "unable to read the job namespace")
+		os.Exit(1)
+	}
+
 	mgr, err := manager.New(cfg, manager.Options{
+		Cache: cache.Options{
+			DefaultTransform: cache.TransformStripManagedFields(),
+			// The agent may only read Jobs in this namespace.
+			ByObject: map[client.Object]cache.ByObject{
+				&batchv1.Job{}: {Namespaces: map[string]cache.Config{jobNamespace: {}}},
+			},
+		},
 		Metrics:                metricsServerOptions,
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
@@ -150,11 +168,12 @@ func main() {
 	setupLog.Info("Setting up v1alpha1 LocalModelNode controller")
 	localModelNodeEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
 	reconciler := &localmodelnodecontroller.LocalModelNodeReconciler{
-		Client:    mgr.GetClient(),
-		APIReader: mgr.GetAPIReader(),
-		Clientset: clientSet,
-		Log:       ctrl.Log.WithName("v1alpha1Controllers").WithName("LocalModelNode"),
-		Scheme:    mgr.GetScheme(),
+		Client:       mgr.GetClient(),
+		APIReader:    mgr.GetAPIReader(),
+		JobNamespace: jobNamespace,
+		Clientset:    clientSet,
+		Log:          ctrl.Log.WithName("v1alpha1Controllers").WithName("LocalModelNode"),
+		Scheme:       mgr.GetScheme(),
 	}
 
 	if err = reconciler.SetupWithManager(mgr); err != nil {
@@ -172,4 +191,20 @@ func main() {
 		setupLog.Error(err, "unable to run the manager")
 		os.Exit(1)
 	}
+}
+
+// downloadJobNamespace reads the namespace of the download Jobs from the settings.
+func downloadJobNamespace(ctx context.Context, clientset kubernetes.Interface) (string, error) {
+	configMap, err := localmodelcache.GetConfigMap(ctx, clientset)
+	if err != nil {
+		return "", err
+	}
+	config, err := localmodelcache.NewLocalModelConfig(configMap)
+	if err != nil {
+		return "", err
+	}
+	if config.JobNamespace == "" {
+		return "", fmt.Errorf("localModel.jobNamespace is not set in ConfigMap %s/%s", configMap.Namespace, configMap.Name)
+	}
+	return config.JobNamespace, nil
 }

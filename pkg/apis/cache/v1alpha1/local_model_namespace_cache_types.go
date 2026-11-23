@@ -81,6 +81,11 @@ type LocalModelNamespaceCacheSpec struct {
 	Storage *LocalModelStorageSpec `json:"storage,omitempty"`
 }
 
+// StorageKey returns the name of the folder that holds the model.
+func (spec *LocalModelNamespaceCacheSpec) StorageKey() string {
+	return GetStorageKey(spec.SourceModelUri, spec.Storage)
+}
+
 // SharedPVCMode reports whether the cache uses shared-PVC import mode.
 func (spec *LocalModelNamespaceCacheSpec) SharedPVCMode() bool {
 	return spec.PVCRef != nil && *spec.PVCRef != ""

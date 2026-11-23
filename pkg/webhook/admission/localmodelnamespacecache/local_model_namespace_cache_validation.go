@@ -93,6 +93,9 @@ func (v *LocalModelNamespaceCacheValidator) ValidateUpdate(ctx context.Context, 
 	if err := localmodelcache.ValidateModelSize(&oldCache.Spec.ModelSize, localModelNamespaceCache.Spec.ModelSize); err != nil {
 		return nil, err
 	}
+	if err := localmodelcache.ValidateStorageParameters(oldCache.Spec.Storage, localModelNamespaceCache.Spec.Storage); err != nil {
+		return nil, err
+	}
 
 	// pvcRef and sourceModelUri are both immutable, so the (pvcRef, storageKey) destination
 	// cannot change on update; the create-time conflict check is sufficient. Re-checking here
@@ -208,7 +211,7 @@ func validatePVCRefImmutable(oldCache, newCache *v1alpha1.LocalModelNamespaceCac
 // admission races, but this provides early feedback. Different storage keys on the same PVC
 // are allowed.
 func (v *LocalModelNamespaceCacheValidator) validateDestinationConflict(ctx context.Context, cache *v1alpha1.LocalModelNamespaceCache) error {
-	storageKey := v1alpha1.GetStorageKey(cache.Spec.SourceModelUri)
+	storageKey := cache.Spec.StorageKey()
 	caches := &v1alpha1.LocalModelNamespaceCacheList{}
 	if err := v.List(ctx, caches, client.InNamespace(cache.Namespace)); err != nil {
 		return err
@@ -224,7 +227,7 @@ func (v *LocalModelNamespaceCacheValidator) validateDestinationConflict(ctx cont
 		if *other.Spec.PVCRef != *cache.Spec.PVCRef {
 			continue
 		}
-		if v1alpha1.GetStorageKey(other.Spec.SourceModelUri) == storageKey {
+		if other.Spec.StorageKey() == storageKey {
 			return fmt.Errorf("destination pvc %q already holds model %q via cache %s/%s",
 				*cache.Spec.PVCRef, cache.Spec.SourceModelUri, other.Namespace, other.Name)
 		}

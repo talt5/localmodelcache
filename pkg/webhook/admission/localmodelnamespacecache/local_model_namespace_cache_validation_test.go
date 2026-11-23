@@ -481,3 +481,29 @@ func TestValidateUpdate_KeepingAMissingNodeGroup(t *testing.T) {
 	_, err := validator.ValidateUpdate(t.Context(), &oldCache, &newCache)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
+
+func TestLocalModelNamespaceCacheValidatorKeepsTheSource(t *testing.T) {
+	s := runtime.NewScheme()
+	g := gomega.NewGomegaWithT(t)
+	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+	nodeGroup := makeTestLocalModelNodeGroup("gpu1")
+	validator := LocalModelNamespaceCacheValidator{Client: fake.NewClientBuilder().WithObjects(&nodeGroup).WithScheme(s).Build()}
+	for name, cache := range map[string]v1alpha1.LocalModelNamespaceCache{
+		"node-local": makeTestLocalModelNamespaceCache(),
+		"shared PVC": makeTestSharedPVCCache("model-store"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			redirected := cache.DeepCopy()
+			redirected.Spec.Storage = &v1alpha1.LocalModelStorageSpec{Parameters: &map[string]string{"endpoint_url": "https://attacker"}}
+			_, err := validator.ValidateUpdate(t.Context(), &cache, redirected)
+			g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("storage.parameters are part of the model's source")))
+
+			key := "other"
+			otherCredentials := cache.DeepCopy()
+			otherCredentials.Spec.Storage = &v1alpha1.LocalModelStorageSpec{StorageKey: &key}
+			_, err = validator.ValidateUpdate(t.Context(), &cache, otherCredentials)
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+		})
+	}
+}

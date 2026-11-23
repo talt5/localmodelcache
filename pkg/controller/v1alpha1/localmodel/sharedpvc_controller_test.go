@@ -130,7 +130,7 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			container := job.Spec.Template.Spec.Containers[0]
 			Expect(container.Args).To(Equal([]string{sourceModelUri, "/mnt/models"}))
 			Expect(container.VolumeMounts).To(HaveLen(1))
-			storageKey := v1alpha1.GetStorageKey(sourceModelUri)
+			storageKey := v1alpha1.GetStorageKey(sourceModelUri, nil)
 			Expect(container.VolumeMounts[0].SubPath).To(Equal(filepath.Join("models", storageKey)))
 			Expect(container.VolumeMounts[0].ReadOnly).To(BeFalse())
 			Expect(job.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal("shared-pvc"))
@@ -177,7 +177,7 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			Eventually(func(g Gomega) {
 				current := &v1alpha1.LocalModelNamespaceCache{}
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cache.Name, Namespace: ns}, current)).To(Succeed())
-				g.Expect(current.Status.SubPath).To(Equal(v1alpha1.GetStorageSubPath(cache.Spec.SourceModelUri)))
+				g.Expect(current.Status.SubPath).To(Equal(v1alpha1.GetStorageSubPath(cache.Spec.SourceModelUri, nil)))
 				g.Expect(current.Status.PersistentVolumeClaims).To(Equal([]string{pvc.Name}))
 			}, timeout, interval).Should(Succeed())
 		})

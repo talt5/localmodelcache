@@ -15,25 +15,22 @@ limitations under the License.
 */
 
 // +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnodegroups,verbs=get;list;watch
-// +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelcaches,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelcaches,verbs=get;list;watch;patch
 // +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelcaches/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelcaches/finalizers,verbs=update
-// +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnamespacecaches,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnamespacecaches,verbs=get;list;watch;patch
 // +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnamespacecaches/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnamespacecaches/finalizers,verbs=update
-// +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnodes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnodes/status,verbs=get;watch
+// +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnodes,verbs=get;list;watch;create;patch;delete
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;watch
 // +kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get
+// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get
 // +kubebuilder:rbac:groups=local.cache.ai,resources=clusterstoragecontainers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
 // +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 package localmodel
