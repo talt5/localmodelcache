@@ -25,7 +25,8 @@ import (
 // LocalModelNodeGroupSpec defines a group of nodes for to download the model to.
 // +k8s:openapi-gen=true
 type LocalModelNodeGroupSpec struct {
-	// Max storage size per node in this node group
+	// Max storage size per node in this node group. A cache is refused when the modelSize of all
+	// caches in the group, counting each source URI once, would exceed it.
 	StorageLimit resource.Quantity `json:"storageLimit"`
 	// Used to create PersistentVolumes for downloading models and in inference service namespaces
 	PersistentVolumeSpec corev1.PersistentVolumeSpec `json:"persistentVolumeSpec"`

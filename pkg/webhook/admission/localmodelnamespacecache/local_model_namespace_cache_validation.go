@@ -43,7 +43,8 @@ var localModelNamespaceCacheValidatorLogger = logf.Log.WithName("localmodelnames
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type LocalModelNamespaceCacheValidator struct {
 	client.Client
-	// Reader lists Pods for the in-use check on delete. Set it to the manager's APIReader.
+	// Reader lists Pods for the in-use check on delete and caches for the storage limit. Set it
+	// to the manager's APIReader.
 	Reader client.Reader
 }
 
@@ -69,7 +70,7 @@ func (v *LocalModelNamespaceCacheValidator) ValidateCreate(ctx context.Context, 
 		return nil, err
 	}
 
-	return nil, nil
+	return nil, localmodelcache.CheckStorageLimit(ctx, v.reader(), "", nil, localmodelcache.NamespaceCacheUsageOf(localModelNamespaceCache))
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -98,7 +99,9 @@ func (v *LocalModelNamespaceCacheValidator) ValidateUpdate(ctx context.Context, 
 		return nil, err
 	}
 
-	return nil, nil
+	oldUsage := localmodelcache.NamespaceCacheUsageOf(oldCache)
+	return nil, localmodelcache.CheckStorageLimit(ctx, v.reader(), localModelNamespaceCache.UID, &oldUsage,
+		localmodelcache.NamespaceCacheUsageOf(localModelNamespaceCache))
 }
 
 // ValidateDelete denies deleting a node-local cache while a Pod in its namespace mounts one of
@@ -116,7 +119,7 @@ func (v *LocalModelNamespaceCacheValidator) ValidateDelete(ctx context.Context, 
 	}
 
 	pods := &corev1.PodList{}
-	if err := v.podReader().List(ctx, pods, client.InNamespace(localModelNamespaceCache.Namespace)); err != nil {
+	if err := v.reader().List(ctx, pods, client.InNamespace(localModelNamespaceCache.Namespace)); err != nil {
 		localModelNamespaceCacheValidatorLogger.Error(err, "Unable to list Pods", "namespace", localModelNamespaceCache.Namespace)
 		return nil, err
 	}
@@ -132,9 +135,9 @@ func (v *LocalModelNamespaceCacheValidator) ValidateDelete(ctx context.Context, 
 	return nil, nil
 }
 
-// podReader returns the reader used to list Pods. The manager's APIReader avoids a
-// cluster-wide Pod informer; unit tests that set no Reader fall back to the client.
-func (v *LocalModelNamespaceCacheValidator) podReader() client.Reader {
+// reader returns the uncached reader, which avoids a cluster-wide Pod informer and sees caches
+// created a moment ago. Unit tests that set no Reader fall back to the client.
+func (v *LocalModelNamespaceCacheValidator) reader() client.Reader {
 	if v.Reader != nil {
 		return v.Reader
 	}

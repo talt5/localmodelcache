@@ -91,6 +91,10 @@ spec:
     storageClassName: local-storage
 ```
 
+`storageLimit` caps the group. A cache is refused when the `modelSize` of all its caches, counting
+each `sourceModelUri` once, would exceed it. The check trusts `modelSize` and counts each group on
+its own, so also give the models their own disk: PV and PVC sizes do not limit a `local` volume.
+
 Then cache the model in the namespace your workload runs in:
 
 ```yaml

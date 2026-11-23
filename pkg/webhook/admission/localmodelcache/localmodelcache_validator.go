@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 )
 
 // logger for the validation webhook.
@@ -39,6 +40,8 @@ var localModelCacheValidatorLogger = logf.Log.WithName("localmodelcache-v1alpha1
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type LocalModelCacheValidator struct {
 	client.Client
+	// Reader lists caches for the storage limit. Set it to the manager's APIReader.
+	Reader client.Reader
 }
 
 // +kubebuilder:webhook:verbs=create;update;delete,path=/validate-localmodelcaches,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=localmodelcaches,versions=v1alpha1,name=localmodelcache.kserve-webhook-server.validator
@@ -55,11 +58,11 @@ func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, localMode
 	if localModelCacheWithSameStorageURI != nil {
 		return admission.Warnings{}, fmt.Errorf("LocalModelCache %s has the same StorageURI %s", localModelCacheWithSameStorageURI.Name, localModelCacheWithSameStorageURI.Spec.SourceModelUri)
 	}
-	return nil, nil
+	return nil, localmodelcache.CheckStorageLimit(ctx, v.reader(), "", nil, localmodelcache.CacheUsageOf(localModelCache))
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, _, localModelCache *v1alpha1.LocalModelCache) (admission.Warnings, error) {
+func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldCache, localModelCache *v1alpha1.LocalModelCache) (admission.Warnings, error) {
 	if localModelCache.GetDeletionTimestamp() != nil {
 		return nil, nil
 	}
@@ -72,7 +75,8 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, _, localM
 	if localModelCacheWithSameStorageURI != nil {
 		return admission.Warnings{}, fmt.Errorf("LocalModelCache %s has the same StorageURI %s", localModelCacheWithSameStorageURI.Name, localModelCacheWithSameStorageURI.Spec.SourceModelUri)
 	}
-	return nil, nil
+	oldUsage := localmodelcache.CacheUsageOf(oldCache)
+	return nil, localmodelcache.CheckStorageLimit(ctx, v.reader(), localModelCache.UID, &oldUsage, localmodelcache.CacheUsageOf(localModelCache))
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
@@ -103,4 +107,13 @@ func (v *LocalModelCacheValidator) validateUniqueStorageURI(ctx context.Context,
 		}
 	}
 	return nil, nil
+}
+
+// reader returns the uncached reader, which sees caches created a moment ago. Unit tests that
+// set no Reader fall back to the client.
+func (v *LocalModelCacheValidator) reader() client.Reader {
+	if v.Reader != nil {
+		return v.Reader
+	}
+	return v.Client
 }

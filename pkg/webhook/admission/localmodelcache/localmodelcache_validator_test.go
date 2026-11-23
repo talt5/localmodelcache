@@ -65,7 +65,7 @@ func TestDeleteLocalModelCacheIsAllowed(t *testing.T) {
 	s := runtime.NewScheme()
 	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
 	fakeClient := fake.NewClientBuilder().WithObjects(&lmc).WithScheme(s).Build()
-	validator := LocalModelCacheValidator{fakeClient}
+	validator := LocalModelCacheValidator{Client: fakeClient}
 	warnings, err := validator.ValidateDelete(t.Context(), &lmc)
 	g.Expect(warnings).To(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -80,7 +80,7 @@ func TestUnableToCreateLocalModelCacheWithSameStorageURI(t *testing.T) {
 		t.Errorf("unable to add scheme : %v", err)
 	}
 	fakeClient := fake.NewClientBuilder().WithObjects(&lmc).WithScheme(s).Build()
-	validator := LocalModelCacheValidator{fakeClient}
+	validator := LocalModelCacheValidator{Client: fakeClient}
 	newLmc := makeTestLocalModelCacheWithSameStorageURI()
 	warnings, err := validator.ValidateCreate(t.Context(), &newLmc)
 	g.Expect(warnings).NotTo(gomega.BeNil())
@@ -110,7 +110,7 @@ func TestValidateUpdate_LocalModelCacheWithSameStorageURI(t *testing.T) {
 		t.Errorf("unable to add scheme : %v", err)
 	}
 	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
-	validator := LocalModelCacheValidator{fakeClient}
+	validator := LocalModelCacheValidator{Client: fakeClient}
 	// newLmc has a different name but same StorageURI as existingLmc
 	newLmc := makeTestLocalModelCacheWithSameStorageURI()
 	oldLmc := makeTestLocalModelCacheWithDifferentStorageURI()
@@ -128,7 +128,7 @@ func TestValidateUpdate_LocalModelCacheWithUniqueStorageURI(t *testing.T) {
 		t.Errorf("unable to add scheme : %v", err)
 	}
 	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
-	validator := LocalModelCacheValidator{fakeClient}
+	validator := LocalModelCacheValidator{Client: fakeClient}
 	// newLmc has a unique StorageURI
 	newLmc := makeTestLocalModelCacheWithDifferentStorageURI()
 	oldLmc := makeTestLocalModelCacheWithSameStorageURI()
@@ -146,7 +146,7 @@ func TestValidateUpdate_DeletionBypass(t *testing.T) {
 		t.Errorf("unable to add scheme : %v", err)
 	}
 	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
-	validator := LocalModelCacheValidator{fakeClient}
+	validator := LocalModelCacheValidator{Client: fakeClient}
 	oldLmc := makeTestLocalModelCacheWithDifferentStorageURI()
 	newLmc := makeTestLocalModelCacheWithSameStorageURI()
 	now := metav1.Now()
@@ -154,4 +154,35 @@ func TestValidateUpdate_DeletionBypass(t *testing.T) {
 	warnings, err := validator.ValidateUpdate(t.Context(), &oldLmc, &newLmc)
 	g.Expect(warnings).To(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
+}
+
+func TestLocalModelCacheValidatorEnforcesStorageLimit(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	s := runtime.NewScheme()
+	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+	nodeGroup := v1alpha1.LocalModelNodeGroup{
+		ObjectMeta: metav1.ObjectMeta{Name: "gpu1"},
+		Spec:       v1alpha1.LocalModelNodeGroupSpec{StorageLimit: resource.MustParse("10Gi")},
+	}
+	stored := makeTestLocalModelCache()
+	stored.UID = "stored"
+	reader := fake.NewClientBuilder().WithObjects(&nodeGroup, &stored).WithScheme(s).Build()
+	validator := LocalModelCacheValidator{Client: reader}
+
+	added := makeTestLocalModelCache()
+	added.Name = "added"
+	added.Spec.SourceModelUri = "gs://testbucket/other"
+	added.Spec.ModelSize = resource.MustParse("9Gi")
+	_, err := validator.ValidateCreate(t.Context(), &added)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	added.Spec.ModelSize = resource.MustParse("10Gi")
+	_, err = validator.ValidateCreate(t.Context(), &added)
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("storageLimit 10Gi")))
+
+	grown := stored.DeepCopy()
+	grown.Spec.ModelSize = resource.MustParse("11Gi")
+	_, err = validator.ValidateUpdate(t.Context(), &stored, grown)
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("storageLimit 10Gi")))
+	_, err = validator.ValidateUpdate(t.Context(), grown, grown)
+	g.Expect(err).NotTo(gomega.HaveOccurred(), "a cache that already exceeds the limit can be updated")
 }
