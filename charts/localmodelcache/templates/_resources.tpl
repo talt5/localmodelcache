@@ -28,6 +28,9 @@ Example usage:
 {{- $replacement := printf "cert-manager.io/inject-ca-from: %s/%s" .context.Release.Namespace .certName -}}
 {{- $baseContent = $baseContent | replace $pattern $replacement -}}
 
+{{- /* 1.2. Point the webhook certificate at the Service in the release namespace */ -}}
+{{- $baseContent = $baseContent | replace ".localmodelcache.svc" (printf ".%s.svc" .context.Release.Namespace) -}}
+
 {{- /* 2. Load and render all patch files */ -}}
 {{- $allPatchContent := "" -}}
 {{- range $path, $_ := .context.Files.Glob .patchGlob -}}

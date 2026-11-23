@@ -28,6 +28,7 @@ $ helm install localmodelcache oci://ghcr.io/talt5/charts/localmodelcache --vers
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| localmodelcache.createJobNamespaces | bool | `true` | Create localmodel.jobNamespace, and kernelcache.jobNamespace when the kernel cache is enabled, if they do not exist. They are kept when the release is uninstalled. |
 | localmodelcache.kernelcache.abandonedCapturePolicy | string | `"retain"` |  |
 | localmodelcache.kernelcache.artifactSecurity.cert.signingProfileRef | string | `"kernelcache-signer"` |  |
 | localmodelcache.kernelcache.artifactSecurity.cert.subjectRegexp | string | `"spiffe://localmodelcache/kernelcache-signer"` |  |

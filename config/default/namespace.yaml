@@ -2,3 +2,13 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: localmodelcache
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: localmodelcache-jobs
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: localmodelcache-kernelcache-jobs

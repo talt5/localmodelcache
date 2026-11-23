@@ -1,5 +1,7 @@
 localmodelcache:
   version: v0.1.1
+  # -- Create localmodel.jobNamespace, and kernelcache.jobNamespace when the kernel cache is enabled, if they do not exist. They are kept when the release is uninstalled.
+  createJobNamespaces: true
   storage:
     image: ghcr.io/talt5/localmodelcache-storage-initializer
     tag: ''
