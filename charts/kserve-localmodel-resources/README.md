@@ -1,6 +1,6 @@
 # kserve-localmodel-resources
 
-![Version: v0.1.0](https://img.shields.io/badge/Version-v0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.1.0](https://img.shields.io/badge/AppVersion-v0.1.0-informational?style=flat-square)
+![Version: v0.1.1](https://img.shields.io/badge/Version-v0.1.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.1.1](https://img.shields.io/badge/AppVersion-v0.1.1-informational?style=flat-square)
 
 KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Deployments
 
@@ -11,7 +11,7 @@ KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Depl
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-localmodel-resources oci://ghcr.io/talt5/charts/kserve-localmodel-resources --version v0.1.0
+$ helm install kserve-localmodel-resources oci://ghcr.io/talt5/charts/kserve-localmodel-resources --version v0.1.1
 ```
 
 ## Maintainers
@@ -118,7 +118,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/talt5/charts/kserve-loc
 | kserve.storage.storageSecretNameAnnotation | string | `"serving.kserve.io/secretName"` |  |
 | kserve.storage.storageSpecSecretName | string | `"storage-config"` |  |
 | kserve.storage.tag | string | `""` |  |
-| kserve.version | string | `"v0.1.0"` |  |
+| kserve.version | string | `"v0.1.1"` |  |
 | openshift.downloadJobServiceAccount | string | `"default"` | ServiceAccount in kserve.localmodel.jobNamespace that runs the model download Jobs. It is granted the download Job SCC, which permits the Jobs' fsGroup. |
 | openshift.enabled | bool | `false` | Deploy on OpenShift. Creates SecurityContextConstraints (SCCs), grants them to the chart's ServiceAccounts and the download Job ServiceAccount, and pins each pod to its SCC. |
 | openshift.localmodelnode.prepareHostPath.enabled | bool | `true` | Run an init container that creates the cache directory, gives it to runAsUser:runAsGroup and labels it container_file_t so SELinux lets pods write it. Disable it if you prepare the nodes yourself, for example with a MachineConfig. |
