@@ -16,7 +16,7 @@ limitations under the License.
 
 package imgbuild
 
-import "github.com/kserve/kserve/kernelcache/mcv/pkg/cache"
+import "github.com/talt5/localmodelcache/kernelcache/mcv/pkg/cache"
 
 const DockerfileTemplate = `FROM scratch AS build
 COPY "./{{ .CacheDir }}" "./{{ .CacheDir }}"

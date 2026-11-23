@@ -27,7 +27,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/cache"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/cache"
 )
 
 func TestImageTitleFromName(t *testing.T) {

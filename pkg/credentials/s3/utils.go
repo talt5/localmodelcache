@@ -36,7 +36,7 @@ import (
 func BuildS3EnvVars(annotations map[string]string, secretData *map[string][]byte, s3Config *S3Config) []corev1.EnvVar {
 	envs := []corev1.EnvVar{}
 
-	s3Endpoint := getEnvValue(annotations, secretData, InferenceServiceS3SecretEndpointAnnotation, S3Endpoint, s3Config.S3Endpoint)
+	s3Endpoint := getEnvValue(annotations, secretData, S3SecretEndpointAnnotation, S3Endpoint, s3Config.S3Endpoint)
 	if s3Endpoint != "" {
 		s3UseHttps, formattedS3Endpoint, s3EndpointUrl := getEndpointConfiguration(s3Endpoint, annotations, secretData, s3Config)
 		if s3UseHttps != "" {
@@ -56,7 +56,7 @@ func BuildS3EnvVars(annotations map[string]string, secretData *map[string][]byte
 		})
 	}
 
-	s3VerifySSL := getEnvValue(annotations, secretData, InferenceServiceS3SecretSSLAnnotation, S3VerifySSL, s3Config.S3VerifySSL)
+	s3VerifySSL := getEnvValue(annotations, secretData, S3SecretSSLAnnotation, S3VerifySSL, s3Config.S3VerifySSL)
 	if s3VerifySSL != "" {
 		envs = append(envs, corev1.EnvVar{
 			Name:  S3VerifySSL,
@@ -64,7 +64,7 @@ func BuildS3EnvVars(annotations map[string]string, secretData *map[string][]byte
 		})
 	}
 
-	s3UseAnonymousCredential := getEnvValue(annotations, secretData, InferenceServiceS3UseAnonymousCredential, AWSAnonymousCredential, s3Config.S3UseAnonymousCredential)
+	s3UseAnonymousCredential := getEnvValue(annotations, secretData, S3UseAnonymousCredentialAnnotation, AWSAnonymousCredential, s3Config.S3UseAnonymousCredential)
 	if s3UseAnonymousCredential != "" {
 		envs = append(envs, corev1.EnvVar{
 			Name:  AWSAnonymousCredential,
@@ -72,7 +72,7 @@ func BuildS3EnvVars(annotations map[string]string, secretData *map[string][]byte
 		})
 	}
 
-	s3Region := getEnvValue(annotations, secretData, InferenceServiceS3SecretRegionAnnotation, AWSRegion, s3Config.S3Region)
+	s3Region := getEnvValue(annotations, secretData, S3SecretRegionAnnotation, AWSRegion, s3Config.S3Region)
 	if s3Region != "" {
 		envs = append(envs, corev1.EnvVar{
 			Name:  AWSRegion,
@@ -80,7 +80,7 @@ func BuildS3EnvVars(annotations map[string]string, secretData *map[string][]byte
 		})
 	}
 
-	s3UseVirtualBucket := getEnvValue(annotations, secretData, InferenceServiceS3UseVirtualBucketAnnotation, S3UseVirtualBucket, s3Config.S3UseVirtualBucket)
+	s3UseVirtualBucket := getEnvValue(annotations, secretData, S3UseVirtualBucketAnnotation, S3UseVirtualBucket, s3Config.S3UseVirtualBucket)
 	if s3UseVirtualBucket != "" {
 		envs = append(envs, corev1.EnvVar{
 			Name:  S3UseVirtualBucket,
@@ -88,7 +88,7 @@ func BuildS3EnvVars(annotations map[string]string, secretData *map[string][]byte
 		})
 	}
 
-	s3UseAccelerate := getEnvValue(annotations, secretData, InferenceServiceS3UseAccelerateAnnotation, S3UseAccelerate, s3Config.S3UseAccelerate)
+	s3UseAccelerate := getEnvValue(annotations, secretData, S3UseAccelerateAnnotation, S3UseAccelerate, s3Config.S3UseAccelerate)
 	if s3UseAccelerate != "" {
 		envs = append(envs, corev1.EnvVar{
 			Name:  S3UseAccelerate,
@@ -96,7 +96,7 @@ func BuildS3EnvVars(annotations map[string]string, secretData *map[string][]byte
 		})
 	}
 
-	s3CustomCABundle := getEnvValue(annotations, secretData, InferenceServiceS3CABundleAnnotation, AWSCABundle, s3Config.S3CABundle)
+	s3CustomCABundle := getEnvValue(annotations, secretData, S3CABundleAnnotation, AWSCABundle, s3Config.S3CABundle)
 	if s3CustomCABundle != "" {
 		envs = append(envs, corev1.EnvVar{
 			Name:  AWSCABundle,
@@ -104,7 +104,7 @@ func BuildS3EnvVars(annotations map[string]string, secretData *map[string][]byte
 		})
 	}
 
-	s3CustomCABundleConfigMap := getEnvValue(annotations, secretData, InferenceServiceS3CABundleConfigMapAnnotation, AWSCABundleConfigMap, s3Config.S3CABundleConfigMap)
+	s3CustomCABundleConfigMap := getEnvValue(annotations, secretData, S3CABundleConfigMapAnnotation, AWSCABundleConfigMap, s3Config.S3CABundleConfigMap)
 	if s3CustomCABundleConfigMap != "" {
 		envs = append(envs, corev1.EnvVar{
 			Name:  AWSCABundleConfigMap,
@@ -173,7 +173,7 @@ func getEndpointConfiguration(configuredS3Endpoint string, annotations map[strin
 		s3Endpoint = configuredS3Endpoint[7:]
 		s3EndpointUrl = configuredS3Endpoint
 	default:
-		s3UseHttps = getEnvValue(annotations, secretData, InferenceServiceS3SecretHttpsAnnotation, S3UseHttps, s3Config.S3UseHttps)
+		s3UseHttps = getEnvValue(annotations, secretData, S3SecretHttpsAnnotation, S3UseHttps, s3Config.S3UseHttps)
 		s3Endpoint = configuredS3Endpoint
 		if s3UseHttps == "0" {
 			s3EndpointUrl = "http://" + configuredS3Endpoint

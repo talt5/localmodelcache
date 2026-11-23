@@ -26,8 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/types"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/types"
 )
 
 const (
@@ -53,9 +53,9 @@ type LocalModelConfig struct {
 }
 
 // GetConfigMap returns the local model ConfigMap (constants.LocalModelConfigMapName) from
-// constants.KServeNamespace.
+// constants.SystemNamespace.
 func GetConfigMap(ctx context.Context, clientset kubernetes.Interface) (*corev1.ConfigMap, error) {
-	return clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(
+	return clientset.CoreV1().ConfigMaps(constants.SystemNamespace).Get(
 		ctx, constants.LocalModelConfigMapName, metav1.GetOptions{})
 }
 

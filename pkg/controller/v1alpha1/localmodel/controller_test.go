@@ -30,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
 var _ = Describe("CachedModel controller", func() {
@@ -342,7 +342,7 @@ var _ = Describe("CachedModel controller", func() {
 
 			// Update configmap to enable DisableVolumeManagement
 			configMap := &corev1.ConfigMap{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, configMap)).Should(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace}, configMap)).Should(Succeed())
 			originalData := configMap.Data["localModel"]
 			configMap.Data["localModel"] = `{
 				"jobNamespace": "kserve-localmodel-jobs",
@@ -744,7 +744,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 			DeferCleanup(cancel)
 
 			configMap := &corev1.ConfigMap{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, configMap)).Should(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace}, configMap)).Should(Succeed())
 			originalData := configMap.Data["localModel"]
 			configMap.Data["localModel"] = `{
 				"jobNamespace": "kserve-localmodel-jobs",
@@ -753,7 +753,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 			}`
 			Expect(k8sClient.Update(ctx, configMap)).Should(Succeed())
 			defer func() {
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, configMap)).Should(Succeed())
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace}, configMap)).Should(Succeed())
 				configMap.Data["localModel"] = originalData
 				Expect(k8sClient.Update(ctx, configMap)).Should(Succeed())
 			}()

@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/utils"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/config"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/constants"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/utils"
 
 	logging "github.com/sirupsen/logrus"
 )

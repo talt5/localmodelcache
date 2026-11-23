@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
 
 func TestDiscoverCachesForNode(t *testing.T) {

@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
 func TestLoad(t *testing.T) {
@@ -44,7 +44,7 @@ func TestLoad(t *testing.T) {
 		{
 			name: "loads kernelcache configuration",
 			configMap: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+				ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 				Data:       map[string]string{KernelCacheConfigKeyName: `{"enabled":true,"jobNamespace":"kernelcache-jobs"}`},
 			},
 			wantEnable: true,
@@ -56,7 +56,7 @@ func TestLoad(t *testing.T) {
 		{
 			name: "reports invalid configuration",
 			configMap: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+				ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 				Data:       map[string]string{KernelCacheConfigKeyName: "not-json"},
 			},
 			wantErr: "parse KernelCache configuration",

@@ -28,16 +28,13 @@ const (
 	APIGroupName = "local.cache.ai"
 )
 
-var KServeNamespace = GetEnvOrDefault("POD_NAMESPACE", "kserve")
+var SystemNamespace = GetEnvOrDefault("POD_NAMESPACE", "kserve")
 
-var (
-	InferenceServiceConfigMapName = "inferenceservice-config"
-	// LocalModelConfigMapName is the ConfigMap, in KServeNamespace, that configures the
-	// local model cache and kernel cache controllers and their node agents.
-	LocalModelConfigMapName = "kserve-localmodel-config"
-)
+// LocalModelConfigMapName is the ConfigMap, in SystemNamespace, that configures the
+// local model cache and kernel cache controllers and their node agents.
+var LocalModelConfigMapName = "kserve-localmodel-config"
 
-// InferenceService Annotations
+// Kernel cache annotations and labels
 var (
 	KernelCacheSupportedAnnotationKey        = APIGroupName + "/kernelcache-supported"
 	KernelCacheSidecarInjectionAnnotationKey = APIGroupName + "/kernelcache-sidecar-injection"
@@ -57,15 +54,14 @@ var (
 // into: Pods owned by a Deployment through its ReplicaSet.
 const KernelCacheWorkloadKind = "Deployment"
 
-// InferenceService Internal Annotations
+// Internal annotations
 var (
-	InferenceServiceInternalAnnotationsPrefix        = "internal." + APIGroupName
-	LocalModelLabel                                  = InferenceServiceInternalAnnotationsPrefix + "/localmodel"
-	LocalModelNamespaceLabel                         = InferenceServiceInternalAnnotationsPrefix + "/localmodel-namespace"
-	KernelCacheUsageAnnotationKey                    = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-usage"
-	KernelCacheCaptureGeneratedLabelKey              = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-capture-generated"
-	KernelCacheNodeGroupSelectionSourceAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-nodegroup-selection-source"
-	LocalModelLoRAAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/localmodel-lora"
+	InternalAnnotationsPrefix                        = "internal." + APIGroupName
+	LocalModelLabel                                  = InternalAnnotationsPrefix + "/localmodel"
+	LocalModelNamespaceLabel                         = InternalAnnotationsPrefix + "/localmodel-namespace"
+	KernelCacheUsageAnnotationKey                    = InternalAnnotationsPrefix + "/kernelcache-usage"
+	KernelCacheCaptureGeneratedLabelKey              = InternalAnnotationsPrefix + "/kernelcache-capture-generated"
+	KernelCacheNodeGroupSelectionSourceAnnotationKey = InternalAnnotationsPrefix + "/kernelcache-nodegroup-selection-source"
 )
 
 // StorageSpec Constants
@@ -76,11 +72,7 @@ var (
 const (
 	OciURIPrefix = "oci://"
 
-	PvcSourceMountName           = "kserve-pvc-source"
-	StorageInitializerVolumeName = "kserve-provision-location"
-
-	CpuModelcarDefault    = "10m"
-	MemoryModelcarDefault = "15Mi"
+	PvcSourceMountName = "kserve-pvc-source"
 )
 
 // GPU Constants
@@ -92,35 +84,12 @@ const (
 	GaudiGPUResourceType           = "habana.ai/gaudi"
 )
 
-var CustomGPUResourceTypesAnnotationKey = APIGroupName + "/gpu-resource-types"
-
 var DefaultGPUResourceTypeList = []string{
 	NvidiaGPUResourceType,
 	AmdGPUResourceType,
 	IntelGPUResourceType,
 	GaudiGPUResourceType,
 }
-
-// InferenceService Environment Variables
-const (
-	ModelInitModeEnvVarKey = "MODEL_INIT_MODE"
-)
-
-// InferenceService model server args
-const (
-	ArgumentModelName = "--model_name"
-)
-
-// InferenceService container names
-const (
-	InferenceServiceContainerName = "kserve-container"
-
-	// TransformerContainerName transformer container name in collocation
-	TransformerContainerName = "transformer-container"
-
-	ModelcarContainerName     = "modelcar"
-	ModelcarInitContainerName = "modelcar-init"
-)
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
@@ -171,6 +140,6 @@ func KernelCacheCaptureRevisionName(sourceName, revisionID string) string {
 }
 
 // KernelCacheTargetImage returns the OCI image reference for one capture.
-func KernelCacheTargetImage(registry, namespace, inferenceServiceName, captureID string) string {
-	return fmt.Sprintf("%s/%s/kernel-cache-%s:%s", strings.TrimSuffix(registry, "/"), namespace, inferenceServiceName, captureID)
+func KernelCacheTargetImage(registry, namespace, workloadName, captureID string) string {
+	return fmt.Sprintf("%s/%s/kernel-cache-%s:%s", strings.TrimSuffix(registry, "/"), namespace, workloadName, captureID)
 }

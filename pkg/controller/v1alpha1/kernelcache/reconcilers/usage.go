@@ -31,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
 // consumerPodPredicate limits usage events to Pods that declare a KernelCache.

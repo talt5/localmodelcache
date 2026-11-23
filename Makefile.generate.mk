@@ -19,7 +19,7 @@ generate-chart-manifests: helm-docs ## After config/ or charts/_common edits: re
 	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
 
 manifests: controller-gen kustomize yq ## After API type or RBAC marker changes: CRDs, RBAC, deepcopy, chart CRDs.
-	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full
+	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/cache/... output:crd:dir=config/crd/full
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-kernelcache-nodegroup-manager paths=./pkg/controller/v1alpha1/kernelcache output:rbac:artifacts:config=config/rbac/kernelcache
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodelnode-agent-role paths=./pkg/controller/v1alpha1/localmodelnode output:rbac:artifacts:config=config/rbac/localmodelnode
@@ -39,7 +39,7 @@ manifests: controller-gen kustomize yq ## After API type or RBAC marker changes:
 	mv config/crd/full/local.cache.ai_kernelcachenodegroups.yaml config/crd/full/kernelcache/
 
 	@# An existing deepcopy file keeps its copyright year, a new one gets CURRENT_YEAR.
-	@dir=pkg/apis/serving/v1alpha1; \
+	@dir=pkg/apis/cache/v1alpha1; \
 	year=$$(awk '/^Copyright [0-9]+ The KServe Authors/ { print $$2; exit }' "$$dir/zz_generated.deepcopy.go" 2>/dev/null); \
 	$(CONTROLLER_GEN) object:headerFile=hack/boilerplate.go.txt,year="$${year:-$(CURRENT_YEAR)}" paths="./$$dir"
 

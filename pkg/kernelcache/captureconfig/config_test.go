@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
 
 func TestCaptureConfigRoundTrip(t *testing.T) {

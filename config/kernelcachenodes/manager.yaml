@@ -35,7 +35,7 @@ spec:
       containers:
       - command:
         - /manager
-        image: ko://github.com/kserve/kserve/cmd/kernelcachenode
+        image: ko://github.com/talt5/localmodelcache/cmd/kernelcachenode
         imagePullPolicy: IfNotPresent
         name: manager
         securityContext:

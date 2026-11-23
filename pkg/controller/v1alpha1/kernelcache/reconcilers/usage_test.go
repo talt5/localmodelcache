@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
 func TestBuildKernelCacheUsageKeepsOnlyActivePods(t *testing.T) {

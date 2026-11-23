@@ -27,11 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
-	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	cacheidentity "github.com/talt5/localmodelcache/pkg/kernelcache/identity"
+	kernelcachetypes "github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 // Selects a workload-specific cache before a compatibility-only cache.

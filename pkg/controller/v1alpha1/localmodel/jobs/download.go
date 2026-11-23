@@ -29,9 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/credentials"
-	pkgtypes "github.com/kserve/kserve/pkg/types"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/credentials"
+	pkgtypes "github.com/talt5/localmodelcache/pkg/types"
 )
 
 const (

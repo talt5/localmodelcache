@@ -30,15 +30,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/credentials/azure"
-	"github.com/kserve/kserve/pkg/credentials/gcs"
-	"github.com/kserve/kserve/pkg/credentials/hdfs"
-	"github.com/kserve/kserve/pkg/credentials/hf"
-	"github.com/kserve/kserve/pkg/credentials/https"
-	"github.com/kserve/kserve/pkg/credentials/ms"
-	"github.com/kserve/kserve/pkg/credentials/s3"
-	"github.com/kserve/kserve/pkg/utils"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/credentials/azure"
+	"github.com/talt5/localmodelcache/pkg/credentials/gcs"
+	"github.com/talt5/localmodelcache/pkg/credentials/hdfs"
+	"github.com/talt5/localmodelcache/pkg/credentials/hf"
+	"github.com/talt5/localmodelcache/pkg/credentials/https"
+	"github.com/talt5/localmodelcache/pkg/credentials/ms"
+	"github.com/talt5/localmodelcache/pkg/credentials/s3"
+	"github.com/talt5/localmodelcache/pkg/utils"
 )
 
 const (
@@ -243,7 +243,7 @@ func envVarExists(envs []corev1.EnvVar, name string) bool {
 // CreateStorageSpecSecretEnvsWithSecretFallback resolves storage credentials for local model
 // download jobs. It first looks up storageKey inside the storage-config secret. When that
 // entry is missing, it falls back to treating storageKey as a standalone secret name with
-// S3/GCS/HF annotations (the same path used by InferenceService storage-initializer injection).
+// S3/GCS/HF annotations.
 func (c *CredentialBuilder) CreateStorageSpecSecretEnvsWithSecretFallback(
 	ctx context.Context, namespace string, annotations map[string]string, storageKey string,
 	overrideParams map[string]string, container *corev1.Container, volumes *[]corev1.Volume,

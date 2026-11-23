@@ -33,9 +33,9 @@ const (
 	ManifestDir      = "manifest"
 	ManifestFileName = "manifest.json"
 	VLLMHOME         = "/home/vllm"
-	KServeHome       = "/home/kserve"
+	DefaultHome       = "/home/kserve"
 	VLLMCache        = ".cache/vllm"
-	// HabanaCache is the Habana recipe cache directory relative to KServeHome,
+	// HabanaCache is the Habana recipe cache directory relative to DefaultHome,
 	// i.e. where the recipe cache is mounted inside a KServe serving container.
 	HabanaCache = ".cache/habana"
 

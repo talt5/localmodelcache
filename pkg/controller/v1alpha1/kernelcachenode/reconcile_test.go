@@ -34,8 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
 func TestReconcileRecordsConfigErrorEvent(t *testing.T) {
@@ -175,7 +175,7 @@ func TestReconcileRetriesStatusConflict(t *testing.T) {
 		}}},
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"jobNamespace":"jobs"}`},
 	}
 
@@ -255,7 +255,7 @@ func TestReconcileKeepsReadyCacheAfterJobDeletion(t *testing.T) {
 		}},
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"jobNamespace":"jobs"}`},
 	}
 
@@ -323,7 +323,7 @@ func TestReconcileValidatesNewCacheStatusFromNodeImage(t *testing.T) {
 	}
 	kernelCacheNode := &v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"jobNamespace":"jobs"}`},
 	}
 	k8sClient := fake.NewClientBuilder().

@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 )
 
 const (

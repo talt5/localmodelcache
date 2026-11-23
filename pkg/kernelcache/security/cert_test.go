@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 // Required fields are enforced per role at construction, not by Validate, so a

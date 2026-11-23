@@ -1,4 +1,4 @@
-module github.com/kserve/kserve
+module github.com/talt5/localmodelcache
 
 go 1.26.8
 

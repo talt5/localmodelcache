@@ -14,7 +14,7 @@ A fork of KServe trimmed to model management: LocalModelCache (with LocalModelNa
 
 ## Project Structure
 
-- API types: `pkg/apis/serving/v1alpha1`
+- API types: `pkg/apis/cache/v1alpha1`
 - Controllers: `pkg/controller/v1alpha1/{localmodel,localmodelnode,kernelcache,kernelcachenode}`
 - Binaries: `cmd/localmodel` (controller and webhooks), `cmd/localmodelnode` and `cmd/kernelcachenode` (node agents)
 - Settings: the `kserve-localmodel-config` ConfigMap, parsed by `pkg/localmodelcache/config.go` and `pkg/kernelcache/config`

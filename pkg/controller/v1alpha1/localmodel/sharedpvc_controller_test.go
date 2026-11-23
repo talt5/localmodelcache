@@ -34,7 +34,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
 
 var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {

@@ -31,11 +31,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
-	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	kernelcachelabels "github.com/talt5/localmodelcache/pkg/kernelcache/labels"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/nodegroup"
 )
 
 // Controller setup and event filtering.
@@ -102,7 +102,7 @@ func (r *KernelCacheNodeReconciler) isRelevantJob(obj client.Object) bool {
 
 func (r *KernelCacheNodeReconciler) localModelConfigMapPredicate() predicate.Funcs {
 	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		return obj.GetNamespace() == constants.KServeNamespace && obj.GetName() == constants.LocalModelConfigMapName
+		return obj.GetNamespace() == constants.SystemNamespace && obj.GetName() == constants.LocalModelConfigMapName
 	})
 }
 

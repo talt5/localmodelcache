@@ -27,7 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
 
 // MatchingGroups returns the usable groups whose selectors match the node.

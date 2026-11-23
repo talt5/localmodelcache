@@ -44,7 +44,7 @@ func TestS3ServiceAccount(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
 					Annotations: map[string]string{
-						InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
+						S3SecretEndpointAnnotation: "s3.aws.com",
 					},
 				},
 			},
@@ -65,9 +65,9 @@ func TestS3ServiceAccount(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
 					Annotations: map[string]string{
-						InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
-						InferenceServiceS3SecretHttpsAnnotation:    "0",
-						InferenceServiceS3SecretSSLAnnotation:      "0",
+						S3SecretEndpointAnnotation: "s3.aws.com",
+						S3SecretHttpsAnnotation:    "0",
+						S3SecretSSLAnnotation:      "0",
 					},
 				},
 			},
@@ -96,9 +96,9 @@ func TestS3ServiceAccount(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
 					Annotations: map[string]string{
-						InferenceServiceS3SecretEndpointAnnotation: "https://s3.aws.com",
-						InferenceServiceS3SecretHttpsAnnotation:    "0",
-						InferenceServiceS3SecretSSLAnnotation:      "1",
+						S3SecretEndpointAnnotation: "https://s3.aws.com",
+						S3SecretHttpsAnnotation:    "0",
+						S3SecretSSLAnnotation:      "1",
 					},
 				},
 			},
@@ -127,9 +127,9 @@ func TestS3ServiceAccount(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
 					Annotations: map[string]string{
-						InferenceServiceS3SecretEndpointAnnotation: "http://s3.aws.com",
-						InferenceServiceS3SecretHttpsAnnotation:    "1",
-						InferenceServiceS3SecretSSLAnnotation:      "0",
+						S3SecretEndpointAnnotation: "http://s3.aws.com",
+						S3SecretHttpsAnnotation:    "1",
+						S3SecretSSLAnnotation:      "0",
 					},
 				},
 			},
@@ -158,8 +158,8 @@ func TestS3ServiceAccount(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
 					Annotations: map[string]string{
-						InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
-						InferenceServiceS3UseAnonymousCredential:   "true",
+						S3SecretEndpointAnnotation:         "s3.aws.com",
+						S3UseAnonymousCredentialAnnotation: "true",
 					},
 				},
 			},

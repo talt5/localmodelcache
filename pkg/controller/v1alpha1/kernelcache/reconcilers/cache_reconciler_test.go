@@ -32,11 +32,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	securityfixture "github.com/kserve/kserve/pkg/kernelcache/security/fixture"
-	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	securityfixture "github.com/talt5/localmodelcache/pkg/kernelcache/security/fixture"
+	kernelcachetypes "github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 func TestKernelCacheReconcilerCreatesPrefetchJobAndAggregatesStatus(t *testing.T) {
@@ -77,7 +77,7 @@ func TestKernelCacheReconcilerCreatesPrefetchJobAndAggregatesStatus(t *testing.T
 	kernelCacheNode := &v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: node.Name}, Status: v1alpha1.KernelCacheNodeStatus{CacheStatus: map[string]v1alpha1.KernelCacheNodeCacheInfo{
 		"team/cache": {State: v1alpha1.KernelCacheNodePreparationStatePending},
 	}}}
-	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{
+	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace}, Data: map[string]string{
 		"kernelcache": `{"enabled":true,"jobNamespace":"jobs","prefetchImage":"example/prefetch:latest","runtimeImagePrefetch":{"enabled":true},"artifactSecurity":{"mode":"none"}}`,
 	}}
 	jobNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "jobs"}}
@@ -176,7 +176,7 @@ func TestKernelCacheReconcilerAggregatesStatusDespiteRuntimePrefetchFailure(t *t
 				if !ready {
 					kernelCacheNode.Status.CacheStatus["team/cache"] = v1alpha1.KernelCacheNodeCacheInfo{State: v1alpha1.KernelCacheNodePreparationStatePending}
 				}
-				configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{
+				configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace}, Data: map[string]string{
 					"kernelcache": `{"enabled":true,"jobNamespace":"jobs","prefetchImage":"example/prefetch:latest","runtimeImagePrefetch":{"enabled":true},"artifactSecurity":{"mode":"none"}}`,
 				}}
 				jobNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "jobs"}}

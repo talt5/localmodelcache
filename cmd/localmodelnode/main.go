@@ -32,10 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	localmodelnodecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodelnode"
-	kservemetrics "github.com/kserve/kserve/pkg/metrics"
-	"github.com/kserve/kserve/pkg/oteljson"
-	kservescheme "github.com/kserve/kserve/pkg/scheme"
+	localmodelnodecontroller "github.com/talt5/localmodelcache/pkg/controller/v1alpha1/localmodelnode"
+	lmcmetrics "github.com/talt5/localmodelcache/pkg/metrics"
+	"github.com/talt5/localmodelcache/pkg/oteljson"
+	lmcscheme "github.com/talt5/localmodelcache/pkg/scheme"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
@@ -115,7 +115,7 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	setupLog.Info("Setting up manager")
-	metricsServerOptions, err := kservemetrics.ConfigureServerOptions(metricsserver.Options{
+	metricsServerOptions, err := lmcmetrics.ConfigureServerOptions(metricsserver.Options{
 		BindAddress:   options.metricsAddr,
 		SecureServing: options.metricsSecure,
 		CertDir:       options.metricsCertPath,
@@ -140,7 +140,7 @@ func main() {
 	setupLog.Info("Registering Components.")
 
 	setupLog.Info("Setting up controller schemes")
-	if err := kservescheme.AddControllerAPIs(mgr.GetScheme()); err != nil {
+	if err := lmcscheme.AddControllerAPIs(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add controller APIs to scheme")
 		os.Exit(1)
 	}

@@ -19,7 +19,7 @@ package security
 import (
 	"context"
 
-	"github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 // Verifier verifies a kernel cache image according to a configured mode.

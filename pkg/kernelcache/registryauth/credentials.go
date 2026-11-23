@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	controllerclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 )
 
 // Credentials is called only after the registry reconciler verifies the Pod owner chain.

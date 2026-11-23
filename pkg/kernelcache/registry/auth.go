@@ -29,7 +29,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 )
 
 const serviceAccountMountPath = "/var/run/secrets/kubernetes.io/serviceaccount"

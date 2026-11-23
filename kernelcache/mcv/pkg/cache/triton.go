@@ -28,10 +28,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/accelerator"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/accelerator/devices"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/accelerator"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/accelerator/devices"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/config"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/constants"
 
 	logging "github.com/sirupsen/logrus"
 )

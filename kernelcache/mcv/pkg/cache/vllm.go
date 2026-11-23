@@ -30,9 +30,9 @@ import (
 
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/accelerator/devices"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/accelerator/devices"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/config"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/constants"
 )
 
 var hashDirRegex = regexp.MustCompile(`^[a-f0-9]{32}$`) // Adjust the regex as needed
@@ -52,7 +52,7 @@ const (
 	kmCacheRootEnv      = constants.KMPrefix + "/cache-root-env"
 
 	// vLLM-specific mounting defaults
-	vllmCacheRootPath       = constants.KServeHome + "/" + constants.VLLMCache
+	vllmCacheRootPath       = constants.DefaultHome + "/" + constants.VLLMCache
 	vllmCacheRootEnvDefault = constants.VLLMCacheRoot + "=" + vllmCacheRootPath
 
 	// Cache format constants

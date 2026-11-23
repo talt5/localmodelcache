@@ -41,8 +41,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/registryauth"
-	cachesnapshot "github.com/kserve/kserve/kernelcache/mcv/pkg/snapshot"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/registryauth"
+	cachesnapshot "github.com/talt5/localmodelcache/kernelcache/mcv/pkg/snapshot"
 )
 
 type ociBuilder struct{}

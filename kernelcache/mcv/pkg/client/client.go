@@ -24,14 +24,14 @@ import (
 	"os"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/accelerator"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/accelerator/devices"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/fetcher"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/logformat"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/preflightcheck"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/registryauth"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/accelerator"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/accelerator/devices"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/config"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/constants"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/fetcher"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/logformat"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/preflightcheck"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/registryauth"
 	logging "github.com/sirupsen/logrus"
 )
 

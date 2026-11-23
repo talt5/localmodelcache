@@ -1,3 +1,3 @@
 domain: local.cache.ai
-repo: github.com/kserve/kserve
+repo: github.com/talt5/localmodelcache
 version: "3"

@@ -36,7 +36,7 @@ limitations under the License.
 
 package kernelcache
 
-import "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcache/reconcilers"
+import "github.com/talt5/localmodelcache/pkg/controller/v1alpha1/kernelcache/reconcilers"
 
 type (
 	KernelCacheCaptureControllerReconciler = reconcilers.KernelCacheCaptureControllerReconciler

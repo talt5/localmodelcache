@@ -34,9 +34,9 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/credentials"
 )
 
 type MockFileInfo struct {
@@ -192,7 +192,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: configs,
 			}
@@ -302,7 +302,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: configs,
 			}
@@ -384,7 +384,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: configs,
 			}
@@ -491,7 +491,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: configs,
 			}
@@ -554,7 +554,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: configs,
 			}
@@ -634,7 +634,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: map[string]string{
 					"localModel": `{
@@ -735,7 +735,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: map[string]string{
 					"localModel": `{
@@ -822,7 +822,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: map[string]string{
 					"localModel": `{
@@ -944,7 +944,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: map[string]string{
 					"localModel": `{
@@ -1025,7 +1025,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: map[string]string{
 					"localModel": `{
@@ -1115,7 +1115,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: map[string]string{
 					"localModel": `{
@@ -1215,7 +1215,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: map[string]string{
 					"localModel": `{
@@ -1323,7 +1323,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: map[string]string{
 					"localModel": `{
@@ -1498,7 +1498,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: configs,
 			}
@@ -1601,7 +1601,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: map[string]string{
 					"localModel": `{

@@ -34,10 +34,10 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
-	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	cacheidentity "github.com/talt5/localmodelcache/pkg/kernelcache/identity"
+	kernelcachelabels "github.com/talt5/localmodelcache/pkg/kernelcache/labels"
 )
 
 const (

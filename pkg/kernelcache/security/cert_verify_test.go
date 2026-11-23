@@ -24,9 +24,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kserve/kserve/pkg/kernelcache/security"
-	"github.com/kserve/kserve/pkg/kernelcache/security/fixture"
-	"github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/security"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/security/fixture"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 // verifierTrusting builds a cert-mode Verifier trusting caPEM (stored as a

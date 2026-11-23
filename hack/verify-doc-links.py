@@ -30,7 +30,7 @@ from urllib.parse import urlparse
 from urllib.error import URLError, HTTPError
 
 
-GITHUB_REPO = env.get("GITHUB_REPO", "https://github.com/kserve/kserve/")
+GITHUB_REPO = env.get("GITHUB_REPO", "https://github.com/talt5/localmodelcache/")
 BRANCH = "master"
 
 # glob expressions to find markdown files in project

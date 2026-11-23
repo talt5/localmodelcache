@@ -30,9 +30,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	pkgtest "github.com/kserve/kserve/pkg/testing"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	pkgtest "github.com/talt5/localmodelcache/pkg/testing"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -59,7 +59,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		}
 
 		// Create namespaces required by the controllers
-		for _, ns := range []string{constants.KServeNamespace, "kserve-localmodel-jobs"} {
+		for _, ns := range []string{constants.SystemNamespace, "kserve-localmodel-jobs"} {
 			_, err := clientset.CoreV1().Namespaces().Create(context.Background(),
 				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}},
 				metav1.CreateOptions{})
@@ -69,11 +69,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		}
 
 		// Create the configmap required by SetupWithManager
-		_, err = clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Create(context.Background(),
+		_, err = clientset.CoreV1().ConfigMaps(constants.SystemNamespace).Create(context.Background(),
 			&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.LocalModelConfigMapName,
-					Namespace: constants.KServeNamespace,
+					Namespace: constants.SystemNamespace,
 				},
 				Data: map[string]string{
 					"localModel": `{

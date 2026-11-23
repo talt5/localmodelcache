@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kserve/kserve/pkg/kernelcache/security"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/security"
 )
 
 // FakeSecretSource is an in-memory security.SecretSource for tests. Keys use the

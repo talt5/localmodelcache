@@ -35,10 +35,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/kernelcache/captureconfig"
-	"github.com/kserve/kserve/pkg/kernelcache/reporter"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/captureconfig"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/reporter"
 )
 
 func TestCaptureConfigFromPodReadsGroupedConfiguration(t *testing.T) {
@@ -137,7 +137,7 @@ func TestCaptureControllerCreatesDeterministicCaptureAndReporterIdentity(t *test
 	pod.OwnerReferences[0].APIVersion = appsv1.SchemeGroupVersion.String()
 	pod.OwnerReferences[0].Kind = "ReplicaSet"
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true}`},
 	}
 	namespaceObject := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
@@ -242,7 +242,7 @@ func TestCaptureControllerIgnoresPodWithoutVerifiedDeploymentOwner(t *testing.T)
 		}}},
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true}`},
 	}
 	namespaceObject := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
@@ -262,7 +262,7 @@ func TestCaptureControllerRemovesTokenRequesterBindingWhenDisabled(t *testing.T)
 	require.NoError(t, rbacv1.AddToScheme(scheme))
 	require.NoError(t, appsv1.AddToScheme(scheme))
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":false}`},
 	}
 	namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "team"}}

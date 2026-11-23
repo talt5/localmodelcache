@@ -22,8 +22,8 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 
-	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	kernelcacheutil "github.com/talt5/localmodelcache/pkg/kernelcache"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 )
 
 func TestCaptureRegistryProjection(t *testing.T) {

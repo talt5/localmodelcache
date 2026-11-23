@@ -28,8 +28,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	"github.com/kserve/kserve/pkg/kernelcache/security/fixture"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/security/fixture"
 )
 
 func TestNewTransportAddsConfiguredCAToRootPool(t *testing.T) {

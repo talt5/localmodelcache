@@ -34,9 +34,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcachenodecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcachenode"
-	kservescheme "github.com/kserve/kserve/pkg/scheme"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcachenodecontroller "github.com/talt5/localmodelcache/pkg/controller/v1alpha1/kernelcachenode"
+	lmcscheme "github.com/talt5/localmodelcache/pkg/scheme"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
@@ -74,7 +74,7 @@ func main() {
 				&corev1.Pod{}: {Label: kernelCachePodSelector},
 				&corev1.ConfigMap{}: {
 					Namespaces: map[string]cache.Config{
-						constants.KServeNamespace: {
+						constants.SystemNamespace: {
 							FieldSelector: fields.OneTermEqualSelector("metadata.name", constants.LocalModelConfigMapName),
 						},
 					},
@@ -87,7 +87,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := kservescheme.AddControllerAPIs(mgr.GetScheme()); err != nil {
+	if err := lmcscheme.AddControllerAPIs(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add controller APIs to scheme")
 		os.Exit(1)
 	}

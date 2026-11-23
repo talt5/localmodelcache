@@ -24,8 +24,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	kernelcachetypes "github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 // KernelCacheConfigKeyName is the ConfigMap key holding KernelCacheConfig as JSON.

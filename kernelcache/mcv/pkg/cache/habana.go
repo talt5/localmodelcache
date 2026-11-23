@@ -28,8 +28,8 @@ import (
 
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/cacheplan"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/cacheplan"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/constants"
 )
 
 // habanaRecipeCacheSizeMB returns the cache size limit to stamp into OCI labels.
@@ -57,7 +57,7 @@ const (
 	// habanaCacheRootPath is the directory a KServe serving container mounts the
 	// Habana recipe cache at. It is baked into the cache-root-env label so the
 	// consumer knows both the env var and the mount location.
-	habanaCacheRootPath = constants.KServeHome + "/" + constants.HabanaCache
+	habanaCacheRootPath = constants.DefaultHome + "/" + constants.HabanaCache
 )
 
 // recipeFileRegex matches Habana recipe cache filenames:

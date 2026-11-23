@@ -1,7 +1,7 @@
 # Build the manager binary
 FROM golang:1.26.8 AS deps
 
-WORKDIR /go/src/github.com/kserve/kserve
+WORKDIR /go/src/github.com/talt5/localmodelcache
 COPY go.mod  go.mod
 COPY go.sum  go.sum
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -37,5 +37,5 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # Copy the controller-manager into a thin image
 FROM gcr.io/distroless/static:nonroot
 COPY --from=license /third_party /third_party
-COPY --from=builder /go/src/github.com/kserve/kserve/localmodelnode-agent /manager
+COPY --from=builder /go/src/github.com/talt5/localmodelcache/localmodelnode-agent /manager
 ENTRYPOINT ["/manager"]

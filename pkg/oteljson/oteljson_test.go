@@ -30,7 +30,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	crzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/kserve/kserve/pkg/oteljson"
+	"github.com/talt5/localmodelcache/pkg/oteljson"
 )
 
 func TestSeverityMapping(t *testing.T) {

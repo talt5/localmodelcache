@@ -24,7 +24,7 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 
-	"github.com/kserve/kserve/pkg/localmodelcache"
+	"github.com/talt5/localmodelcache/pkg/localmodelcache"
 )
 
 const MountPath = "/mnt/models"

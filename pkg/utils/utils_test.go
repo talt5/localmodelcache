@@ -23,7 +23,7 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/kserve/kserve/pkg/credentials/gcs"
+	"github.com/talt5/localmodelcache/pkg/credentials/gcs"
 )
 
 func TestContainsUtil(t *testing.T) {

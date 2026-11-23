@@ -37,10 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/credentials"
-	"github.com/kserve/kserve/pkg/localmodelcache"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/credentials"
+	"github.com/talt5/localmodelcache/pkg/localmodelcache"
 )
 
 func fsMode() *corev1.PersistentVolumeMode {

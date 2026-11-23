@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
 
 // CacheUsage is the disk space a node-local cache claims on each node of its node groups.

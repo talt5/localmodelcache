@@ -32,9 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 )
 
 // podMutatorFixture is a vLLM Deployment, its ReplicaSet and a Pod about to be created from it.
@@ -80,7 +80,7 @@ func (f *podMutatorFixture) mutator(t *testing.T, kernelCacheJSON string) *PodMu
 	require.NoError(t, appsv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{kernelcacheconfig.KernelCacheConfigKeyName: kernelCacheJSON},
 	}
 	return &PodMutator{

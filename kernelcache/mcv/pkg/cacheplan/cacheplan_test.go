@@ -19,12 +19,12 @@ package cacheplan
 import (
 	"testing"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/constants"
 )
 
 const (
-	testVLLMCacheDir        = constants.KServeHome + "/" + constants.VLLMCache   // testVLLMCacheDir
-	testHabanaCacheDir      = constants.KServeHome + "/" + constants.HabanaCache // testHabanaCacheDir
+	testVLLMCacheDir        = constants.DefaultHome + "/" + constants.VLLMCache   // testVLLMCacheDir
+	testHabanaCacheDir      = constants.DefaultHome + "/" + constants.HabanaCache // testHabanaCacheDir
 	testHabanaCacheEnvValue = testHabanaCacheDir + ",false,8192"
 )
 

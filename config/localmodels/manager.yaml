@@ -29,7 +29,7 @@ spec:
       containers:
       - command:
         - /manager
-        image: ko://github.com/kserve/kserve/cmd/localmodel
+        image: ko://github.com/talt5/localmodelcache/cmd/localmodel
         imagePullPolicy: Always
         name: manager
         securityContext:

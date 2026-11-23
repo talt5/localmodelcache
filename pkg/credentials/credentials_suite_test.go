@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	pkgtest "github.com/kserve/kserve/pkg/testing"
+	pkgtest "github.com/talt5/localmodelcache/pkg/testing"
 )
 
 var (

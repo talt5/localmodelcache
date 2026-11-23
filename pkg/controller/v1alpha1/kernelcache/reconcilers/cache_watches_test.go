@@ -25,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
 func TestKernelCacheRequestsForMatchingNodeGroupsIncludesDefaultGroup(t *testing.T) {
@@ -41,7 +41,7 @@ func TestKernelCacheRequestsForMatchingNodeGroupsIncludesDefaultGroup(t *testing
 	group := &v1alpha1.KernelCacheNodeGroup{ObjectMeta: metav1.ObjectMeta{Name: "gpu"}, Spec: v1alpha1.KernelCacheNodeGroupSpec{NodeSelector: map[string]string{"role": "gpu"}}}
 	defaultCache := &v1alpha1.KernelCache{ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "team"}}
 	explicitCache := &v1alpha1.KernelCache{ObjectMeta: metav1.ObjectMeta{Name: "explicit", Namespace: "team"}, Spec: v1alpha1.KernelCacheSpec{NodeGroupRef: &corev1.LocalObjectReference{Name: "gpu"}}}
-	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{
+	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace}, Data: map[string]string{
 		"kernelcache": `{"enabled":true,"defaultNodeGroup":"gpu"}`,
 	}}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(node, group, defaultCache, explicitCache, configMap).Build()
@@ -67,8 +67,8 @@ func TestEnqueueKCsOnKCNChangeDeduplicatesReferences(t *testing.T) {
 }
 
 func TestLocalModelConfigMapPredicate(t *testing.T) {
-	matching := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}}
-	other := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "other", Namespace: constants.KServeNamespace}}
+	matching := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace}}
+	other := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "other", Namespace: constants.SystemNamespace}}
 	if !isLocalModelConfigMap(matching) || isLocalModelConfigMap(other) {
 		t.Fatal("unexpected ConfigMap predicate result")
 	}

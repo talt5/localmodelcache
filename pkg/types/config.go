@@ -44,8 +44,7 @@ type StorageInitializerConfig struct {
 	// Valid values: "modelcar" (default), "native", "fetch". Empty resolves to "modelcar".
 	OciModelMode string `json:"ociModelMode"`
 	// OciInsecureRegistry opts OCI pulls out of TLS verification (plain HTTP or
-	// self-signed certs with no distributable CA bundle). It applies to InferenceService
-	// oci+fetch:// init containers and to LocalModelCache / LocalModelNamespaceCache
+	// self-signed certs with no distributable CA bundle). It applies to LocalModelCache / LocalModelNamespaceCache
 	// download or import Jobs only when the source URI is oci:// or oci+*. Defaults to
 	// false (secure/verified HTTPS) -- this must be an explicit opt-in, never inferred
 	// from the registry host. Wired via the KSERVE_OCI_INSECURE_REGISTRY env var.

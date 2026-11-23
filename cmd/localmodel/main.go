@@ -35,16 +35,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcachecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcache"
-	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
-	kservemetrics "github.com/kserve/kserve/pkg/metrics"
-	"github.com/kserve/kserve/pkg/oteljson"
-	kservescheme "github.com/kserve/kserve/pkg/scheme"
-	kernelcachewebhook "github.com/kserve/kserve/pkg/webhook/admission/kernelcache"
-	localmodelwebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
-	localmodelnamespacecachewebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelnamespacecache"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcachecontroller "github.com/talt5/localmodelcache/pkg/controller/v1alpha1/kernelcache"
+	localmodelcontroller "github.com/talt5/localmodelcache/pkg/controller/v1alpha1/localmodel"
+	lmcmetrics "github.com/talt5/localmodelcache/pkg/metrics"
+	"github.com/talt5/localmodelcache/pkg/oteljson"
+	lmcscheme "github.com/talt5/localmodelcache/pkg/scheme"
+	kernelcachewebhook "github.com/talt5/localmodelcache/pkg/webhook/admission/kernelcache"
+	localmodelwebhook "github.com/talt5/localmodelcache/pkg/webhook/admission/localmodelcache"
+	localmodelnamespacecachewebhook "github.com/talt5/localmodelcache/pkg/webhook/admission/localmodelnamespacecache"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
@@ -128,7 +128,7 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	setupLog.Info("Setting up manager")
-	metricsServerOptions, err := kservemetrics.ConfigureServerOptions(metricsserver.Options{
+	metricsServerOptions, err := lmcmetrics.ConfigureServerOptions(metricsserver.Options{
 		BindAddress:   options.metricsAddr,
 		SecureServing: options.metricsSecure,
 		CertDir:       options.metricsCertPath,
@@ -157,7 +157,7 @@ func main() {
 	setupLog.Info("Registering Components.")
 
 	setupLog.Info("Setting up controller schemes")
-	if err := kservescheme.AddControllerAPIs(mgr.GetScheme()); err != nil {
+	if err := lmcscheme.AddControllerAPIs(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add controller APIs to scheme")
 		os.Exit(1)
 	}
@@ -194,7 +194,7 @@ func main() {
 		Client:                 mgr.GetClient(),
 		Clientset:              clientSet,
 		Reader:                 mgr.GetAPIReader(),
-		OperatorNamespace:      constants.KServeNamespace,
+		OperatorNamespace:      constants.SystemNamespace,
 		OperatorServiceAccount: "kserve-localmodel-controller-manager",
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCacheCapture")

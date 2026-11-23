@@ -54,14 +54,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel/jobs"
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
-	"github.com/kserve/kserve/pkg/credentials"
-	"github.com/kserve/kserve/pkg/localmodelcache"
-	pkgtypes "github.com/kserve/kserve/pkg/types"
-	kserveutils "github.com/kserve/kserve/pkg/utils"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/controller/v1alpha1/localmodel/jobs"
+	"github.com/talt5/localmodelcache/pkg/controller/v1alpha1/utils"
+	"github.com/talt5/localmodelcache/pkg/credentials"
+	"github.com/talt5/localmodelcache/pkg/localmodelcache"
+	pkgtypes "github.com/talt5/localmodelcache/pkg/types"
+	lmcutils "github.com/talt5/localmodelcache/pkg/utils"
 )
 
 // errInvalidImagePullSecret is returned by launchJob when the named
@@ -151,7 +151,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	// Use hash-based folder path for storage deduplication
 	storageKey := v1alpha1.GetStorageKey(modelInfo.SourceModelUri)
 	storageUri := modelInfo.SourceModelUri
-	if _, normalized, isOci := kserveutils.ParseOciScheme(storageUri); isOci {
+	if _, normalized, isOci := lmcutils.ParseOciScheme(storageUri); isOci {
 		storageUri = normalized
 	}
 	container.Args = []string{storageUri, MountPath}
@@ -196,7 +196,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 		}
 	}
 
-	if _, _, isOci := kserveutils.ParseOciScheme(modelInfo.SourceModelUri); isOci {
+	if _, _, isOci := lmcutils.ParseOciScheme(modelInfo.SourceModelUri); isOci {
 		if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
 			credentials.SetOciInsecureRegistryEnv(container)
 		}
@@ -526,7 +526,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// 1. Load config
 	configMap, err := localmodelcache.GetConfigMap(ctx, c.Clientset)
 	if err != nil {
-		c.Log.Error(err, "unable to get configmap", "name", constants.LocalModelConfigMapName, "namespace", constants.KServeNamespace)
+		c.Log.Error(err, "unable to get configmap", "name", constants.LocalModelConfigMapName, "namespace", constants.SystemNamespace)
 		return reconcile.Result{}, err
 	}
 	c.ConfigMap = configMap

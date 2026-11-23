@@ -21,10 +21,10 @@ import (
 
 	"github.com/onsi/gomega/types"
 
-	"github.com/kserve/kserve/pkg/credentials/azure"
-	"github.com/kserve/kserve/pkg/credentials/gcs"
-	"github.com/kserve/kserve/pkg/credentials/hdfs"
-	"github.com/kserve/kserve/pkg/credentials/s3"
+	"github.com/talt5/localmodelcache/pkg/credentials/azure"
+	"github.com/talt5/localmodelcache/pkg/credentials/gcs"
+	"github.com/talt5/localmodelcache/pkg/credentials/hdfs"
+	"github.com/talt5/localmodelcache/pkg/credentials/s3"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/onsi/gomega"
@@ -73,7 +73,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 			Name:      "s3-secret",
 			Namespace: "default",
 			Annotations: map[string]string{
-				s3.InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
+				s3.S3SecretEndpointAnnotation: "s3.aws.com",
 			},
 		},
 		Data: map[string][]byte{
@@ -98,8 +98,8 @@ func TestS3CredentialBuilder(t *testing.T) {
 			Name:      "s3-secret-with-protocol",
 			Namespace: "default",
 			Annotations: map[string]string{
-				s3.InferenceServiceS3SecretEndpointAnnotation: "http://s3.aws.com",
-				s3.InferenceServiceS3SecretSSLAnnotation:      "0",
+				s3.S3SecretEndpointAnnotation: "http://s3.aws.com",
+				s3.S3SecretSSLAnnotation:      "0",
 			},
 		},
 		Data: map[string][]byte{
@@ -504,7 +504,7 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 			Name:      "s3-secret",
 			Namespace: "default",
 			Annotations: map[string]string{
-				s3.InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
+				s3.S3SecretEndpointAnnotation: "s3.aws.com",
 			},
 		},
 		Data: map[string][]byte{
@@ -523,8 +523,8 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 			Name:      "s3-secret-with-protocol",
 			Namespace: "default",
 			Annotations: map[string]string{
-				s3.InferenceServiceS3SecretEndpointAnnotation: "http://s3.aws.com",
-				s3.InferenceServiceS3SecretSSLAnnotation:      "0",
+				s3.S3SecretEndpointAnnotation: "http://s3.aws.com",
+				s3.S3SecretSSLAnnotation:      "0",
 			},
 		},
 		Data: map[string][]byte{
@@ -915,9 +915,9 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 			Name:      "default",
 			Namespace: "default",
 			Annotations: map[string]string{
-				s3.InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
-				s3.InferenceServiceS3UseAnonymousCredential:   "true",
-				AwsIrsaAnnotationKey:                          "arn:aws:iam::123456789012:role/s3access",
+				s3.S3SecretEndpointAnnotation:         "s3.aws.com",
+				s3.S3UseAnonymousCredentialAnnotation: "true",
+				AwsIrsaAnnotationKey:                  "arn:aws:iam::123456789012:role/s3access",
 			},
 		},
 	}
@@ -926,10 +926,10 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 			Name:      "default-with-protocol",
 			Namespace: "default",
 			Annotations: map[string]string{
-				s3.InferenceServiceS3SecretEndpointAnnotation: "http://s3.aws.com",
-				s3.InferenceServiceS3UseAnonymousCredential:   "true",
-				AwsIrsaAnnotationKey:                          "arn:aws:iam::123456789012:role/s3access",
-				s3.InferenceServiceS3SecretSSLAnnotation:      "0",
+				s3.S3SecretEndpointAnnotation:         "http://s3.aws.com",
+				s3.S3UseAnonymousCredentialAnnotation: "true",
+				AwsIrsaAnnotationKey:                  "arn:aws:iam::123456789012:role/s3access",
+				s3.S3SecretSSLAnnotation:              "0",
 			},
 		},
 	}

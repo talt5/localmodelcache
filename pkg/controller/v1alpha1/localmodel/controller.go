@@ -39,7 +39,7 @@ limitations under the License.
 package localmodel
 
 import (
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel/reconcilers"
+	"github.com/talt5/localmodelcache/pkg/controller/v1alpha1/localmodel/reconcilers"
 )
 
 // Re-export reconciler types for backwards compatibility

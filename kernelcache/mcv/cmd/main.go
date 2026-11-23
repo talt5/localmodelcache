@@ -30,13 +30,13 @@ import (
 	"github.com/spf13/cobra"
 	"go.podman.io/storage/pkg/unshare"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/client"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/imgbuild"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/logformat"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/registryauth"
-	cachesnapshot "github.com/kserve/kserve/kernelcache/mcv/pkg/snapshot"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/utils"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/client"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/config"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/imgbuild"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/logformat"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/registryauth"
+	cachesnapshot "github.com/talt5/localmodelcache/kernelcache/mcv/pkg/snapshot"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/utils"
 )
 
 const (

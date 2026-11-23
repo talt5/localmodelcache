@@ -21,10 +21,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
-	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheutil "github.com/talt5/localmodelcache/pkg/kernelcache"
+	cacheidentity "github.com/talt5/localmodelcache/pkg/kernelcache/identity"
 )
 
 type workloadRef struct {

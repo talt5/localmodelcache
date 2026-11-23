@@ -24,7 +24,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
 
 const (

@@ -23,7 +23,7 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
-	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
+	kernelcachetypes "github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 func TestNewKernelCacheConfigDefaults(t *testing.T) {

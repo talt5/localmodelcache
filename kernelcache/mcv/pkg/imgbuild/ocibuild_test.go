@@ -36,7 +36,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/stretchr/testify/require"
 
-	cachesnapshot "github.com/kserve/kserve/kernelcache/mcv/pkg/snapshot"
+	cachesnapshot "github.com/talt5/localmodelcache/kernelcache/mcv/pkg/snapshot"
 )
 
 const testCacheHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

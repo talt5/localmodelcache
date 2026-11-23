@@ -30,9 +30,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/nodegroup"
 )
 
 // KernelCacheReconciler prepares KernelCache artifacts on the selected nodes

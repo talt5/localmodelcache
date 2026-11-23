@@ -28,9 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	kernelcachelabels "github.com/talt5/localmodelcache/pkg/kernelcache/labels"
 )
 
 func TestReconcilePrefetchServiceAccountAccessCreatesCrossNamespaceBinding(t *testing.T) {

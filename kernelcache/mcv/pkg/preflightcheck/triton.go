@@ -25,9 +25,9 @@ import (
 
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/accelerator/devices"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/cache"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/accelerator/devices"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/cache"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/config"
 )
 
 func CompareTritonCacheManifestToGPU(manifestPath string, devInfo []devices.TritonGPUInfo) error {

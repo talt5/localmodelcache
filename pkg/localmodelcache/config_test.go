@@ -26,16 +26,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
 func TestGetConfigMapReadsLocalModelConfigMap(t *testing.T) {
 	clientset := fake.NewSimpleClientset(
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
-			Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace,
+			Name: "other-config", Namespace: constants.SystemNamespace,
 		}},
 		&corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+			ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 			Data:       map[string]string{LocalModelConfigKeyName: `{"jobNamespace":"jobs"}`},
 		},
 	)
