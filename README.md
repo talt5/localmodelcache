@@ -53,7 +53,7 @@ namespace:
 | Key | Configures |
 | --- | --- |
 | `localModel` | The download Job namespace and image, `fsGroup`, and whether the controller creates the PVCs workloads mount (`disableVolumeManagement`). |
-| `storageInitializer` | Resources and CA bundle of the download container. |
+| `storageInitializer` | Resources and CA bundle of the download container. The CA bundle is a ConfigMap with the key `cabundle.crt`, in the job namespace and in the namespace of each shared-PVC cache. |
 | `credentials` | Where download Jobs find storage credentials. |
 | `kernelcache` | Kernel capture, prefetch, registry and artifact signing. |
 

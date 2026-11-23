@@ -128,9 +128,6 @@ const DefaultModelLocalMountPath = "/mnt/models"
 // DefaultCaBundleVolumeMountPath Default path to mount CA bundle configmap volume
 const DefaultCaBundleVolumeMountPath = "/etc/ssl/custom-certs"
 
-// DefaultGlobalCaBundleConfigMapName Default CA bundle configmap name that will be created in the user namespace.
-const DefaultGlobalCaBundleConfigMapName = "global-ca-bundle"
-
 // Custom CA bundle configmap Environment Variables
 const (
 	CaBundleConfigMapNameEnvVarKey   = "CA_BUNDLE_CONFIGMAP_NAME"

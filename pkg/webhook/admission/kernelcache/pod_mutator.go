@@ -107,10 +107,13 @@ func (m *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
+	// Capturing only speeds up later Pods, so failing to set it up must not block this one.
+	// injectMCVSidecar changes the Pod only when it succeeds.
+	var warnings []string
 	if sidecarInjection && !cacheMounted {
 		if err := m.injectMCVSidecar(ctx, pod, kernelCacheConfig); err != nil {
-			logger.Error(err, "Failed to inject MCV sidecar")
-			return admission.Errored(http.StatusInternalServerError, err)
+			logger.Error(err, "Kernel cache capture skipped", "pod", pod.GenerateName, "namespace", req.Namespace)
+			warnings = append(warnings, "kernel cache capture skipped: "+err.Error())
 		}
 	}
 	logger.Info("KernelCache mutation completed", "pod", pod.Name, "namespace", req.Namespace)
@@ -119,7 +122,7 @@ func (m *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 	if err != nil {
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
-	return admission.PatchResponseFromRaw(req.Object.Raw, patchedPod)
+	return admission.PatchResponseFromRaw(req.Object.Raw, patchedPod).WithWarnings(warnings...)
 }
 
 func (m *PodMutator) getKernelCacheConfig(ctx context.Context) (*kernelcacheconfig.KernelCacheConfig, error) {

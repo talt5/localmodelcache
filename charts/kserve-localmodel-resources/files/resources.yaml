@@ -652,9 +652,9 @@ data:
     {
         "image" : "ghcr.io/talt5/storage-initializer:latest",
         "memoryRequest": "100Mi",
-        "memoryLimit": "1Gi",
+        "memoryLimit": "4Gi",
         "cpuRequest": "100m",
-        "cpuLimit": "1",
+        "cpuLimit": "2",
         "caBundleConfigMapName": "",
         "caBundleVolumeMountPath": "/etc/ssl/custom-certs"
     }
