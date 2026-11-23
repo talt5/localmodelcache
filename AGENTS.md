@@ -1,4 +1,4 @@
-# KServe model cache
+# LocalModelCache
 
 A fork of KServe trimmed to model management: LocalModelCache (with LocalModelNamespaceCache, LocalModelNode and LocalModelNodeGroup), ClusterStorageContainer and KernelCache. It caches models and compiled GPU kernels for any workload; it does not serve models, and InferenceService and LLMInferenceService are gone. The Go codebase implements custom controllers using controller-runtime.
 

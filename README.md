@@ -1,9 +1,12 @@
-# KServe model cache
+# LocalModelCache
 
-This repository is a fork of [KServe](https://github.com/kserve/kserve) trimmed to its
-model-management features. It downloads models to the nodes that serve them and caches
-compiled GPU kernels, for any workload: a vLLM Deployment, ModelExpress, or your own server.
-It does not serve models itself, and it has no InferenceService or LLMInferenceService.
+LocalModelCache downloads models to the nodes that serve them and caches compiled GPU kernels,
+for any workload that can mount a PVC, such as a vLLM Deployment or your own server. It does
+not serve models itself.
+
+It is a fork of [KServe](https://github.com/kserve/kserve) trimmed to its model-management
+features, with no InferenceService or LLMInferenceService. In this document, LocalModelCache
+is the product and `LocalModelCache` is one of its resources.
 
 | Resource | Scope | What it does |
 | --- | --- | --- |
@@ -13,7 +16,8 @@ It does not serve models itself, and it has no InferenceService or LLMInferenceS
 | `ClusterStorageContainer` | cluster | Replaces the container that downloads models from a given URI scheme. |
 | `KernelCache`, `KernelCacheCapture`, `KernelCacheNodeGroup` | namespace, namespace, cluster | Capture the compiled kernel cache of a running Deployment as an OCI image and mount it into its later Pods. |
 
-The API group stays `serving.kserve.io/v1alpha1`, so the resources match upstream KServe.
+The API group stays `serving.kserve.io/v1alpha1`. The chart, ConfigMap and namespace names also
+keep their `kserve` prefix, so use those names in the commands below.
 
 ## Install
 
@@ -130,7 +134,7 @@ spec:
         readOnly: true
 ```
 
-Deleting the cache is refused while a Pod mounts its claim. The whole example is in
+Deleting the cache is refused while a running Pod mounts its claim. The whole example is in
 [docs/samples/vllm-node-local.yaml](docs/samples/vllm-node-local.yaml).
 
 A cluster-scoped `LocalModelCache` pre-loads the nodes without creating claims. Caches with
@@ -141,7 +145,8 @@ workload namespace reuses a model the `LocalModelCache` already downloaded.
 
 To keep one copy on network storage, create a ReadWriteMany PVC and point the cache at it
 with `pvcRef` instead of `nodeGroups`. The controller imports the model into `models/<storage
-key>` on the claim with a Job in the same namespace, and `status.subPath` reports that path.
+key>` on the claim with a Job in the same namespace, and `status.subPath` reports that path. The
+data is yours: deleting the cache is allowed at any time and leaves the files on the PVC.
 See [docs/samples/vllm-shared-pvc.yaml](docs/samples/vllm-shared-pvc.yaml).
 
 ### Custom download container
