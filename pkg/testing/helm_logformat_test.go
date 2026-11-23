@@ -38,42 +38,34 @@ func TestControllerLogFormatHelmRender(t *testing.T) {
 	root := ProjectRoot()
 
 	t.Run("default omits log format", func(t *testing.T) {
-		manager := renderChart(t, helm, root, "charts/kserve-resources")
-		requireLogFormat(t, manager, "Deployment", "kserve-controller-manager", "")
-		require.Subset(t, managerArgs(t, manager, "Deployment", "kserve-controller-manager"), []string{
-			"--metrics-addr=127.0.0.1:8080",
-			"--leader-elect",
-		})
-
-		localmodel := renderChart(t, helm, root, "charts/kserve-localmodel-resources")
+		localmodel := renderChart(t, helm, root)
 		requireLogFormat(t, localmodel, "Deployment", "kserve-localmodel-controller-manager", "")
 		requireLogFormat(t, localmodel, "DaemonSet", "kserve-localmodelnode-agent", "")
 		require.Empty(t, managerArgs(t, localmodel, "DaemonSet", "kserve-kernelcachenode-agent"))
 	})
 
 	t.Run("otel-json when configured", func(t *testing.T) {
-		manager := renderChart(t, helm, root, "charts/kserve-resources", "kserve.controller.extraArgs[0]=--log-format=otel-json")
-		requireLogFormat(t, manager, "Deployment", "kserve-controller-manager", "--log-format=otel-json")
-
-		localmodel := renderChart(t, helm, root, "charts/kserve-localmodel-resources", "kserve.localmodel.controller.extraArgs[0]=--log-format=otel-json")
+		localmodel := renderChart(t, helm, root, "kserve.localmodel.controller.extraArgs[0]=--log-format=otel-json")
 		requireLogFormat(t, localmodel, "Deployment", "kserve-localmodel-controller-manager", "--log-format=otel-json")
 		requireLogFormat(t, localmodel, "DaemonSet", "kserve-localmodelnode-agent", "")
 
-		node := renderChart(t, helm, root, "charts/kserve-localmodel-resources", "kserve.localmodelnode.controller.extraArgs[0]=--log-format=otel-json")
+		node := renderChart(t, helm, root, "kserve.localmodelnode.controller.extraArgs[0]=--log-format=otel-json")
 		requireLogFormat(t, node, "Deployment", "kserve-localmodel-controller-manager", "")
 		requireLogFormat(t, node, "DaemonSet", "kserve-localmodelnode-agent", "--log-format=otel-json")
 		require.Empty(t, managerArgs(t, node, "DaemonSet", "kserve-kernelcachenode-agent"))
 
-		cache := renderChart(t, helm, root, "charts/kserve-localmodel-resources", "kserve.kernelcachenode.controller.extraArgs[0]=--zap-log-level=debug")
+		cache := renderChart(t, helm, root, "kserve.kernelcachenode.controller.extraArgs[0]=--zap-log-level=debug")
 		require.Equal(t, []string{"--zap-log-level=debug"}, managerArgs(t, cache, "DaemonSet", "kserve-kernelcachenode-agent"))
 		requireLogFormat(t, cache, "Deployment", "kserve-localmodel-controller-manager", "")
 		requireLogFormat(t, cache, "DaemonSet", "kserve-localmodelnode-agent", "")
 	})
 }
 
-func renderChart(t *testing.T, helm, root, chart string, sets ...string) []byte {
+// renderChart renders the kserve-localmodel-resources chart with the given --set values.
+func renderChart(t *testing.T, helm, root string, sets ...string) []byte {
 	t.Helper()
 
+	const chart = "charts/kserve-localmodel-resources"
 	args := make([]string, 0, 3+2*len(sets))
 	args = append(args, "template", "kserve", chart)
 	for _, set := range sets {

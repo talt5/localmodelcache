@@ -39,9 +39,7 @@ exclude:
   # Exclude files or packages matching their paths
   paths:
     - zz_generated.deepcopy.go
-    - openapi_generated.go
     - testing
-    - pkg\\/client
 
 # File name of go-test-coverage breakdown file, which can be used to 
 # analyze coverage difference.

@@ -32,10 +32,3 @@ const (
 )
 
 var SupportedStorageProtocols = []StorageProtocol{S3StorageProtocol, GCSStorageProtocol, HTTPSStorageProtocol, HTTPStorageProtocol}
-
-func GetAllStorageProtocols() (protocols []string) {
-	for _, protocol := range SupportedStorageProtocols {
-		protocols = append(protocols, string(protocol))
-	}
-	return protocols
-}

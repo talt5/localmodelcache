@@ -40,31 +40,14 @@ var (
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
 
-	// LLMInferenceServiceGVK is the GroupVersionKind for LLMInferenceService
-	LLMInferenceServiceGVK = SchemeGroupVersion.WithKind("LLMInferenceService")
-
-	// LLMInferenceServiceConfigGVK is the GroupVersionKind for LLMInferenceServiceConfig
-	LLMInferenceServiceConfigGVK = SchemeGroupVersion.WithKind("LLMInferenceServiceConfig")
-
-	// AddToScheme is required by pkg/client/...
+	// AddToScheme adds the types of this group to a scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
 )
-
-// Resource is required by pkg/client/listers/...
-func Resource(resource string) schema.GroupResource {
-	return SchemeGroupVersion.WithResource(resource).GroupResource()
-}
 
 // addKnownTypes registers every type belonging to this API group with the scheme.
 // Keep this list in sync when adding a new type to the group.
 func addKnownTypes(s *runtime.Scheme) error {
 	s.AddKnownTypes(SchemeGroupVersion,
-		&TrainedModel{}, &TrainedModelList{},
-		&InferenceGraph{}, &InferenceGraphList{},
-		&LLMInferenceService{}, &LLMInferenceServiceList{},
-		&LLMInferenceServiceConfig{}, &LLMInferenceServiceConfigList{},
-		&ServingRuntime{}, &ServingRuntimeList{},
-		&ClusterServingRuntime{}, &ClusterServingRuntimeList{},
 		&ClusterStorageContainer{}, &ClusterStorageContainerList{},
 		&KernelCache{}, &KernelCacheList{},
 		&KernelCacheCapture{}, &KernelCacheCaptureList{},

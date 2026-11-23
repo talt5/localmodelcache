@@ -33,7 +33,3 @@ jobs:
 
       - name: Check main module licenses
         run: go-licenses check ./cmd/... ./pkg/... --disallowed_types="forbidden,unknown"
-
-      - name: Check qpext licenses
-        working-directory: qpext
-        run: go-licenses check ./... --disallowed_types="forbidden,unknown"

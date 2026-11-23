@@ -23,57 +23,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestParseDeploymentMode(t *testing.T) {
-	testCases := []struct {
-		name     string
-		input    string
-		expected DeploymentModeType
-	}{
-		{
-			name:     "Empty string returns default",
-			input:    "",
-			expected: DefaultDeployment,
-		},
-		{
-			name:     "Standard mode",
-			input:    string(Standard),
-			expected: Standard,
-		},
-		{
-			name:     "Knative mode",
-			input:    string(Knative),
-			expected: Knative,
-		},
-		{
-			name:     "ModelMesh mode",
-			input:    string(ModelMeshDeployment),
-			expected: ModelMeshDeployment,
-		},
-		{
-			name:     "Legacy RawDeployment normalizes to Standard",
-			input:    string(LegacyRawDeployment),
-			expected: Standard,
-		},
-		{
-			name:     "Legacy Serverless normalizes to Knative",
-			input:    string(LegacyServerless),
-			expected: Knative,
-		},
-		{
-			name:     "Unknown mode returns as-is",
-			input:    "UnknownMode",
-			expected: DeploymentModeType("UnknownMode"),
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := ParseDeploymentMode(tc.input)
-			assert.Equal(t, tc.expected, result)
-		})
-	}
-}
-
 func TestKernelCacheCaptureRevisionName(t *testing.T) {
 	assert.Equal(t, "qwen-kcc-669889f77f", KernelCacheCaptureRevisionName("qwen", "669889f77f"))
 

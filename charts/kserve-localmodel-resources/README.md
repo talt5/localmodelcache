@@ -28,17 +28,6 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| kserve.agent.image | string | `"kserve/agent"` |  |
-| kserve.agent.tag | string | `""` |  |
-| kserve.autoscaler.scaleDownStabilizationWindowSeconds | string | `"300"` |  |
-| kserve.autoscaler.scaleUpStabilizationWindowSeconds | string | `"0"` |  |
-| kserve.certManager.enabled | string | `""` |  |
-| kserve.createSharedResources | bool | `true` |  |
-| kserve.inferenceServiceConfig.enabled | string | `""` |  |
-| kserve.inferenceservice.resources.limits.cpu | string | `"1"` |  |
-| kserve.inferenceservice.resources.limits.memory | string | `"2Gi"` |  |
-| kserve.inferenceservice.resources.requests.cpu | string | `"1"` |  |
-| kserve.inferenceservice.resources.requests.memory | string | `"2Gi"` |  |
 | kserve.kernelcache.abandonedCapturePolicy | string | `"retain"` |  |
 | kserve.kernelcache.artifactSecurity.cert.signingProfileRef | string | `"kernelcache-signer"` |  |
 | kserve.kernelcache.artifactSecurity.cert.subjectRegexp | string | `"spiffe://kserve/kernelcache-signer"` |  |
@@ -79,15 +68,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.kernelcachenode.controller.resources.requests.memory | string | `"128Mi"` |  |
 | kserve.kernelcachenode.controller.tag | string | `""` |  |
 | kserve.kernelcachenode.controller.tolerations | list | `[]` |  |
-| kserve.localmodel.agent.affinity | object | `{}` |  |
-| kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
-| kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
-| kserve.localmodel.agent.nodeSelector | object | `{}` |  |
 | kserve.localmodel.agent.reconcilationFrequencyInSecs | int | `60` |  |
-| kserve.localmodel.agent.securityContext.runAsNonRoot | bool | `true` |  |
-| kserve.localmodel.agent.securityContext.runAsUser | int | `1000` |  |
-| kserve.localmodel.agent.tag | string | `""` |  |
-| kserve.localmodel.agent.tolerations | list | `[]` |  |
 | kserve.localmodel.controller.extraArgs | list | `[]` | Additional container arguments. Example: ["--log-format=otel-json"]. |
 | kserve.localmodel.controller.image | string | `"kserve/kserve-localmodel-controller"` |  |
 | kserve.localmodel.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
@@ -99,7 +80,6 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodel.defaultJobImage | string | `"kserve/storage-initializer"` |  |
 | kserve.localmodel.defaultJobTag | string | `""` |  |
 | kserve.localmodel.disableVolumeManagement | bool | `false` |  |
-| kserve.localmodel.enabled | bool | `false` |  |
 | kserve.localmodel.jobNamespace | string | `"kserve-localmodel-jobs"` |  |
 | kserve.localmodel.jobTTLSecondsAfterFinished | int | `3600` |  |
 | kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
@@ -116,34 +96,10 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodelnode.controller.resources.requests.memory | string | `"200Mi"` |  |
 | kserve.localmodelnode.controller.tag | string | `""` |  |
 | kserve.localmodelnode.controller.tolerations | list | `[]` |  |
-| kserve.metricsaggregator.enableMetricAggregation | string | `"false"` |  |
-| kserve.metricsaggregator.enablePrometheusScraping | string | `"false"` |  |
-| kserve.opentelemetryCollector.metricReceiverEndpoint | string | `"keda-otel-scaler.keda.svc:4317"` |  |
-| kserve.opentelemetryCollector.metricScalerEndpoint | string | `"keda-otel-scaler.keda.svc:4318"` |  |
-| kserve.opentelemetryCollector.resource.cpuLimit | string | `"1"` |  |
-| kserve.opentelemetryCollector.resource.cpuRequest | string | `"200m"` |  |
-| kserve.opentelemetryCollector.resource.memoryLimit | string | `"2Gi"` |  |
-| kserve.opentelemetryCollector.resource.memoryRequest | string | `"512Mi"` |  |
-| kserve.opentelemetryCollector.scrapeInterval | string | `"5s"` |  |
-| kserve.router.image | string | `"kserve/router"` |  |
-| kserve.router.imagePullPolicy | string | `"IfNotPresent"` |  |
-| kserve.router.imagePullSecrets | list | `[]` |  |
-| kserve.router.tag | string | `""` |  |
-| kserve.security.autoMountServiceAccountToken | bool | `true` |  |
-| kserve.service.serviceClusterIPNone | bool | `false` |  |
-| kserve.servingruntime.art.defaultVersion | string | `""` |  |
-| kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
 | kserve.storage.caBundleConfigMapName | string | `""` |  |
 | kserve.storage.caBundleVolumeMountPath | string | `"/etc/ssl/custom-certs"` |  |
-| kserve.storage.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
-| kserve.storage.containerSecurityContext.capabilities.drop[0] | string | `"ALL"` |  |
-| kserve.storage.containerSecurityContext.privileged | bool | `false` |  |
-| kserve.storage.containerSecurityContext.runAsNonRoot | bool | `true` |  |
-| kserve.storage.cpuModelcar | string | `"10m"` |  |
-| kserve.storage.enableModelcar | bool | `true` |  |
 | kserve.storage.enableOciModelSupport | bool | `false` |  |
 | kserve.storage.image | string | `"kserve/storage-initializer"` |  |
-| kserve.storage.memoryModelcar | string | `"15Mi"` |  |
 | kserve.storage.ociModelMode | string | `""` |  |
 | kserve.storage.resources.limits.cpu | string | `"1"` |  |
 | kserve.storage.resources.limits.memory | string | `"1Gi"` |  |
@@ -162,8 +118,6 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.storage.storageSecretNameAnnotation | string | `"serving.kserve.io/secretName"` |  |
 | kserve.storage.storageSpecSecretName | string | `"storage-config"` |  |
 | kserve.storage.tag | string | `""` |  |
-| kserve.storage.uidModelcar | int | `1010` |  |
-| kserve.storagecontainer.enabled | string | `""` |  |
 | kserve.version | string | `"v0.21.0"` |  |
 | openshift.downloadJobServiceAccount | string | `"default"` | ServiceAccount in kserve.localmodel.jobNamespace that runs the model download Jobs. It is granted the download Job SCC, which permits the Jobs' fsGroup. |
 | openshift.enabled | bool | `false` | Deploy on OpenShift. Creates SecurityContextConstraints (SCCs), grants them to the chart's ServiceAccounts and the download Job ServiceAccount, and pins each pod to its SCC. |

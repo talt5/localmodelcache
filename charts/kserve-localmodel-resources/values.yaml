@@ -1,22 +1,5 @@
 kserve:
   version: v0.21.0
-  createSharedResources: true
-  inferenceServiceConfig:
-    enabled: ''
-  certManager:
-    enabled: ''
-  storagecontainer:
-    enabled: ''
-  agent:
-    image: kserve/agent
-    tag: ''
-  router:
-    image: kserve/router
-    tag: ''
-    imagePullPolicy: IfNotPresent
-    imagePullSecrets: []
-  service:
-    serviceClusterIPNone: false
   storage:
     image: kserve/storage-initializer
     tag: ''
@@ -27,17 +10,6 @@ kserve:
       limits:
         memory: 1Gi
         cpu: '1'
-    containerSecurityContext:
-      allowPrivilegeEscalation: false
-      privileged: false
-      runAsNonRoot: true
-      capabilities:
-        drop:
-          - ALL
-    enableModelcar: true
-    uidModelcar: 1010
-    cpuModelcar: 10m
-    memoryModelcar: 15Mi
     # enableOciModelSupport turns on any OCI-backed model storage path (modelcar,
     # native ImageVolume, or fetch). Only rendered into the storageInitializer
     # config when true, so the default leaves the shipped config untouched.
@@ -61,15 +33,7 @@ kserve:
       useAnonymousCredential: ''
       CABundleConfigMap: ''
       CABundle: ''
-  metricsaggregator:
-    enableMetricAggregation: 'false'
-    enablePrometheusScraping: 'false'
-  servingruntime:
-    art:
-      image: kserve/art-explainer
-      defaultVersion: ''
   localmodel:
-    enabled: false
     controller:
       image: kserve/kserve-localmodel-controller
       tag: ''
@@ -93,16 +57,7 @@ kserve:
     sharedPVCImportFSGroup: 1000
     disableVolumeManagement: false
     agent:
-      nodeSelector: {}
-      affinity: {}
-      tolerations: []
-      hostPath: /mnt/models
-      image: kserve/kserve-localmodelnode-agent
-      tag: ''
       reconcilationFrequencyInSecs: 60
-      securityContext:
-        runAsUser: 1000
-        runAsNonRoot: true
   kernelcache:
     enabled: false
     defaultSidecarInjection: true
@@ -142,28 +97,6 @@ kserve:
     jobTTLSecondsAfterFinished: 600
     mcvCaptureReadinessTimeoutSeconds: 600
     reconcileIntervalSeconds: 300
-  security:
-    autoMountServiceAccountToken: true
-  inferenceservice:
-    resources:
-      limits:
-        cpu: '1'
-        memory: 2Gi
-      requests:
-        cpu: '1'
-        memory: 2Gi
-  opentelemetryCollector:
-    scrapeInterval: 5s
-    metricReceiverEndpoint: keda-otel-scaler.keda.svc:4317
-    metricScalerEndpoint: keda-otel-scaler.keda.svc:4318
-    resource:
-      cpuLimit: '1'
-      memoryLimit: 2Gi
-      cpuRequest: 200m
-      memoryRequest: 512Mi
-  autoscaler:
-    scaleUpStabilizationWindowSeconds: '0'
-    scaleDownStabilizationWindowSeconds: '300'
   localmodelnode:
     controller:
       image: kserve/kserve-localmodelnode-agent

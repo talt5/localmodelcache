@@ -30,6 +30,51 @@ metadata:
   namespace: kserve
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodel-leader-election-role
+  namespace: kserve
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - list
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - configmaps/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
@@ -468,7 +513,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: kserve-leader-election-role
+  name: kserve-localmodel-leader-election-role
 subjects:
 - kind: ServiceAccount
   name: kserve-localmodel-controller-manager
@@ -876,7 +921,7 @@ spec:
   issuerRef:
     group: cert-manager.io
     kind: Issuer
-    name: selfsigned-issuer
+    name: localmodel-selfsigned-issuer
   secretName: kernelcache-root-ca
 ---
 apiVersion: cert-manager.io/v1
@@ -914,7 +959,7 @@ spec:
   - localmodel-webhook-server-service.kserve.svc
   issuerRef:
     kind: Issuer
-    name: selfsigned-issuer
+    name: localmodel-selfsigned-issuer
   secretName: localmodel-webhook-server-cert
 ---
 apiVersion: cert-manager.io/v1
@@ -928,6 +973,17 @@ metadata:
 spec:
   ca:
     secretName: kernelcache-root-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: localmodel-selfsigned-issuer
+  namespace: kserve
+spec:
+  selfSigned: {}
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
