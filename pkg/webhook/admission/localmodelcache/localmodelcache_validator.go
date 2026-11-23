@@ -50,6 +50,9 @@ var _ admission.Validator[*v1alpha1.LocalModelCache] = &LocalModelCacheValidator
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, localModelCache *v1alpha1.LocalModelCache) (admission.Warnings, error) {
 	localModelCacheValidatorLogger.Info("validate create", "name", localModelCache.Name)
+	if err := localmodelcache.ValidateModelSize(nil, localModelCache.Spec.ModelSize); err != nil {
+		return nil, err
+	}
 	localModelCacheWithSameStorageURI, err := v.validateUniqueStorageURI(ctx, localModelCache)
 	if err != nil {
 		localModelCacheValidatorLogger.Error(err, "Unable to check LocalModelCache with the same storage URI")
@@ -67,6 +70,9 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldCache,
 		return nil, nil
 	}
 	localModelCacheValidatorLogger.Info("validate update", "name", localModelCache.Name)
+	if err := localmodelcache.ValidateModelSize(&oldCache.Spec.ModelSize, localModelCache.Spec.ModelSize); err != nil {
+		return nil, err
+	}
 	localModelCacheWithSameStorageURI, err := v.validateUniqueStorageURI(ctx, localModelCache)
 	if err != nil {
 		localModelCacheValidatorLogger.Error(err, "Unable to check LocalModelCache with the same storage URI")

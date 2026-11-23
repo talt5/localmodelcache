@@ -24,7 +24,7 @@ import (
 type LocalModelInfo struct {
 	// Original StorageUri
 	SourceModelUri string `json:"sourceModelUri" validate:"required"`
-	// Model name. Used as the subdirectory name to store this model on local file system
+	// Name of the cache the model belongs to
 	ModelName string `json:"modelName" validate:"required"`
 	// Namespace of the LocalModelNamespaceCache CR (empty for cluster-scoped LocalModelCache)
 	// +optional

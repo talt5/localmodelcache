@@ -56,9 +56,13 @@ const KernelCacheWorkloadKind = "Deployment"
 
 // Internal annotations
 var (
-	InternalAnnotationsPrefix                        = "internal." + APIGroupName
-	LocalModelLabel                                  = InternalAnnotationsPrefix + "/localmodel"
-	LocalModelNamespaceLabel                         = InternalAnnotationsPrefix + "/localmodel-namespace"
+	InternalAnnotationsPrefix = "internal." + APIGroupName
+	// LocalModelUIDLabelKey holds the UID of the cache a PersistentVolume or claim belongs to.
+	LocalModelUIDLabelKey = InternalAnnotationsPrefix + "/localmodel-uid"
+	// LocalModelAnnotationKey and LocalModelNamespaceAnnotationKey name that cache. Its namespace
+	// is empty for a cluster-scoped LocalModelCache.
+	LocalModelAnnotationKey                          = InternalAnnotationsPrefix + "/localmodel"
+	LocalModelNamespaceAnnotationKey                 = InternalAnnotationsPrefix + "/localmodel-namespace"
 	KernelCacheUsageAnnotationKey                    = InternalAnnotationsPrefix + "/kernelcache-usage"
 	KernelCacheCaptureGeneratedLabelKey              = InternalAnnotationsPrefix + "/kernelcache-capture-generated"
 	KernelCacheNodeGroupSelectionSourceAnnotationKey = InternalAnnotationsPrefix + "/kernelcache-nodegroup-selection-source"

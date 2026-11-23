@@ -22,199 +22,33 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/talt5/localmodelcache/pkg/controller/v1alpha1/localmodel/reconcilers"
 )
 
-var _ = Describe("Node Ready Predicate", func() {
-	var pred predicate.Funcs
+var _ = Describe("Node changed predicate", func() {
+	node := func(ready corev1.ConditionStatus, labels map[string]string) *corev1.Node {
+		return &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-node", Labels: labels},
+			Status:     corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: ready}}},
+		}
+	}
+	gpu := map[string]string{"gpu": "true"}
 
-	BeforeEach(func() {
-		pred = reconcilers.NodeReadyPredicate()
-	})
+	DescribeTable("update", func(oldNode, newNode *corev1.Node, want bool) {
+		Expect(reconcilers.NodeChangedPredicate().Update(event.UpdateEvent{ObjectOld: oldNode, ObjectNew: newNode})).To(Equal(want))
+	},
+		Entry("becomes ready", node(corev1.ConditionFalse, nil), node(corev1.ConditionTrue, nil), true),
+		Entry("becomes ready for the first time", &corev1.Node{}, node(corev1.ConditionTrue, nil), true),
+		Entry("becomes unready", node(corev1.ConditionTrue, nil), node(corev1.ConditionUnknown, nil), true),
+		Entry("is labeled while ready", node(corev1.ConditionTrue, nil), node(corev1.ConditionTrue, gpu), true),
+		Entry("loses a label", node(corev1.ConditionTrue, gpu), node(corev1.ConditionTrue, nil), true),
+		Entry("stays ready", node(corev1.ConditionTrue, gpu), node(corev1.ConditionTrue, gpu), false),
+		Entry("stays unready", node(corev1.ConditionFalse, gpu), node(corev1.ConditionUnknown, gpu), false),
+	)
 
-	Describe("UpdateFunc", func() {
-		Context("when a node transitions from NotReady to Ready", func() {
-			It("should return true", func() {
-				oldNode := &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-					Status: corev1.NodeStatus{
-						Conditions: []corev1.NodeCondition{
-							{
-								Type:   corev1.NodeReady,
-								Status: corev1.ConditionFalse,
-							},
-						},
-					},
-				}
-				newNode := &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-					Status: corev1.NodeStatus{
-						Conditions: []corev1.NodeCondition{
-							{
-								Type:   corev1.NodeReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				}
-
-				result := pred.Update(event.UpdateEvent{
-					ObjectOld: oldNode,
-					ObjectNew: newNode,
-				})
-				Expect(result).To(BeTrue())
-			})
-		})
-
-		Context("when a node transitions from no conditions (new node) to Ready", func() {
-			It("should return true", func() {
-				oldNode := &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-					Status:     corev1.NodeStatus{},
-				}
-				newNode := &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-					Status: corev1.NodeStatus{
-						Conditions: []corev1.NodeCondition{
-							{
-								Type:   corev1.NodeReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				}
-
-				result := pred.Update(event.UpdateEvent{
-					ObjectOld: oldNode,
-					ObjectNew: newNode,
-				})
-				Expect(result).To(BeTrue())
-			})
-		})
-
-		Context("when a node stays Ready", func() {
-			It("should return false", func() {
-				oldNode := &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-					Status: corev1.NodeStatus{
-						Conditions: []corev1.NodeCondition{
-							{
-								Type:   corev1.NodeReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				}
-				newNode := &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-					Status: corev1.NodeStatus{
-						Conditions: []corev1.NodeCondition{
-							{
-								Type:   corev1.NodeReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				}
-
-				result := pred.Update(event.UpdateEvent{
-					ObjectOld: oldNode,
-					ObjectNew: newNode,
-				})
-				Expect(result).To(BeFalse())
-			})
-		})
-
-		Context("when a node transitions from Ready to NotReady", func() {
-			It("should return false", func() {
-				oldNode := &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-					Status: corev1.NodeStatus{
-						Conditions: []corev1.NodeCondition{
-							{
-								Type:   corev1.NodeReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				}
-				newNode := &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-					Status: corev1.NodeStatus{
-						Conditions: []corev1.NodeCondition{
-							{
-								Type:   corev1.NodeReady,
-								Status: corev1.ConditionFalse,
-							},
-						},
-					},
-				}
-
-				result := pred.Update(event.UpdateEvent{
-					ObjectOld: oldNode,
-					ObjectNew: newNode,
-				})
-				Expect(result).To(BeFalse())
-			})
-		})
-
-		Context("when a node stays NotReady", func() {
-			It("should return false", func() {
-				oldNode := &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-					Status: corev1.NodeStatus{
-						Conditions: []corev1.NodeCondition{
-							{
-								Type:   corev1.NodeReady,
-								Status: corev1.ConditionFalse,
-							},
-						},
-					},
-				}
-				newNode := &corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-					Status: corev1.NodeStatus{
-						Conditions: []corev1.NodeCondition{
-							{
-								Type:   corev1.NodeReady,
-								Status: corev1.ConditionFalse,
-							},
-						},
-					},
-				}
-
-				result := pred.Update(event.UpdateEvent{
-					ObjectOld: oldNode,
-					ObjectNew: newNode,
-				})
-				Expect(result).To(BeFalse())
-			})
-		})
-	})
-
-	Describe("CreateFunc", func() {
-		It("should return true for any node creation", func() {
-			node := &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-			}
-			result := pred.Create(event.CreateEvent{
-				Object: node,
-			})
-			Expect(result).To(BeTrue())
-		})
-	})
-
-	Describe("DeleteFunc", func() {
-		It("should return false for any node deletion", func() {
-			node := &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
-			}
-			result := pred.Delete(event.DeleteEvent{
-				Object: node,
-			})
-			Expect(result).To(BeFalse())
-		})
+	It("passes creation and deletion", func() {
+		Expect(reconcilers.NodeChangedPredicate().Create(event.CreateEvent{Object: node(corev1.ConditionTrue, nil)})).To(BeTrue())
+		Expect(reconcilers.NodeChangedPredicate().Delete(event.DeleteEvent{Object: node(corev1.ConditionTrue, nil)})).To(BeTrue())
 	})
 })

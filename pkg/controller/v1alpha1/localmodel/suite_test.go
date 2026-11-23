@@ -98,6 +98,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			return err
 		}
 
+		// Set up the reconciler that writes the LocalModelNodes
+		if err := (&NodeModelsReconciler{
+			Client: mgr.GetClient(),
+			Log:    ctrl.Log.WithName("v1alpha1NodeModelsController"),
+		}).SetupWithManager(mgr); err != nil {
+			return err
+		}
+
 		// Set up LocalModelNamespaceCache reconciler
 		return (&LocalModelNamespaceCacheReconciler{
 			Client:    mgr.GetClient(),

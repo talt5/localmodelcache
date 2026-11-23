@@ -17,24 +17,35 @@ limitations under the License.
 package reconcilers
 
 import (
+	"reflect"
+
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
 
-// NodeReadyPredicate returns a predicate that triggers when a node transitions from not-ready to ready
-func NodeReadyPredicate() predicate.Funcs {
+// NodeChangedPredicate passes the Node events that change which models a node must hold or
+// whether it can serve them: creation, deletion, and changes to its labels or readiness.
+func NodeChangedPredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldNode := e.ObjectOld.(*corev1.Node)
 			newNode := e.ObjectNew.(*corev1.Node)
-			return !IsNodeReady(*oldNode) && IsNodeReady(*newNode)
+			return IsNodeReady(*oldNode) != IsNodeReady(*newNode) || !reflect.DeepEqual(oldNode.Labels, newNode.Labels)
 		},
-		CreateFunc: func(e event.CreateEvent) bool {
-			return true
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return false
+	}
+}
+
+// LocalModelNodeChangedPredicate passes the LocalModelNode events that can change the status of
+// the caches it lists.
+func LocalModelNodeChangedPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldNode := e.ObjectOld.(*v1alpha1.LocalModelNode)
+			newNode := e.ObjectNew.(*v1alpha1.LocalModelNode)
+			return !reflect.DeepEqual(oldNode.Spec, newNode.Spec) || !reflect.DeepEqual(oldNode.Status, newNode.Status)
 		},
 	}
 }

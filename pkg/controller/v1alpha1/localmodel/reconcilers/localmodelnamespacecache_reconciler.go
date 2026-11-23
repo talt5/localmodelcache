@@ -18,18 +18,20 @@ package reconcilers
 
 import (
 	"context"
-	"reflect"
+	"errors"
+	"slices"
 
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -37,10 +39,8 @@ import (
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 	"github.com/talt5/localmodelcache/pkg/constants"
-	controllerutils "github.com/talt5/localmodelcache/pkg/controller/v1alpha1/utils"
 	"github.com/talt5/localmodelcache/pkg/credentials"
 	"github.com/talt5/localmodelcache/pkg/localmodelcache"
-	"github.com/talt5/localmodelcache/pkg/utils"
 )
 
 // LocalModelNamespaceCacheReconciler reconciles namespace-scoped LocalModelNamespaceCache resources
@@ -53,13 +53,23 @@ type LocalModelNamespaceCacheReconciler struct {
 	CredentialBuilder *credentials.CredentialBuilder
 }
 
-// Reconcile
-// Step 1 - Checks if the CR is in the deletion process. Deletion completes when all LocalModelNodes have been updated
-// Step 2 - Creates the PV & PVC that workloads in the cache's namespace mount
-// Step 3 - Adds this model to LocalModelNode resources in the node group
-// Step 4 - Creates PV & PVC for model download (in the job namespace)
+// Reconcile creates the PV and PVC that workloads in the cache's namespace mount and those that
+// download Jobs mount, and reports the state of the model on each node. NodeModelsReconciler
+// tells the nodes to hold it.
 func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Reconciling namespace-scoped localmodel", "name", req.Name, "namespace", req.Namespace)
+	localModel := &v1alpha1.LocalModelNamespaceCache{}
+	if err := c.Get(ctx, req.NamespacedName, localModel); apierr.IsNotFound(err) {
+		return reconcile.Result{}, c.deleteOrphans(ctx, req.NamespacedName)
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	volumes := newCacheVolumes(c.Clientset, c.Scheme, c.Log, localModel)
+	if !localModel.Spec.SharedPVCMode() && !localModel.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, c.finalizeNodeLocal(ctx, localModel, volumes)
+	}
+
 	configMap, err := localmodelcache.GetConfigMap(ctx, c.Clientset)
 	if err != nil {
 		c.Log.Error(err, "unable to get configmap", "name", constants.LocalModelConfigMapName, "namespace", constants.SystemNamespace)
@@ -71,121 +81,166 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		return reconcile.Result{}, err
 	}
 
-	localModel := &v1alpha1.LocalModelNamespaceCache{}
-	if err := c.Get(ctx, req.NamespacedName, localModel); err != nil {
-		// Ignore not-found errors, we can get them on deleted requests.
-		return reconcile.Result{}, client.IgnoreNotFound(err)
-	}
-
 	// Shared-PVC mode takes a dedicated branch before any node-group resolution or per-node
 	// PV/PVC/LocalModelNode fan-out.
 	if localModel.Spec.SharedPVCMode() {
 		return c.reconcileSharedPVC(ctx, localModel, configMap, localModelConfig)
 	}
 
-	nodeGroups := map[string]*v1alpha1.LocalModelNodeGroup{}
-	for _, nodeGroupName := range localModel.Spec.NodeGroups {
-		nodeGroup := &v1alpha1.LocalModelNodeGroup{}
-		nodeGroupNamespacedName := types.NamespacedName{Name: nodeGroupName}
-		if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
-			return reconcile.Result{}, err
+	if !controllerutil.ContainsFinalizer(localModel, NamespaceCacheFinalizerName) {
+		patch := client.MergeFromWithOptions(localModel.DeepCopy(), client.MergeFromWithOptimisticLock{})
+		controllerutil.AddFinalizer(localModel, NamespaceCacheFinalizerName)
+		if err := c.Patch(ctx, localModel, patch); err != nil {
+			return ctrl.Result{}, err
 		}
-		nodeGroups[nodeGroupName] = nodeGroup
+	}
+	nodeGroups, err := getNodeGroups(ctx, c.Client, c.Log, localModel.Spec.NodeGroups)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
-	// Step 1 - Checks if the CR is in the deletion process
-	if localModel.DeletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object.
-		if !utils.Includes(localModel.Finalizers, NamespaceCacheFinalizerName) {
-			patch := client.MergeFrom(localModel.DeepCopy())
-			localModel.Finalizers = append(localModel.Finalizers, NamespaceCacheFinalizerName)
-			if err := c.Patch(ctx, localModel, patch); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
-		return DeleteModelFromNodes(ctx, c.Client, c.Clientset, c.Log, nil, localModel, nodeGroups)
+	for _, name := range localModel.Spec.NodeGroups {
+		volumes.keep(servingVolumeNames(localModel, name))
+		volumes.keep(namespaceDownloadVolumeNames(localModel, name, localModelConfig))
+	}
+	var errs []error
+	for i := range nodeGroups {
+		pvName, claim := namespaceDownloadVolumeNames(localModel, nodeGroups[i].Name, localModelConfig)
+		errs = append(errs, volumes.ensure(ctx, pvName, downloadVolumeSpec(&nodeGroups[i]), claim, &nodeGroups[i].Spec.PersistentVolumeClaimSpec))
 	}
 
-	// Step 2 - Creates the PV & PVC that workloads in the cache's namespace mount. Their root is
-	// the model's folder. Users who manage the volumes themselves need its path instead.
+	// The root of the claims that workloads mount is the model's folder. Users who manage the
+	// volumes themselves need its path instead.
 	var claims []string
 	var subPath string
-	var volumesErr error
 	if localModelConfig.DisableVolumeManagement {
 		subPath = v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri)
 	} else {
-		claims, volumesErr = ReconcileNamespaceCacheVolumes(ctx, c.Clientset, c.Scheme, c.Log, localModel, nodeGroups)
+		var servingErr error
+		claims, servingErr = ensureServingVolumes(ctx, volumes, localModel, nodeGroups)
+		errs = append(errs, servingErr)
 	}
-
-	// Step 3 - Adds this model to LocalModelNode resources in the node group
-	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, nil, localModel, nodeGroups, claims, subPath); err != nil {
-		c.Log.Error(err, "failed to reconcile LocalModelNode for namespace cache")
-	}
-
-	// Step 4 - Creates PV & PVC for model download (in jobNamespace, same as cluster-scoped)
-	for _, nodeGroup := range nodeGroups {
-		pvSpec := nodeGroup.Spec.PersistentVolumeSpec
-		pv := corev1.PersistentVolume{Spec: pvSpec, ObjectMeta: metav1.ObjectMeta{
-			Name: localModel.Name + "-" + nodeGroup.Name + "-" + localModel.Namespace + "-download",
-		}}
-		if _, err := CreatePV(ctx, c.Clientset, c.Scheme, c.Log, pv, nil, localModel); err != nil {
-			c.Log.Error(err, "Create PV err", "name", pv.Name)
-		}
-
-		pvc := corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: localModel.Name + "-" + nodeGroup.Name + "-" + localModel.Namespace + "-download",
-			},
-			Spec: nodeGroup.Spec.PersistentVolumeClaimSpec,
-		}
-		pvc.Spec.VolumeName = pv.Name
-
-		if _, err := CreatePVC(ctx, c.Clientset, c.Scheme, c.Log, pvc, localModelConfig.JobNamespace, nil, localModel); err != nil {
-			c.Log.Error(err, "Create PVC err", "name", pvc.Name)
-		}
-	}
-
-	return ctrl.Result{}, volumesErr
+	errs = append(errs,
+		volumes.prune(ctx, c.Client),
+		ReconcileCacheStatus(ctx, c.Client, c.Log, nil, localModel, nodeGroups, claims, subPath))
+	return ctrl.Result{}, errors.Join(errs...)
 }
 
-// Given a node object, checks if it matches any node group CR, then reconcile all namespace local models that has this node group.
+// deleteOrphans deletes the volumes of a cache that does not exist. Its finalizer normally does,
+// but Kubernetes can delete an object while the finalizer is being added to it.
+func (c *LocalModelNamespaceCacheReconciler) deleteOrphans(ctx context.Context, key types.NamespacedName) error {
+	volumes, claims, err := listVolumes(ctx, c.Client, client.HasLabels{constants.LocalModelUIDLabelKey})
+	if err != nil {
+		return err
+	}
+	volumes = slices.DeleteFunc(volumes, func(volume corev1.PersistentVolume) bool { return cacheOf(&volume) != key })
+	// Garbage collection deletes the claims that the cache owned.
+	claims = slices.DeleteFunc(claims, func(claim corev1.PersistentVolumeClaim) bool {
+		return cacheOf(&claim) != key || claim.Namespace == key.Namespace
+	})
+	if len(volumes)+len(claims) == 0 {
+		return nil
+	}
+	// The informer may not know a new cache yet.
+	if err := c.APIReader.Get(ctx, key, &v1alpha1.LocalModelNamespaceCache{}); !apierr.IsNotFound(err) {
+		return err
+	}
+	return deleteVolumes(ctx, c.Clientset, c.Log, volumes, claims)
+}
+
+// finalizeNodeLocal deletes the volumes of the cache, which include cluster-scoped ones that it
+// cannot own. It reads them from the API server, since the cache may not know new ones yet.
+func (c *LocalModelNamespaceCacheReconciler) finalizeNodeLocal(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, volumes *cacheVolumes) error {
+	if !controllerutil.ContainsFinalizer(localModel, NamespaceCacheFinalizerName) {
+		return nil
+	}
+	reader := c.APIReader
+	if reader == nil {
+		reader = c.Client
+	}
+	if err := volumes.prune(ctx, reader); err != nil {
+		return err
+	}
+	patch := client.MergeFromWithOptions(localModel.DeepCopy(), client.MergeFromWithOptimisticLock{})
+	controllerutil.RemoveFinalizer(localModel, NamespaceCacheFinalizerName)
+	return client.IgnoreNotFound(c.Patch(ctx, localModel, patch))
+}
+
+// ensureServingVolumes creates the PV and PVC that workloads mount for each node group and
+// returns the claims. A claim that cannot be offered is left out, with an error.
+func ensureServingVolumes(ctx context.Context, volumes *cacheVolumes, localModel *v1alpha1.LocalModelNamespaceCache, nodeGroups []v1alpha1.LocalModelNodeGroup) ([]string, error) {
+	var claims []string
+	var errs []error
+	for i := range nodeGroups {
+		spec, err := servingVolumeSpec(&nodeGroups[i], localModel.Spec.SourceModelUri)
+		if err == nil {
+			pvName, claim := servingVolumeNames(localModel, nodeGroups[i].Name)
+			if err = volumes.ensure(ctx, pvName, spec, claim, &nodeGroups[i].Spec.PersistentVolumeClaimSpec); err == nil {
+				claims = append(claims, claim.Name)
+				continue
+			}
+		}
+		errs = append(errs, err)
+	}
+	return claims, errors.Join(errs...)
+}
+
+// servingVolumeNames returns the PV and the PVC that workloads mount for a node group.
+func servingVolumeNames(localModel *v1alpha1.LocalModelNamespaceCache, nodeGroup string) (string, types.NamespacedName) {
+	claim := types.NamespacedName{Namespace: localModel.Namespace, Name: localModel.Name + "-" + nodeGroup}
+	return claim.Name + "-" + claim.Namespace, claim
+}
+
+// namespaceDownloadVolumeNames returns the PV and the PVC that download Jobs mount for a node group.
+func namespaceDownloadVolumeNames(localModel *v1alpha1.LocalModelNamespaceCache, nodeGroup string, config *localmodelcache.LocalModelConfig) (string, types.NamespacedName) {
+	name := localModel.Name + "-" + nodeGroup + "-" + localModel.Namespace + "-download"
+	return name, types.NamespacedName{Namespace: config.JobNamespace, Name: name}
+}
+
+// nodeFuncNamespaceCache reconciles the caches whose status a change to the node can affect.
 func (c *LocalModelNamespaceCacheReconciler) nodeFuncNamespaceCache(ctx context.Context, obj client.Object) []reconcile.Request {
 	node := obj.(*corev1.Node)
-	requests := []reconcile.Request{}
+	nodeGroups := &v1alpha1.LocalModelNodeGroupList{}
+	if err := c.List(ctx, nodeGroups); err != nil {
+		c.Log.Error(err, "list node groups error when reconciling nodes")
+		return nil
+	}
+	inGroups := matchingNodeGroups(c.Log, nodeGroups.Items, node)
+	return c.requestsFor(ctx, func(model *v1alpha1.LocalModelNamespaceCache) bool {
+		return affectedByNode(inGroups, node.Name, model.Spec.NodeGroups, &model.Status)
+	})
+}
+
+// nodeGroupFuncNamespaceCache reconciles the caches that name the node group.
+func (c *LocalModelNamespaceCacheReconciler) nodeGroupFuncNamespaceCache(ctx context.Context, obj client.Object) []reconcile.Request {
+	return c.requestsFor(ctx, func(model *v1alpha1.LocalModelNamespaceCache) bool {
+		return slices.Contains(model.Spec.NodeGroups, obj.GetName())
+	})
+}
+
+func (c *LocalModelNamespaceCacheReconciler) requestsFor(ctx context.Context, include func(*v1alpha1.LocalModelNamespaceCache) bool) []reconcile.Request {
 	models := &v1alpha1.LocalModelNamespaceCacheList{}
 	if err := c.List(ctx, models); err != nil {
-		c.Log.Error(err, "list namespace models error when reconciling nodes")
-		return []reconcile.Request{}
+		c.Log.Error(err, "list namespace models error")
+		return nil
 	}
-
-	for _, model := range models.Items {
-		// Shared-PVC caches have no node groups and ignore node events.
-		if model.Spec.SharedPVCMode() || len(model.Spec.NodeGroups) == 0 {
-			continue
-		}
-		nodeGroup := &v1alpha1.LocalModelNodeGroup{}
-		nodeGroupNamespacedName := types.NamespacedName{Name: model.Spec.NodeGroups[0]}
-		if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
-			c.Log.Info("get nodegroup failed", "name", model.Spec.NodeGroups[0])
-			continue
-		}
-		matches, err := controllerutils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
-		if err != nil {
-			c.Log.Error(err, "checkNodeAffinity error", "node", node.Name)
-		}
-		if matches {
-			c.Log.Info("new node for namespace model", "name", model.Name, "namespace", model.Namespace)
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      model.Name,
-					Namespace: model.Namespace,
-				},
-			})
+	requests := []reconcile.Request{}
+	for i := range models.Items {
+		if include(&models.Items[i]) {
+			requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&models.Items[i])})
 		}
 	}
 	return requests
+}
+
+// volumeFuncNamespaceCache reconciles the cache that a volume, or a claim in the job namespace,
+// was created for, so that one that is deleted comes back. The cache cannot own them.
+func (c *LocalModelNamespaceCacheReconciler) volumeFuncNamespaceCache(_ context.Context, obj client.Object) []reconcile.Request {
+	key := cacheOf(obj)
+	if key.Namespace == "" || key.Name == "" {
+		return nil
+	}
+	return []reconcile.Request{{NamespacedName: key}}
 }
 
 // Given a PVC, reconcile shared-PVC caches in the same namespace that reference it by name.
@@ -267,25 +322,6 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 	if c.APIReader == nil {
 		c.APIReader = mgr.GetAPIReader()
 	}
-	nodePredicates := NodeReadyPredicate()
-
-	localModelNodePredicates := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldNode := e.ObjectOld.(*v1alpha1.LocalModelNode)
-			newNode := e.ObjectNew.(*v1alpha1.LocalModelNode)
-			return !reflect.DeepEqual(oldNode.Status, newNode.Status)
-		},
-		CreateFunc: func(e event.CreateEvent) bool {
-			return false
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return false
-		},
-		GenericFunc: func(e event.GenericEvent) bool {
-			return false
-		},
-	}
-
 	cacheDeletePredicates := predicate.Funcs{
 		CreateFunc:  func(event.CreateEvent) bool { return false },
 		UpdateFunc:  func(event.UpdateEvent) bool { return false },
@@ -301,8 +337,11 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 
 	return controllerBuilder.
 		Watches(&v1alpha1.LocalModelNamespaceCache{}, handler.EnqueueRequestsFromMapFunc(c.deletedCacheFuncNamespaceCache), builder.WithPredicates(cacheDeletePredicates)).
-		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFuncNamespaceCache), builder.WithPredicates(nodePredicates)).
-		Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFuncNamespaceCache), builder.WithPredicates(localModelNodePredicates)).
+		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFuncNamespaceCache), builder.WithPredicates(NodeChangedPredicate())).
+		Watches(&v1alpha1.LocalModelNodeGroup{}, handler.EnqueueRequestsFromMapFunc(c.nodeGroupFuncNamespaceCache), builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFuncNamespaceCache), builder.WithPredicates(LocalModelNodeChangedPredicate())).
+		Watches(&corev1.PersistentVolume{}, handler.EnqueueRequestsFromMapFunc(c.volumeFuncNamespaceCache)).
+		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(c.volumeFuncNamespaceCache)).
 		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(c.pvcFuncNamespaceCache)).
 		Complete(c)
 }

@@ -95,6 +95,15 @@ func CheckStorageLimit(ctx context.Context, reader client.Reader, uid types.UID,
 	return nil
 }
 
+// ValidateModelSize rejects a negative modelSize, which would make room for other models. oldSize
+// is nil on create. A cache that already has one can be updated.
+func ValidateModelSize(oldSize *resource.Quantity, size resource.Quantity) error {
+	if size.Sign() >= 0 || (oldSize != nil && size.Cmp(*oldSize) == 0) {
+		return nil
+	}
+	return fmt.Errorf("modelSize %s must not be negative", size.String())
+}
+
 // otherUsages lists the usage of every cache in the cluster except the one with the given UID.
 func otherUsages(ctx context.Context, reader client.Reader, uid types.UID) ([]CacheUsage, error) {
 	var usages []CacheUsage
@@ -134,7 +143,10 @@ func groupTotal(usages []CacheUsage, nodeGroup string) resource.Quantity {
 	}
 	total := resource.Quantity{Format: resource.BinarySI}
 	for _, size := range sizes {
-		total.Add(size)
+		// Caches created before ValidateModelSize may have a negative size.
+		if size.Sign() > 0 {
+			total.Add(size)
+		}
 	}
 	return total
 }

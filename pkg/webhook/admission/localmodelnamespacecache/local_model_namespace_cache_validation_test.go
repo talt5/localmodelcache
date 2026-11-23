@@ -407,3 +407,77 @@ func TestLocalModelNamespaceCacheValidatorEnforcesStorageLimit(t *testing.T) {
 	_, err = validator.ValidateUpdate(t.Context(), grown, grown)
 	g.Expect(err).NotTo(gomega.HaveOccurred(), "a cache that already exceeds the limit can be updated")
 }
+
+func TestLocalModelNamespaceCacheValidatorRejectsNegativeModelSize(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	s := runtime.NewScheme()
+	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+	nodeGroup := makeTestLocalModelNodeGroup("gpu1")
+	validator := LocalModelNamespaceCacheValidator{Client: fake.NewClientBuilder().WithObjects(&nodeGroup).WithScheme(s).Build()}
+
+	for name, cache := range map[string]v1alpha1.LocalModelNamespaceCache{
+		"node-local": makeTestLocalModelNamespaceCache(),
+		"shared PVC": makeTestSharedPVCCache("model-store"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			negative := cache.DeepCopy()
+			negative.Spec.ModelSize = resource.MustParse("-1Gi")
+			_, err := validator.ValidateCreate(t.Context(), negative)
+			g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("modelSize -1Gi must not be negative")))
+			_, err = validator.ValidateUpdate(t.Context(), &cache, negative)
+			g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("modelSize -1Gi must not be negative")))
+			_, err = validator.ValidateUpdate(t.Context(), negative, negative)
+			g.Expect(err).NotTo(gomega.HaveOccurred(), "a cache that already has one can be updated")
+		})
+	}
+}
+
+// The controller deletes the claim of a removed node group and the model on its nodes.
+func TestValidateUpdate_RemovingANodeGroupInUse(t *testing.T) {
+	two := makeTestLocalModelNamespaceCache()
+	two.Spec.NodeGroups = []string{"gpu1", "gpu2"}
+	one := makeTestLocalModelNamespaceCache()
+	one.Spec.NodeGroups = []string{"gpu2"}
+
+	tests := map[string]struct {
+		pod     *corev1.Pod
+		wantErr string
+	}{
+		"claim of the removed group is mounted": {
+			pod:     makeTestPodMountingClaim("default", "iris-gpu1", corev1.PodRunning),
+			wantErr: "Pod vllm-0 mounts PersistentVolumeClaim iris-gpu1",
+		},
+		"claim of the other group is mounted": {pod: makeTestPodMountingClaim("default", "iris-gpu2", corev1.PodRunning)},
+		"claim is no longer mounted":          {pod: makeTestPodMountingClaim("default", "iris-gpu1", corev1.PodSucceeded)},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			s := runtime.NewScheme()
+			g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+			g.Expect(corev1.AddToScheme(s)).To(gomega.Succeed())
+			nodeGroup := makeTestLocalModelNodeGroup("gpu2")
+			validator := LocalModelNamespaceCacheValidator{Client: fake.NewClientBuilder().WithScheme(s).WithObjects(&nodeGroup, tc.pod).Build()}
+			_, err := validator.ValidateUpdate(t.Context(), &two, &one)
+			if tc.wantErr == "" {
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				return
+			}
+			g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(tc.wantErr)))
+		})
+	}
+}
+
+// A node group may be deleted before its caches. They can still be labeled, for example.
+func TestValidateUpdate_KeepingAMissingNodeGroup(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	s := runtime.NewScheme()
+	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+	g.Expect(corev1.AddToScheme(s)).To(gomega.Succeed())
+	oldCache, newCache := makeTestLocalModelNamespaceCache(), makeTestLocalModelNamespaceCache()
+	newCache.Labels = map[string]string{"team": "a"}
+	validator := LocalModelNamespaceCacheValidator{Client: fake.NewClientBuilder().WithScheme(s).Build()}
+	_, err := validator.ValidateUpdate(t.Context(), &oldCache, &newCache)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+}

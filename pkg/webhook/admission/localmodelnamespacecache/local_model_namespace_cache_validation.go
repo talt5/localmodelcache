@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	apivalidation "k8s.io/apimachinery/pkg/util/validation"
@@ -58,6 +59,9 @@ func (v *LocalModelNamespaceCacheValidator) ValidateCreate(ctx context.Context, 
 	if err := validateStorageMode(localModelNamespaceCache); err != nil {
 		return nil, err
 	}
+	if err := localmodelcache.ValidateModelSize(nil, localModelNamespaceCache.Spec.ModelSize); err != nil {
+		return nil, err
+	}
 
 	if localModelNamespaceCache.Spec.SharedPVCMode() {
 		if err := v.validateDestinationConflict(ctx, localModelNamespaceCache); err != nil {
@@ -66,7 +70,7 @@ func (v *LocalModelNamespaceCacheValidator) ValidateCreate(ctx context.Context, 
 		return nil, nil
 	}
 
-	if err := v.validateNodeGroups(ctx, localModelNamespaceCache); err != nil {
+	if err := v.validateNodeGroups(ctx, localModelNamespaceCache.Spec.NodeGroups); err != nil {
 		return nil, err
 	}
 
@@ -86,6 +90,9 @@ func (v *LocalModelNamespaceCacheValidator) ValidateUpdate(ctx context.Context, 
 	if err := validatePVCRefImmutable(oldCache, localModelNamespaceCache); err != nil {
 		return nil, err
 	}
+	if err := localmodelcache.ValidateModelSize(&oldCache.Spec.ModelSize, localModelNamespaceCache.Spec.ModelSize); err != nil {
+		return nil, err
+	}
 
 	// pvcRef and sourceModelUri are both immutable, so the (pvcRef, storageKey) destination
 	// cannot change on update; the create-time conflict check is sufficient. Re-checking here
@@ -95,7 +102,13 @@ func (v *LocalModelNamespaceCacheValidator) ValidateUpdate(ctx context.Context, 
 		return nil, nil
 	}
 
-	if err := v.validateNodeGroups(ctx, localModelNamespaceCache); err != nil {
+	// A node group that was deleted since does not stop other changes to the cache.
+	if err := v.validateNodeGroups(ctx, without(localModelNamespaceCache.Spec.NodeGroups, oldCache.Spec.NodeGroups)); err != nil {
+		return nil, err
+	}
+	// The controller deletes the claim of a removed node group and the model on its nodes.
+	removed := without(localmodelcache.NamespaceCacheClaimNames(oldCache), localmodelcache.NamespaceCacheClaimNames(localModelNamespaceCache))
+	if err := v.validateNotInUse(ctx, localModelNamespaceCache, removed); err != nil {
 		return nil, err
 	}
 
@@ -113,26 +126,29 @@ func (v *LocalModelNamespaceCacheValidator) ValidateDelete(ctx context.Context, 
 	if localModelNamespaceCache.Spec.SharedPVCMode() {
 		return nil, nil
 	}
-	claims := localmodelcache.NamespaceCacheClaimNames(localModelNamespaceCache)
-	if len(claims) == 0 {
-		return nil, nil
-	}
+	return nil, v.validateNotInUse(ctx, localModelNamespaceCache, localmodelcache.NamespaceCacheClaimNames(localModelNamespaceCache))
+}
 
+// validateNotInUse returns an error while a Pod in the cache's namespace mounts one of the claims.
+func (v *LocalModelNamespaceCacheValidator) validateNotInUse(ctx context.Context, cache *v1alpha1.LocalModelNamespaceCache, claims []string) error {
+	if len(claims) == 0 {
+		return nil
+	}
 	pods := &corev1.PodList{}
-	if err := v.reader().List(ctx, pods, client.InNamespace(localModelNamespaceCache.Namespace)); err != nil {
-		localModelNamespaceCacheValidatorLogger.Error(err, "Unable to list Pods", "namespace", localModelNamespaceCache.Namespace)
-		return nil, err
+	if err := v.reader().List(ctx, pods, client.InNamespace(cache.Namespace)); err != nil {
+		localModelNamespaceCacheValidatorLogger.Error(err, "Unable to list Pods", "namespace", cache.Namespace)
+		return err
 	}
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 		for _, claim := range claims {
 			if localmodelcache.PodMountsClaim(pod, claim) {
-				return admission.Warnings{}, fmt.Errorf("LocalModelNamespaceCache %s/%s is in use: Pod %s mounts PersistentVolumeClaim %s. Delete the workload first",
-					localModelNamespaceCache.Namespace, localModelNamespaceCache.Name, pod.Name, claim)
+				return fmt.Errorf("LocalModelNamespaceCache %s/%s is in use: Pod %s mounts PersistentVolumeClaim %s. Delete the workload first",
+					cache.Namespace, cache.Name, pod.Name, claim)
 			}
 		}
 	}
-	return nil, nil
+	return nil
 }
 
 // reader returns the uncached reader, which avoids a cluster-wide Pod informer and sees caches
@@ -216,13 +232,18 @@ func (v *LocalModelNamespaceCacheValidator) validateDestinationConflict(ctx cont
 	return nil
 }
 
-// validateNodeGroups checks that all node groups specified in the spec exist
-func (v *LocalModelNamespaceCacheValidator) validateNodeGroups(ctx context.Context, cache *v1alpha1.LocalModelNamespaceCache) error {
-	for _, nodeGroupName := range cache.Spec.NodeGroups {
+// validateNodeGroups checks that the node groups exist
+func (v *LocalModelNamespaceCacheValidator) validateNodeGroups(ctx context.Context, nodeGroupNames []string) error {
+	for _, nodeGroupName := range nodeGroupNames {
 		nodeGroup := &v1alpha1.LocalModelNodeGroup{}
 		if err := v.Get(ctx, client.ObjectKey{Name: nodeGroupName}, nodeGroup); err != nil {
 			return fmt.Errorf("NodeGroup %s not found: %w", nodeGroupName, err)
 		}
 	}
 	return nil
+}
+
+// without returns the values that are not in excluded.
+func without(values, excluded []string) []string {
+	return slices.DeleteFunc(slices.Clone(values), func(value string) bool { return slices.Contains(excluded, value) })
 }

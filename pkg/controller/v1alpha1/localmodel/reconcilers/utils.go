@@ -19,37 +19,20 @@ package reconcilers
 import (
 	"context"
 	"errors"
-	"fmt"
-	"maps"
-	"path"
-	"reflect"
-	"slices"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/ptr"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
-	controllerutils "github.com/talt5/localmodelcache/pkg/controller/v1alpha1/utils"
-	"github.com/talt5/localmodelcache/pkg/localmodelcache"
-	"github.com/talt5/localmodelcache/pkg/utils"
 )
 
 var (
-	OwnerKey                    = ".metadata.controller"
-	LocalModelKey               = ".localmodel"
-	LocalModelNamespaceKey      = ".localmodelnamespace"
-	APIGVStr                    = v1alpha1.SchemeGroupVersion.String()
-	ModelCacheCRName            = "LocalModelCache"
-	ModelNamespaceCacheCRName   = "LocalModelNamespaceCache"
+	// FinalizerName is no longer set. It is removed from caches that still have it.
 	FinalizerName               = "local.cache.ai/localmodelcache-finalizer"
 	NamespaceCacheFinalizerName = "local.cache.ai/localmodelnamespacecache-finalizer"
 )
@@ -63,9 +46,25 @@ type LocalModelParams struct {
 	ServiceAccountName string
 	ImagePullSecrets   []corev1.LocalObjectReference
 	Storage            *v1alpha1.LocalModelStorageSpec
-	Finalizers         []string
-	FinalizerName      string
-	IsNamespaceScoped  bool
+}
+
+// key identifies the cache among the models of a LocalModelNode.
+func (p *LocalModelParams) key() types.NamespacedName {
+	return types.NamespacedName{Namespace: p.Namespace, Name: p.Name}
+}
+
+// modelInfo returns the LocalModelNode entry of the cache. The node agent uses nodeGroupName to
+// find the claim its download Job mounts.
+func (p *LocalModelParams) modelInfo(nodeGroupName string) v1alpha1.LocalModelInfo {
+	return v1alpha1.LocalModelInfo{
+		ModelName:          p.Name,
+		SourceModelUri:     p.SourceModelUri,
+		Namespace:          p.Namespace,
+		NodeGroup:          nodeGroupName,
+		ServiceAccountName: p.ServiceAccountName,
+		ImagePullSecrets:   p.ImagePullSecrets,
+		Storage:            p.Storage,
+	}
 }
 
 // ExtractLocalModelParams extracts common parameters from either LocalModelCache or LocalModelNamespaceCache
@@ -80,9 +79,6 @@ func ExtractLocalModelParams(localModelCache *v1alpha1.LocalModelCache, localMod
 			ServiceAccountName: localModelCache.Spec.ServiceAccountName,
 			ImagePullSecrets:   localModelCache.Spec.ImagePullSecrets,
 			Storage:            localModelCache.Spec.Storage,
-			Finalizers:         localModelCache.Finalizers,
-			FinalizerName:      FinalizerName,
-			IsNamespaceScoped:  false,
 		}
 	}
 	if localModelNamespaceCache != nil {
@@ -94,28 +90,9 @@ func ExtractLocalModelParams(localModelCache *v1alpha1.LocalModelCache, localMod
 			ServiceAccountName: localModelNamespaceCache.Spec.ServiceAccountName,
 			ImagePullSecrets:   localModelNamespaceCache.Spec.ImagePullSecrets,
 			Storage:            localModelNamespaceCache.Spec.Storage,
-			Finalizers:         localModelNamespaceCache.Finalizers,
-			FinalizerName:      NamespaceCacheFinalizerName,
-			IsNamespaceScoped:  true,
 		}
 	}
 	return LocalModelParams{}
-}
-
-// CreateLocalModelInfo creates a LocalModelInfo from either LocalModelCache or LocalModelNamespaceCache
-// nodeGroupName specifies which LocalModelNodeGroup this model belongs to, used by the agent
-// to construct the correct PVC name when multiple nodegroups have overlapping node affinity.
-func CreateLocalModelInfo(localModelCache *v1alpha1.LocalModelCache, localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache, nodeGroupName string) v1alpha1.LocalModelInfo {
-	params := ExtractLocalModelParams(localModelCache, localModelNamespaceCache)
-	return v1alpha1.LocalModelInfo{
-		ModelName:          params.Name,
-		SourceModelUri:     params.SourceModelUri,
-		Namespace:          params.Namespace,
-		NodeGroup:          nodeGroupName,
-		ServiceAccountName: params.ServiceAccountName,
-		ImagePullSecrets:   params.ImagePullSecrets,
-		Storage:            params.Storage,
-	}
 }
 
 // IsNodeReady checks if a node is in ready state
@@ -126,60 +103,6 @@ func IsNodeReady(node corev1.Node) bool {
 		}
 	}
 	return false
-}
-
-// GetNodesFromNodeGroup returns a list of ready nodes, and not ready nodes that matches the node selector in the node group
-func GetNodesFromNodeGroup(ctx context.Context, nodeGroup *v1alpha1.LocalModelNodeGroup, c client.Client) (*corev1.NodeList, *corev1.NodeList, error) {
-	nodes := &corev1.NodeList{}
-	readyNodes := &corev1.NodeList{}
-	notReadyNodes := &corev1.NodeList{}
-	if err := c.List(ctx, nodes); err != nil {
-		return nil, nil, err
-	}
-	for _, node := range nodes.Items {
-		matches, err := controllerutils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, node)
-		if err != nil {
-			return nil, nil, err
-		}
-		if matches {
-			if IsNodeReady(node) {
-				readyNodes.Items = append(readyNodes.Items, node)
-			} else {
-				notReadyNodes.Items = append(notReadyNodes.Items, node)
-			}
-		}
-	}
-	return readyNodes, notReadyNodes, nil
-}
-
-// ImagePullSecretsEqual compares two imagePullSecrets slices by secret name order.
-func ImagePullSecretsEqual(a, b []corev1.LocalObjectReference) bool {
-	return slices.EqualFunc(a, b, func(x, y corev1.LocalObjectReference) bool {
-		return x.Name == y.Name
-	})
-}
-
-// StorageSpecEqual compares two LocalModelStorageSpec for equality
-func StorageSpecEqual(a, b *v1alpha1.LocalModelStorageSpec) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	if (a.StorageKey == nil) != (b.StorageKey == nil) {
-		return false
-	}
-	if a.StorageKey != nil && *a.StorageKey != *b.StorageKey {
-		return false
-	}
-	if (a.Parameters == nil) != (b.Parameters == nil) {
-		return false
-	}
-	if a.Parameters != nil && !maps.Equal(*a.Parameters, *b.Parameters) {
-		return false
-	}
-	return true
 }
 
 // NodeStatusFromLocalModelStatus converts a ModelStatus to NodeStatus
@@ -197,251 +120,6 @@ func NodeStatusFromLocalModelStatus(modelStatus v1alpha1.ModelStatus) v1alpha1.N
 	return v1alpha1.NodeDownloadPending
 }
 
-// DeleteModelFromNodes deletes the model from all nodes in the node groups
-// Only one of localModelCache or localModelNamespaceCache should be non-nil
-// For namespace-scoped models, also explicitly deletes PVs since they cannot have owner references
-func DeleteModelFromNodes(
-	ctx context.Context,
-	c client.Client,
-	clientset *kubernetes.Clientset,
-	log logr.Logger,
-	localModelCache *v1alpha1.LocalModelCache,
-	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
-	nodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
-) (ctrl.Result, error) {
-	params := ExtractLocalModelParams(localModelCache, localModelNamespaceCache)
-
-	// finalizer does not exist, nothing to do here!
-	if !utils.Includes(params.Finalizers, params.FinalizerName) {
-		return ctrl.Result{}, nil
-	}
-	log.Info("deleting model", "name", params.Name, "namespace", params.Namespace)
-
-	for nodeGroupName, nodeGroup := range nodeGroups {
-		readyNodes, notReadyNodes, err := GetNodesFromNodeGroup(ctx, nodeGroup, c)
-		if err != nil {
-			log.Error(err, "getNodesFromNodeGroup node error")
-			return ctrl.Result{}, err
-		}
-		for _, node := range append(readyNodes.Items, notReadyNodes.Items...) {
-			localModelNode := &v1alpha1.LocalModelNode{}
-			err := c.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
-			if err != nil {
-				if apierr.IsNotFound(err) {
-					log.Info("localmodelNode not found", "node", node.Name)
-					continue
-				} else {
-					log.Error(err, "Failed to get localmodelnode", "name", node.Name)
-					return ctrl.Result{}, err
-				}
-			}
-
-			if err := DeleteModelFromNode(ctx, c, log, localModelNode, params.Name, params.Namespace); err != nil {
-				log.Error(err, "failed to delete model from localModelNode", "localModelNode", localModelNode.Name)
-				return ctrl.Result{}, err
-			}
-		}
-
-		// For namespace-scoped LocalModelNamespaceCache, PVs cannot have owner references
-		// (Kubernetes limitation: cluster-scoped resources cannot be owned by namespace-scoped resources)
-		// So we must explicitly delete them here
-		if params.IsNamespaceScoped {
-			// Delete download PV: {modelName}-{nodeGroup}-{namespace}-download
-			downloadPVName := params.Name + "-" + nodeGroupName + "-" + params.Namespace + "-download"
-			if err := DeletePV(ctx, clientset, log, downloadPVName); err != nil {
-				log.Error(err, "failed to delete download PV", "name", downloadPVName)
-			}
-
-			// Delete download PVC from jobNamespace (where download jobs run)
-			downloadPVCName := downloadPVName
-			configMap, cfgErr := localmodelcache.GetConfigMap(ctx, clientset)
-			if cfgErr == nil {
-				localModelConfig, cfgErr := localmodelcache.NewLocalModelConfig(configMap)
-				if cfgErr == nil {
-					if err := DeletePVC(ctx, clientset, log, downloadPVCName, localModelConfig.JobNamespace); err != nil {
-						log.Error(err, "failed to delete download PVC from jobNamespace", "name", downloadPVCName, "namespace", localModelConfig.JobNamespace)
-					}
-				}
-			}
-
-			// Delete serving PV: {modelName}-{nodeGroup}-{namespace}
-			servingPVName := params.Name + "-" + nodeGroupName + "-" + params.Namespace
-			if err := DeletePV(ctx, clientset, log, servingPVName); err != nil {
-				log.Error(err, "failed to delete serving PV", "name", servingPVName)
-			}
-		}
-	}
-
-	// Remove finalizer
-	if localModelCache != nil {
-		patch := client.MergeFrom(localModelCache.DeepCopy())
-		localModelCache.Finalizers = utils.RemoveString(localModelCache.Finalizers, params.FinalizerName)
-		if err := c.Patch(ctx, localModelCache, patch); err != nil {
-			log.Error(err, "Cannot remove finalizer", "model name", params.Name)
-			return ctrl.Result{}, err
-		}
-	} else if localModelNamespaceCache != nil {
-		patch := client.MergeFrom(localModelNamespaceCache.DeepCopy())
-		localModelNamespaceCache.Finalizers = utils.RemoveString(localModelNamespaceCache.Finalizers, params.FinalizerName)
-		if err := c.Patch(ctx, localModelNamespaceCache, patch); err != nil {
-			log.Error(err, "Cannot remove finalizer", "model name", params.Name)
-			return ctrl.Result{}, err
-		}
-	}
-
-	// Stop reconciliation as the item is being deleted
-	return ctrl.Result{}, nil
-}
-
-// DeleteModelFromNode deletes a model entry from a LocalModelNode
-func DeleteModelFromNode(ctx context.Context, c client.Client, log logr.Logger, localModelNode *v1alpha1.LocalModelNode, modelName, namespace string) error {
-	var patch client.Patch
-	for i, modelInfo := range localModelNode.Spec.LocalModels {
-		if modelInfo.ModelName == modelName && modelInfo.Namespace == namespace {
-			patch = client.MergeFrom(localModelNode.DeepCopy())
-			localModelNode.Spec.LocalModels = append(localModelNode.Spec.LocalModels[:i], localModelNode.Spec.LocalModels[i+1:]...)
-			if err := c.Patch(ctx, localModelNode, patch); err != nil {
-				log.Error(err, "Update localmodelnode", "name", localModelNode.Name)
-				return err
-			}
-			break
-		}
-	}
-	return nil
-}
-
-// DeletePV deletes a PersistentVolume by name
-func DeletePV(ctx context.Context, clientset *kubernetes.Clientset, log logr.Logger, name string) error {
-	persistentVolumes := clientset.CoreV1().PersistentVolumes()
-	if _, err := persistentVolumes.Get(ctx, name, metav1.GetOptions{}); err != nil {
-		if apierr.IsNotFound(err) {
-			return nil
-		}
-		log.Error(err, "Failed to get PV for deletion", "name", name)
-		return err
-	}
-	log.Info("Deleting PV", "name", name)
-	if err := persistentVolumes.Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
-		if apierr.IsNotFound(err) {
-			return nil
-		}
-		log.Error(err, "Failed to delete PV", "name", name)
-		return err
-	}
-	return nil
-}
-
-// DeletePVC deletes a PersistentVolumeClaim by name and namespace
-func DeletePVC(ctx context.Context, clientset *kubernetes.Clientset, log logr.Logger, name, namespace string) error {
-	persistentVolumeClaims := clientset.CoreV1().PersistentVolumeClaims(namespace)
-	if _, err := persistentVolumeClaims.Get(ctx, name, metav1.GetOptions{}); err != nil {
-		if apierr.IsNotFound(err) {
-			return nil
-		}
-		log.Error(err, "Failed to get PVC for deletion", "name", name, "namespace", namespace)
-		return err
-	}
-	log.Info("Deleting PVC", "name", name, "namespace", namespace)
-	if err := persistentVolumeClaims.Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
-		if apierr.IsNotFound(err) {
-			return nil
-		}
-		log.Error(err, "Failed to delete PVC", "name", name, "namespace", namespace)
-		return err
-	}
-	return nil
-}
-
-// CreatePV returns the PersistentVolume, creating it with the owner reference if it does not exist.
-// An existing PV is returned as it is.
-// Only one of localModelCache or localModelNamespaceCache should be non-nil
-// Note: For namespace-scoped LocalModelNamespaceCache, owner reference is NOT set because
-// PVs are cluster-scoped and cannot be owned by namespace-scoped resources
-func CreatePV(
-	ctx context.Context,
-	clientset *kubernetes.Clientset,
-	scheme *runtime.Scheme,
-	log logr.Logger,
-	spec corev1.PersistentVolume,
-	localModelCache *v1alpha1.LocalModelCache,
-	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
-) (*corev1.PersistentVolume, error) {
-	persistentVolumes := clientset.CoreV1().PersistentVolumes()
-	existing, err := persistentVolumes.Get(ctx, spec.Name, metav1.GetOptions{})
-	if err == nil {
-		return existing, nil
-	}
-	if !apierr.IsNotFound(err) {
-		log.Error(err, "Failed to get PV")
-		return nil, err
-	}
-	log.Info("Create PV", "name", spec.Name)
-
-	// Set controller reference only for cluster-scoped LocalModelCache
-	if localModelCache != nil {
-		if err := controllerutil.SetControllerReference(localModelCache, &spec, scheme); err != nil {
-			log.Error(err, "Failed to set controller reference")
-			return nil, err
-		}
-	}
-
-	created, err := persistentVolumes.Create(ctx, &spec, metav1.CreateOptions{})
-	if err != nil {
-		log.Error(err, "Failed to create PV", "name", spec.Name)
-		return nil, err
-	}
-	return created, nil
-}
-
-// CreatePVC returns the PersistentVolumeClaim, creating it with the owner reference if it does not
-// exist. An existing PVC is returned as it is.
-// Only one of localModelCache or localModelNamespaceCache should be non-nil
-func CreatePVC(
-	ctx context.Context,
-	clientset *kubernetes.Clientset,
-	scheme *runtime.Scheme,
-	log logr.Logger,
-	spec corev1.PersistentVolumeClaim,
-	namespace string,
-	localModelCache *v1alpha1.LocalModelCache,
-	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
-) (*corev1.PersistentVolumeClaim, error) {
-	persistentVolumeClaims := clientset.CoreV1().PersistentVolumeClaims(namespace)
-	existing, err := persistentVolumeClaims.Get(ctx, spec.Name, metav1.GetOptions{})
-	if err == nil {
-		return existing, nil
-	}
-	if !apierr.IsNotFound(err) {
-		log.Error(err, "Failed to get PVC")
-		return nil, err
-	}
-	log.Info("Create PVC", "name", spec.Name, "namespace", namespace)
-
-	spec.Namespace = namespace
-
-	if localModelCache != nil {
-		if err := controllerutil.SetControllerReference(localModelCache, &spec, scheme); err != nil {
-			log.Error(err, "Set controller reference")
-			return nil, err
-		}
-	} else if localModelNamespaceCache != nil {
-		// Only set owner reference if PVC is in the same namespace as the cache
-		if namespace == localModelNamespaceCache.Namespace {
-			if err := controllerutil.SetControllerReference(localModelNamespaceCache, &spec, scheme); err != nil {
-				log.Error(err, "Set controller reference")
-				return nil, err
-			}
-		}
-	}
-
-	created, err := persistentVolumeClaims.Create(ctx, &spec, metav1.CreateOptions{})
-	if err != nil {
-		log.Error(err, "Failed to create PVC", "name", spec.Name)
-		return nil, err
-	}
-	return created, nil
-}
-
 // setMountReferences records where workloads find the model: the claims that expose it and,
 // when the model is not at the root of the volume, the directory that holds its files.
 func setMountReferences(status *v1alpha1.LocalModelCacheStatus, claims []string, subPath string) {
@@ -452,290 +130,125 @@ func setMountReferences(status *v1alpha1.LocalModelCacheStatus, claims []string,
 	status.PersistentVolumeClaims = claims
 }
 
-// servingPersistentVolumeSpec is the node group's PersistentVolume spec narrowed to the model's
-// folder, so that workloads mount the model at the root of the claim. Neither volume type
-// creates a missing folder: a Pod on a node that has not started the download waits for it.
-func servingPersistentVolumeSpec(nodeGroup *v1alpha1.LocalModelNodeGroup, sourceModelUri string) (*corev1.PersistentVolumeSpec, error) {
-	spec := nodeGroup.Spec.PersistentVolumeSpec.DeepCopy()
-	subPath := v1alpha1.GetStorageSubPath(sourceModelUri)
-	switch {
-	case spec.Local != nil:
-		spec.Local.Path = path.Join(spec.Local.Path, subPath)
-	case spec.HostPath != nil:
-		spec.HostPath.Path = path.Join(spec.HostPath.Path, subPath)
-		spec.HostPath.Type = ptr.To(corev1.HostPathDirectory)
-	default:
-		return nil, fmt.Errorf("LocalModelNodeGroup %s: persistentVolumeSpec must be a local or hostPath volume", nodeGroup.Name)
+// getNodeGroups returns the node groups of a cache. A node group that does not exist is left
+// out: the cache goes on with the others, and reconciles again when the group is created.
+func getNodeGroups(ctx context.Context, reader client.Reader, log logr.Logger, names []string) ([]v1alpha1.LocalModelNodeGroup, error) {
+	nodeGroups := make([]v1alpha1.LocalModelNodeGroup, 0, len(names))
+	for _, name := range names {
+		nodeGroup := v1alpha1.LocalModelNodeGroup{}
+		if err := reader.Get(ctx, types.NamespacedName{Name: name}, &nodeGroup); apierr.IsNotFound(err) {
+			log.Info("LocalModelNodeGroup not found", "name", name)
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		nodeGroups = append(nodeGroups, nodeGroup)
 	}
-	return spec, nil
+	return nodeGroups, nil
 }
 
-// nodePath is the node directory a local or hostPath volume exposes.
-func nodePath(source corev1.PersistentVolumeSource) string {
-	switch {
-	case source.Local != nil:
-		return source.Local.Path
-	case source.HostPath != nil:
-		return source.HostPath.Path
+// ReconcileCacheStatus records where workloads find the model and how far each node of the node
+// groups is with it. Only one of localModelCache or localModelNamespaceCache should be non-nil.
+func ReconcileCacheStatus(
+	ctx context.Context,
+	c client.Client,
+	log logr.Logger,
+	localModelCache *v1alpha1.LocalModelCache,
+	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
+	nodeGroups []v1alpha1.LocalModelNodeGroup,
+	claims []string,
+	subPath string,
+) error {
+	var cache client.Object
+	var status *v1alpha1.LocalModelCacheStatus
+	if localModelCache != nil {
+		cache, status = localModelCache, &localModelCache.Status
+	} else {
+		cache, status = localModelNamespaceCache, &localModelNamespaceCache.Status
+	}
+	params := ExtractLocalModelParams(localModelCache, localModelNamespaceCache)
+
+	before := status.DeepCopy()
+	setMountReferences(status, claims, subPath)
+	// A failure to read the nodes keeps their last known state and still records the mount
+	// references.
+	nodeStatus, nodesErr := nodeStatusOfCache(ctx, c, log, &params, nodeGroups)
+	if nodesErr == nil {
+		status.NodeStatus = nodeStatus
+		status.ModelCopies = countCopies(nodeStatus)
+	}
+
+	if !equality.Semantic.DeepEqual(before, status) {
+		if err := c.Status().Update(ctx, cache); err != nil {
+			return errors.Join(nodesErr, err)
+		}
+	}
+	return nodesErr
+}
+
+// nodeStatusOfCache returns the state of the model on every node that is in one of the node
+// groups now, so nodes that left a group or the cluster are not counted.
+func nodeStatusOfCache(ctx context.Context, reader client.Reader, log logr.Logger, params *LocalModelParams, nodeGroups []v1alpha1.LocalModelNodeGroup) (map[string]v1alpha1.NodeStatus, error) {
+	nodes := &corev1.NodeList{}
+	if err := reader.List(ctx, nodes); err != nil {
+		return nil, err
+	}
+	localModelNodes := &v1alpha1.LocalModelNodeList{}
+	if err := reader.List(ctx, localModelNodes); err != nil {
+		return nil, err
+	}
+	modelStatus := make(map[string]v1alpha1.ModelStatus, len(localModelNodes.Items))
+	for i := range localModelNodes.Items {
+		modelStatus[localModelNodes.Items[i].Name] = modelStatusOnNode(&localModelNodes.Items[i], params)
+	}
+
+	nodeStatus := map[string]v1alpha1.NodeStatus{}
+	for i := range nodes.Items {
+		node := &nodes.Items[i]
+		if matchingNodeGroups(log, nodeGroups, node).Len() == 0 {
+			continue
+		}
+		status := NodeStatusFromLocalModelStatus(modelStatus[node.Name])
+		// The files of a finished download survive a node that is down for a while.
+		if !IsNodeReady(*node) && status != v1alpha1.NodeDownloaded {
+			status = v1alpha1.NodeNotReady
+		}
+		nodeStatus[node.Name] = status
+	}
+	return nodeStatus, nil
+}
+
+// modelStatusOnNode returns the state the node agent reported for the cache. A state reported
+// before the node was told to hold this model, for example for an earlier cache of the same
+// name, does not count.
+func modelStatusOnNode(localModelNode *v1alpha1.LocalModelNode, params *LocalModelParams) v1alpha1.ModelStatus {
+	for i := range localModelNode.Spec.LocalModels {
+		info := &localModelNode.Spec.LocalModels[i]
+		if info.ModelName == params.Name && info.Namespace == params.Namespace && info.SourceModelUri == params.SourceModelUri {
+			return localModelNode.Status.ModelStatus[info.GetStatusKey()]
+		}
 	}
 	return ""
 }
 
-// ReconcileNamespaceCacheVolumes creates, for each node group of a node-local
-// LocalModelNamespaceCache, the PV <cache>-<node group>-<namespace> and the PVC
-// <cache>-<node group> that workloads in the cache's namespace mount. The PVC is owned by
-// the cache. The PV is cluster-scoped and cannot be, so DeleteModelFromNodes deletes it.
-//
-// It returns the claims that expose the model. A claim is left out, with an error, while a
-// PV or PVC of the same name is being deleted or exposes something else, since a workload
-// that mounted it would see other files.
-func ReconcileNamespaceCacheVolumes(
-	ctx context.Context,
-	clientset *kubernetes.Clientset,
-	scheme *runtime.Scheme,
-	log logr.Logger,
-	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
-	nodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
-) ([]string, error) {
-	var claims []string
-	var errs []error
-	for _, nodeGroupName := range localModelNamespaceCache.Spec.NodeGroups {
-		nodeGroup, ok := nodeGroups[nodeGroupName]
-		if !ok {
-			continue
+func countCopies(nodeStatus map[string]v1alpha1.NodeStatus) *v1alpha1.ModelCopies {
+	copies := &v1alpha1.ModelCopies{Total: len(nodeStatus)}
+	for _, status := range nodeStatus {
+		switch status {
+		case v1alpha1.NodeDownloaded:
+			copies.Available++
+		case v1alpha1.NodeDownloadError:
+			copies.Failed++
 		}
-		claim, err := reconcileServingVolume(ctx, clientset, scheme, log, localModelNamespaceCache, nodeGroup)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		claims = append(claims, claim)
 	}
-	return claims, errors.Join(errs...)
+	return copies
 }
 
-// reconcileServingVolume creates the serving PV and PVC for one node group and returns the
-// name of the claim.
-func reconcileServingVolume(
-	ctx context.Context,
-	clientset *kubernetes.Clientset,
-	scheme *runtime.Scheme,
-	log logr.Logger,
-	cache *v1alpha1.LocalModelNamespaceCache,
-	nodeGroup *v1alpha1.LocalModelNodeGroup,
-) (string, error) {
-	pvSpec, err := servingPersistentVolumeSpec(nodeGroup, cache.Spec.SourceModelUri)
-	if err != nil {
-		return "", err
+// affectedByNode reports whether a change to a node can change the status of a cache: the node
+// is in one of its node groups, or was counted before.
+func affectedByNode(inGroups sets.Set[string], nodeName string, nodeGroups []string, status *v1alpha1.LocalModelCacheStatus) bool {
+	if _, ok := status.NodeStatus[nodeName]; ok {
+		return true
 	}
-	pvcName := cache.Name + "-" + nodeGroup.Name
-	pv, err := CreatePV(ctx, clientset, scheme, log, corev1.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{Name: pvcName + "-" + cache.Namespace},
-		Spec:       *pvSpec,
-	}, nil, cache)
-	if err != nil {
-		return "", err
-	}
-	if !pv.DeletionTimestamp.IsZero() {
-		return "", fmt.Errorf("PersistentVolume %s is being deleted", pv.Name)
-	}
-	if got, want := nodePath(pv.Spec.PersistentVolumeSource), nodePath(pvSpec.PersistentVolumeSource); got != want {
-		return "", fmt.Errorf("PersistentVolume %s exposes %q instead of %q: delete and recreate LocalModelNamespaceCache %s/%s",
-			pv.Name, got, want, cache.Namespace, cache.Name)
-	}
-
-	pvc := corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{Name: pvcName, Namespace: cache.Namespace},
-		Spec:       *nodeGroup.Spec.PersistentVolumeClaimSpec.DeepCopy(),
-	}
-	pvc.Spec.VolumeName = pv.Name
-	created, err := CreatePVC(ctx, clientset, scheme, log, pvc, cache.Namespace, nil, cache)
-	if err != nil {
-		return "", err
-	}
-	if !created.DeletionTimestamp.IsZero() {
-		return "", fmt.Errorf("PersistentVolumeClaim %s/%s is being deleted", cache.Namespace, pvcName)
-	}
-	if created.Spec.VolumeName != pv.Name {
-		return "", fmt.Errorf("PersistentVolumeClaim %s/%s is bound to volume %q instead of %q",
-			cache.Namespace, pvcName, created.Spec.VolumeName, pv.Name)
-	}
-	return pvcName, nil
-}
-
-// UpdateLocalModelNode updates or adds a model to a LocalModelNode
-// Only one of localModelCache or localModelNamespaceCache should be non-nil
-// nodeGroupName specifies which LocalModelNodeGroup this model belongs to
-func UpdateLocalModelNode(
-	ctx context.Context,
-	c client.Client,
-	log logr.Logger,
-	localModelNode *v1alpha1.LocalModelNode,
-	localModelCache *v1alpha1.LocalModelCache,
-	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
-	nodeGroupName string,
-) error {
-	params := ExtractLocalModelParams(localModelCache, localModelNamespaceCache)
-	newModelInfo := CreateLocalModelInfo(localModelCache, localModelNamespaceCache, nodeGroupName)
-
-	var patch client.Patch
-	updated := false
-	for i, modelInfo := range localModelNode.Spec.LocalModels {
-		if modelInfo.ModelName == params.Name && modelInfo.Namespace == params.Namespace {
-			needsUpdate := modelInfo.SourceModelUri != params.SourceModelUri ||
-				modelInfo.ServiceAccountName != params.ServiceAccountName ||
-				modelInfo.NodeGroup != nodeGroupName ||
-				!ImagePullSecretsEqual(modelInfo.ImagePullSecrets, params.ImagePullSecrets) ||
-				!StorageSpecEqual(modelInfo.Storage, params.Storage)
-			if !needsUpdate {
-				return nil
-			}
-			log.Info("Updating localModelInfo", "node", localModelNode.Name, "model", params.Name, "namespace", params.Namespace)
-			updated = true
-			patch = client.MergeFrom(localModelNode.DeepCopy())
-			localModelNode.Spec.LocalModels[i] = newModelInfo
-			break
-		}
-	}
-	if !updated {
-		patch = client.MergeFrom(localModelNode.DeepCopy())
-		localModelNode.Spec.LocalModels = append(localModelNode.Spec.LocalModels, newModelInfo)
-	}
-	if err := c.Patch(ctx, localModelNode, patch); err != nil {
-		log.Error(err, "Update localmodelnode", "name", localModelNode.Name)
-		return err
-	}
-	return nil
-}
-
-// ReconcileLocalModelNode creates/updates LocalModelNode for each node in the node groups
-// Only one of localModelCache or localModelNamespaceCache should be non-nil
-func ReconcileLocalModelNode(
-	ctx context.Context,
-	c client.Client,
-	log logr.Logger,
-	localModelCache *v1alpha1.LocalModelCache,
-	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
-	nodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
-	claims []string,
-	subPath string,
-) error {
-	params := ExtractLocalModelParams(localModelCache, localModelNamespaceCache)
-
-	var nodeStatus map[string]v1alpha1.NodeStatus
-	if localModelCache != nil {
-		if localModelCache.Status.NodeStatus == nil {
-			localModelCache.Status.NodeStatus = make(map[string]v1alpha1.NodeStatus)
-		}
-		nodeStatus = localModelCache.Status.NodeStatus
-	} else if localModelNamespaceCache != nil {
-		if localModelNamespaceCache.Status.NodeStatus == nil {
-			localModelNamespaceCache.Status.NodeStatus = make(map[string]v1alpha1.NodeStatus)
-		}
-		nodeStatus = localModelNamespaceCache.Status.NodeStatus
-	}
-	var status *v1alpha1.LocalModelCacheStatus
-	if localModelCache != nil {
-		status = &localModelCache.Status
-	} else if localModelNamespaceCache != nil {
-		status = &localModelNamespaceCache.Status
-	}
-
-	statusBefore := status.DeepCopy()
-	// Record the mount references before the node fan-out so that a transient node-group
-	// error never leaves them unset.
-	setMountReferences(status, claims, subPath)
-
-	reconcileErr := reconcileNodeGroupStatus(ctx, c, log, localModelCache, localModelNamespaceCache, nodeGroups, nodeStatus, status)
-
-	if !reflect.DeepEqual(statusBefore, status) {
-		if localModelCache != nil {
-			if err := c.Status().Update(ctx, localModelCache); err != nil {
-				log.Error(err, "cannot update model status from node", "name", params.Name)
-			}
-		} else if localModelNamespaceCache != nil {
-			if err := c.Status().Update(ctx, localModelNamespaceCache); err != nil {
-				log.Error(err, "cannot update model status from node", "name", params.Name, "namespace", params.Namespace)
-			}
-		}
-	}
-	return reconcileErr
-}
-
-// reconcileNodeGroupStatus fans the model out to the LocalModelNode of every ready node in the
-// node groups and folds the per-node download state into nodeStatus and status.ModelCopies.
-// It mutates status in place and never writes it; the caller persists the result once, even
-// when this returns an error, so partial progress and mount references are not lost.
-func reconcileNodeGroupStatus(
-	ctx context.Context,
-	c client.Client,
-	log logr.Logger,
-	localModelCache *v1alpha1.LocalModelCache,
-	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
-	nodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
-	nodeStatus map[string]v1alpha1.NodeStatus,
-	status *v1alpha1.LocalModelCacheStatus,
-) error {
-	for nodeGroupName, nodeGroup := range nodeGroups {
-		modelInfo := CreateLocalModelInfo(localModelCache, localModelNamespaceCache, nodeGroupName)
-		statusKey := modelInfo.GetStatusKey()
-		readyNodes, notReadyNodes, err := GetNodesFromNodeGroup(ctx, nodeGroup, c)
-		if err != nil {
-			log.Error(err, "getNodesFromNodeGroup node error")
-			return err
-		}
-
-		for _, node := range notReadyNodes.Items {
-			if _, ok := nodeStatus[node.Name]; !ok {
-				nodeStatus[node.Name] = v1alpha1.NodeNotReady
-			}
-		}
-
-		for _, node := range readyNodes.Items {
-			localModelNode := &v1alpha1.LocalModelNode{}
-			nn := types.NamespacedName{Name: node.Name}
-			err := c.Get(ctx, nn, localModelNode)
-			found := err == nil
-			if err != nil && !apierr.IsNotFound(err) {
-				return err
-			}
-			if !found {
-				localModelNode = &v1alpha1.LocalModelNode{
-					ObjectMeta: metav1.ObjectMeta{Name: node.Name},
-					Spec:       v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{modelInfo}},
-				}
-				if err := c.Create(ctx, localModelNode); apierr.IsAlreadyExists(err) {
-					if err := c.Get(ctx, nn, localModelNode); err != nil {
-						return err
-					}
-					found = true
-				} else if err != nil {
-					return err
-				}
-			}
-			// Newly created LocalModelNode already includes modelInfo in Spec.
-			// UpdateLocalModelNode is only needed for pre-existing objects.
-			if found {
-				if err := UpdateLocalModelNode(ctx, c, log, localModelNode, localModelCache, localModelNamespaceCache, nodeGroupName); err != nil {
-					return err
-				}
-			}
-			modelStatus := localModelNode.Status.ModelStatus[statusKey]
-			nodeStatus[node.Name] = NodeStatusFromLocalModelStatus(modelStatus)
-		}
-
-		successfulNodes := 0
-		failedNodes := 0
-		for _, status := range nodeStatus {
-			switch status {
-			case v1alpha1.NodeDownloaded:
-				successfulNodes += 1
-			case v1alpha1.NodeDownloadError:
-				failedNodes += 1
-			}
-		}
-
-		status.ModelCopies = &v1alpha1.ModelCopies{Total: len(nodeStatus), Available: successfulNodes, Failed: failedNodes}
-	}
-	return nil
+	return inGroups.HasAny(nodeGroups...)
 }

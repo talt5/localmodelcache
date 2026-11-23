@@ -59,7 +59,6 @@ type LocalModelCacheSpec struct {
 	// Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.
 	ModelSize resource.Quantity `json:"modelSize" validate:"required"`
 	// group of nodes to cache the model on.
-	// Todo: support more than 1 node groups
 	// +kubebuilder:validation:MinItems=1
 	NodeGroups []string `json:"nodeGroups" validate:"required"`
 	// ServiceAccountName specifies the service account to use for credential lookup.
