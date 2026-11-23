@@ -18,6 +18,7 @@ limitations under the License.
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterstoragecontainers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodes/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodes/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;watch
@@ -54,12 +55,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel/jobs"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/s3"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 	pkgtypes "github.com/kserve/kserve/pkg/types"
 	kserveutils "github.com/kserve/kserve/pkg/utils"
 )
@@ -82,7 +83,7 @@ type LocalModelNodeReconciler struct {
 	Log               logr.Logger
 	Scheme            *runtime.Scheme
 	CredentialBuilder *credentials.CredentialBuilder
-	IsvcConfigMap     *corev1.ConfigMap
+	ConfigMap         *corev1.ConfigMap
 }
 
 const (
@@ -590,13 +591,13 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	c.Log.Info("Agent reconciling LocalModelNode", "name", req.Name, "node", nodeName)
 
 	// 1. Load config
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.Clientset)
+	configMap, err := localmodelcache.GetConfigMap(ctx, c.Clientset)
 	if err != nil {
-		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		c.Log.Error(err, "unable to get configmap", "name", constants.LocalModelConfigMapName, "namespace", constants.KServeNamespace)
 		return reconcile.Result{}, err
 	}
-	c.IsvcConfigMap = isvcConfigMap
-	localModelConfig, err := v1beta1.NewLocalModelConfig(isvcConfigMap)
+	c.ConfigMap = configMap
+	localModelConfig, err := localmodelcache.NewLocalModelConfig(configMap)
 	if err != nil {
 		c.Log.Error(err, "Failed to get local model config")
 		return reconcile.Result{}, err
@@ -610,14 +611,14 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		jobTTLSecondsAfterFinished = *localModelConfig.JobTTLSecondsAfterFinished
 	}
 
-	storageInitializerConfig, err = v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+	storageInitializerConfig, err = localmodelcache.GetStorageInitializerConfigs(configMap)
 	if err != nil {
 		c.Log.Error(err, "Failed to get storage initializer config, using defaults")
 		// Don't fail, just use defaults
 	}
 
 	if c.CredentialBuilder == nil {
-		c.CredentialBuilder = credentials.NewCredentialBuilder(c.Client, c.Clientset, isvcConfigMap)
+		c.CredentialBuilder = credentials.NewCredentialBuilder(c.Client, c.Clientset, configMap)
 	}
 
 	// 2. Init fsHelper and ensure model root folder exists and is writable

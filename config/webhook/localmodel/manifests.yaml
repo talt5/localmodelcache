@@ -25,6 +25,28 @@ webhooks:
           - DELETE
         resources:
           - localmodelcaches
+  # Validates storage mode, node groups and shared-PVC destinations, and denies deleting a
+  # node-local cache while a Pod in its namespace mounts one of its claims.
+  - clientConfig:
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kserveNamespace)
+        path: /validate-serving-kserve-io-v1alpha1-localmodelnamespacecache
+    failurePolicy: Fail
+    name: localmodelnamespacecache.kserve-webhook-server.validator
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+    rules:
+      - apiGroups:
+          - serving.kserve.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - localmodelnamespacecaches
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -49,10 +71,11 @@ webhooks:
         - key: control-plane
           operator: DoesNotExist
     matchConditions:
-      - name: inferenceservice-workload
+      - name: kernelcache-opt-in
         expression: >-
-          has(object.metadata.labels) &&
-          'serving.kserve.io/inferenceservice' in object.metadata.labels
+          has(object.metadata.annotations) &&
+          'serving.kserve.io/kernelcache-supported' in object.metadata.annotations &&
+          object.metadata.annotations['serving.kserve.io/kernelcache-supported'] == 'true'
     rules:
       - apiGroups:
           - ""

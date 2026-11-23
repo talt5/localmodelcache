@@ -24,3 +24,58 @@ spec:
         imagePullPolicy: {{ .Values.kserve.localmodelnode.controller.imagePullPolicy }}
         resources:
           {{- toYaml .Values.kserve.localmodelnode.controller.resources | nindent 10 }}
+      volumes:
+      - name: models
+        hostPath:
+          path: {{ .Values.kserve.localmodelnode.controller.hostPath | default "/models" | quote }}
+          type: DirectoryOrCreate
+      {{- if .Values.openshift.enabled }}
+      {{- $os := .Values.openshift.localmodelnode }}
+      securityContext:
+        runAsUser: {{ $os.runAsUser }}
+        runAsGroup: {{ $os.runAsGroup }}
+        {{- with $os.seLinuxType }}
+        seLinuxOptions:
+          type: {{ . }}
+        {{- end }}
+      {{- if $os.prepareHostPath.enabled }}
+      initContainers:
+      - name: prepare-host-path
+        image: {{ $os.prepareHostPath.image | quote }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          mkdir -p /mnt/models/models
+          chown {{ $os.runAsUser }}:{{ $os.runAsGroup }} /mnt/models /mnt/models/models
+          chmod 2775 /mnt/models /mnt/models/models
+          chcon -t container_file_t /mnt/models /mnt/models/models
+        resources:
+          limits:
+            cpu: 100m
+            memory: 64Mi
+          requests:
+            cpu: 10m
+            memory: 16Mi
+        securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+            - FOWNER
+        volumeMounts:
+        - name: models
+          mountPath: /mnt/models
+      {{- end }}
+    metadata:
+      annotations:
+        openshift.io/required-scc: kserve-localmodelnode-agent
+      {{- end }}

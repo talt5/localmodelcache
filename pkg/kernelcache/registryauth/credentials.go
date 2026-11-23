@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	controllerclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 )
 
 // Credentials is called only after the registry reconciler verifies the Pod owner chain.
@@ -41,11 +41,11 @@ type Credentials struct {
 
 // IssueForCapture publishes a Secret-bound token using the registry identity
 // scoped to one KernelCacheCapture.
-func (c *Credentials) IssueForCapture(ctx context.Context, pod *corev1.Pod, captureName string, cfg v1beta1.KernelCacheRegistryConfig) (*corev1.Secret, error) {
+func (c *Credentials) IssueForCapture(ctx context.Context, pod *corev1.Pod, captureName string, cfg kernelcacheconfig.KernelCacheRegistryConfig) (*corev1.Secret, error) {
 	if captureName == "" {
 		return nil, errors.New("registry credential requires a capture name")
 	}
-	if cfg.Auth.Type == "" || cfg.Auth.Type == v1beta1.KernelCacheRegistryAuthTypeNone {
+	if cfg.Auth.Type == "" || cfg.Auth.Type == kernelcacheconfig.KernelCacheRegistryAuthTypeNone {
 		return nil, nil
 	}
 	provider, err := NewProvider(c.Client, cfg)

@@ -159,14 +159,12 @@ func (r *KernelCacheNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.KernelCacheNodeGroup{}).
 		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(r.nodeToNodeGroupRequests)).
-		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(r.nodeToNodeGroupRequests), builder.WithPredicates(r.inferenceServiceConfigMapPredicate())).
+		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(r.nodeToNodeGroupRequests), builder.WithPredicates(r.localModelConfigMapPredicate())).
 		Complete(r)
 }
 
-func (r *KernelCacheNodeReconciler) inferenceServiceConfigMapPredicate() predicate.Predicate {
-	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		return obj.GetNamespace() == constants.KServeNamespace && obj.GetName() == constants.InferenceServiceConfigMapName
-	})
+func (r *KernelCacheNodeReconciler) localModelConfigMapPredicate() predicate.Predicate {
+	return predicate.NewPredicateFuncs(isLocalModelConfigMap)
 }
 
 func (r *KernelCacheNodeReconciler) nodeToNodeGroupRequests(context.Context, client.Object) []reconcile.Request {

@@ -33,8 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	securityfixture "github.com/kserve/kserve/pkg/kernelcache/security/fixture"
 	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
 )
@@ -77,7 +77,7 @@ func TestKernelCacheReconcilerCreatesPrefetchJobAndAggregatesStatus(t *testing.T
 	kernelCacheNode := &v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: node.Name}, Status: v1alpha1.KernelCacheNodeStatus{CacheStatus: map[string]v1alpha1.KernelCacheNodeCacheInfo{
 		"team/cache": {State: v1alpha1.KernelCacheNodePreparationStatePending},
 	}}}
-	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{
+	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{
 		"kernelcache": `{"enabled":true,"jobNamespace":"jobs","prefetchImage":"example/prefetch:latest","runtimeImagePrefetch":{"enabled":true},"artifactSecurity":{"mode":"none"}}`,
 	}}
 	jobNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "jobs"}}
@@ -176,7 +176,7 @@ func TestKernelCacheReconcilerAggregatesStatusDespiteRuntimePrefetchFailure(t *t
 				if !ready {
 					kernelCacheNode.Status.CacheStatus["team/cache"] = v1alpha1.KernelCacheNodeCacheInfo{State: v1alpha1.KernelCacheNodePreparationStatePending}
 				}
-				configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{
+				configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{
 					"kernelcache": `{"enabled":true,"jobNamespace":"jobs","prefetchImage":"example/prefetch:latest","runtimeImagePrefetch":{"enabled":true},"artifactSecurity":{"mode":"none"}}`,
 				}}
 				jobNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "jobs"}}
@@ -261,10 +261,10 @@ func TestReconcileArtifactVerificationBlocksUnavailableTrustBundle(t *testing.T)
 	}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cache).WithStatusSubresource(cache).Build()
 	reconciler := &KernelCacheReconciler{Client: k8sClient}
-	config := &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{
+	config := &kernelcacheconfig.KernelCacheConfig{ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{
 		Mode:          string(kernelcachetypes.ModeCert),
 		FailurePolicy: string(kernelcachetypes.FailurePolicyReject),
-		Cert: v1beta1.KernelCacheArtifactCertConfig{
+		Cert: kernelcacheconfig.KernelCacheArtifactCertConfig{
 			TrustBundle:   "kserve/kernel-cache-ca",
 			SubjectRegexp: "kernel-cache-signer",
 		},
@@ -309,17 +309,17 @@ func TestReconcileArtifactVerificationClearsStaleSuccessWhenRegistryIsUnavailabl
 	}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cache, trustBundle).WithStatusSubresource(cache).Build()
 	reconciler := &KernelCacheReconciler{Client: k8sClient}
-	config := &v1beta1.KernelCacheConfig{
-		ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{
+	config := &kernelcacheconfig.KernelCacheConfig{
+		ArtifactSecurity: kernelcacheconfig.KernelCacheArtifactSecurityConfig{
 			Mode:          string(kernelcachetypes.ModeCert),
 			FailurePolicy: string(kernelcachetypes.FailurePolicyReject),
-			Cert: v1beta1.KernelCacheArtifactCertConfig{
+			Cert: kernelcacheconfig.KernelCacheArtifactCertConfig{
 				TrustBundle:   "kserve/kernel-cache-ca",
 				SubjectRegexp: "kernel-cache-signer",
 			},
 		},
-		Registry: v1beta1.KernelCacheRegistryConfig{
-			CAConfigMapRef: &v1beta1.KernelCacheConfigMapKeyRef{Name: "missing-registry-ca", Key: "ca.crt"},
+		Registry: kernelcacheconfig.KernelCacheRegistryConfig{
+			CAConfigMapRef: &kernelcacheconfig.KernelCacheConfigMapKeyRef{Name: "missing-registry-ca", Key: "ca.crt"},
 		},
 	}
 

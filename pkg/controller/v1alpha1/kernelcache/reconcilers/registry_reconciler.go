@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
 )
 
@@ -37,7 +37,7 @@ import (
 func (r *KernelCacheCaptureControllerReconciler) ensurePusherIdentityForCapture(
 	ctx context.Context,
 	capture *v1alpha1.KernelCacheCapture,
-	config v1beta1.KernelCacheRegistryConfig,
+	config kernelcacheconfig.KernelCacheRegistryConfig,
 ) error {
 	namespace := capture.Namespace
 	serviceAccountName := registryauth.PusherServiceAccountName(capture.Name)
@@ -112,7 +112,7 @@ func (r *KernelCacheCaptureControllerReconciler) reconcilePusherRoleBindingForAc
 // ensureControllerRegistryBindings grants the localmodel controller registry
 // access in a workload namespace. Artifact signing and verification run in the
 // controller Pod, not in the capture pusher or prefetcher Pods.
-func (r *KernelCacheCaptureControllerReconciler) ensureControllerRegistryBindings(ctx context.Context, namespace string, config v1beta1.KernelCacheRegistryConfig) error {
+func (r *KernelCacheCaptureControllerReconciler) ensureControllerRegistryBindings(ctx context.Context, namespace string, config kernelcacheconfig.KernelCacheRegistryConfig) error {
 	if config.Auth.PushRoleRef == nil || config.Auth.PullRoleRef == nil {
 		return errors.New("registry push and pull RoleRefs are required for controller access")
 	}
@@ -211,6 +211,6 @@ func (r *KernelCacheCaptureControllerReconciler) cleanupControllerRegistryBindin
 	return nil
 }
 
-func kernelCacheRegistryRoleRef(ref *v1beta1.KernelCacheRegistryRoleRef) rbacv1.RoleRef {
+func kernelCacheRegistryRoleRef(ref *kernelcacheconfig.KernelCacheRegistryRoleRef) rbacv1.RoleRef {
 	return rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: ref.Kind, Name: ref.Name}
 }

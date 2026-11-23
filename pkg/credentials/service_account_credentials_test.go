@@ -30,7 +30,6 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 var configMap = &corev1.ConfigMap{
@@ -109,85 +108,69 @@ func TestS3CredentialBuilder(t *testing.T) {
 		},
 	}
 	scenarios := map[string]struct {
-		serviceAccount        *corev1.ServiceAccount
-		secret                *corev1.Secret
-		inputConfiguration    *knservingv1.Configuration
-		expectedConfiguration *knservingv1.Configuration
-		shouldFail            bool
+		serviceAccount  *corev1.ServiceAccount
+		secret          *corev1.Secret
+		inputPodSpec    *corev1.PodSpec
+		expectedPodSpec *corev1.PodSpec
+		shouldFail      bool
 	}{
 		"Build s3 secrets envs": {
 			serviceAccount: existingServiceAccount,
 			secret:         existingS3Secret,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
-							},
-						},
-					},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
 				},
 			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Env: []corev1.EnvVar{
-											{
-												Name: s3.AWSAccessKeyId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret",
-														},
-														Key: "awsAccessKeyID",
-													},
-												},
-											},
-											{
-												Name: s3.AWSSecretAccessKey,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret",
-														},
-														Key: "awsSecretAccessKey",
-													},
-												},
-											},
-											{
-												Name:  s3.S3UseHttps,
-												Value: "1",
-											},
-											{
-												Name:  s3.S3Endpoint,
-												Value: "s3.aws.com",
-											},
-											{
-												Name:  s3.AWSEndpointUrl,
-												Value: "https://s3.aws.com",
-											},
-											{
-												Name:  s3.S3VerifySSL,
-												Value: "1",
-											},
-											{
-												Name:  s3.AWSAnonymousCredential,
-												Value: "false",
-											},
-											{
-												Name:  s3.AWSRegion,
-												Value: "us-east-2",
-											},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Env: []corev1.EnvVar{
+							{
+								Name: s3.AWSAccessKeyId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret",
 										},
+										Key: "awsAccessKeyID",
 									},
 								},
+							},
+							{
+								Name: s3.AWSSecretAccessKey,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret",
+										},
+										Key: "awsSecretAccessKey",
+									},
+								},
+							},
+							{
+								Name:  s3.S3UseHttps,
+								Value: "1",
+							},
+							{
+								Name:  s3.S3Endpoint,
+								Value: "s3.aws.com",
+							},
+							{
+								Name:  s3.AWSEndpointUrl,
+								Value: "https://s3.aws.com",
+							},
+							{
+								Name:  s3.S3VerifySSL,
+								Value: "1",
+							},
+							{
+								Name:  s3.AWSAnonymousCredential,
+								Value: "false",
+							},
+							{
+								Name:  s3.AWSRegion,
+								Value: "us-east-2",
 							},
 						},
 					},
@@ -198,76 +181,60 @@ func TestS3CredentialBuilder(t *testing.T) {
 		"Build s3 secrets envs with protocol": {
 			serviceAccount: existingServiceAccountWithProtocol,
 			secret:         existingS3SecretWithProtocol,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
-							},
-						},
-					},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
 				},
 			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Env: []corev1.EnvVar{
-											{
-												Name: s3.AWSAccessKeyId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret-with-protocol",
-														},
-														Key: "awsAccessKeyID",
-													},
-												},
-											},
-											{
-												Name: s3.AWSSecretAccessKey,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret-with-protocol",
-														},
-														Key: "awsSecretAccessKey",
-													},
-												},
-											},
-											{
-												Name:  s3.S3UseHttps,
-												Value: "0",
-											},
-											{
-												Name:  s3.S3Endpoint,
-												Value: "s3.aws.com",
-											},
-											{
-												Name:  s3.AWSEndpointUrl,
-												Value: "http://s3.aws.com",
-											},
-											{
-												Name:  s3.S3VerifySSL,
-												Value: "0",
-											},
-											{
-												Name:  s3.AWSAnonymousCredential,
-												Value: "false",
-											},
-											{
-												Name:  s3.AWSRegion,
-												Value: "us-east-2",
-											},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Env: []corev1.EnvVar{
+							{
+								Name: s3.AWSAccessKeyId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret-with-protocol",
 										},
+										Key: "awsAccessKeyID",
 									},
 								},
+							},
+							{
+								Name: s3.AWSSecretAccessKey,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret-with-protocol",
+										},
+										Key: "awsSecretAccessKey",
+									},
+								},
+							},
+							{
+								Name:  s3.S3UseHttps,
+								Value: "0",
+							},
+							{
+								Name:  s3.S3Endpoint,
+								Value: "s3.aws.com",
+							},
+							{
+								Name:  s3.AWSEndpointUrl,
+								Value: "http://s3.aws.com",
+							},
+							{
+								Name:  s3.S3VerifySSL,
+								Value: "0",
+							},
+							{
+								Name:  s3.AWSAnonymousCredential,
+								Value: "false",
+							},
+							{
+								Name:  s3.AWSRegion,
+								Value: "us-east-2",
 							},
 						},
 					},
@@ -287,8 +254,8 @@ func TestS3CredentialBuilder(t *testing.T) {
 			scenario.serviceAccount.Namespace,
 			nil,
 			scenario.serviceAccount.Name,
-			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
-			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+			&scenario.inputPodSpec.Containers[0],
+			&scenario.inputPodSpec.Volumes,
 		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -298,7 +265,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
-			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+			if diff := cmp.Diff(scenario.expectedPodSpec, scenario.inputPodSpec); diff != "" {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
@@ -358,85 +325,69 @@ func TestS3CredentialBuilderWithSecretData(t *testing.T) {
 		},
 	}
 	scenarios := map[string]struct {
-		serviceAccount        *corev1.ServiceAccount
-		secret                *corev1.Secret
-		inputConfiguration    *knservingv1.Configuration
-		expectedConfiguration *knservingv1.Configuration
-		shouldFail            bool
+		serviceAccount  *corev1.ServiceAccount
+		secret          *corev1.Secret
+		inputPodSpec    *corev1.PodSpec
+		expectedPodSpec *corev1.PodSpec
+		shouldFail      bool
 	}{
 		"Build s3 secrets data envs": {
 			serviceAccount: existingServiceAccount,
 			secret:         existingS3Secret,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
-							},
-						},
-					},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
 				},
 			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Env: []corev1.EnvVar{
-											{
-												Name: s3.AWSAccessKeyId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret",
-														},
-														Key: "awsAccessKeyID",
-													},
-												},
-											},
-											{
-												Name: s3.AWSSecretAccessKey,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret",
-														},
-														Key: "awsSecretAccessKey",
-													},
-												},
-											},
-											{
-												Name:  s3.S3UseHttps,
-												Value: "1",
-											},
-											{
-												Name:  s3.S3Endpoint,
-												Value: "s3.aws.com",
-											},
-											{
-												Name:  s3.AWSEndpointUrl,
-												Value: "https://s3.aws.com",
-											},
-											{
-												Name:  s3.S3VerifySSL,
-												Value: "1",
-											},
-											{
-												Name:  s3.AWSAnonymousCredential,
-												Value: "false",
-											},
-											{
-												Name:  s3.AWSRegion,
-												Value: "us-east-2",
-											},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Env: []corev1.EnvVar{
+							{
+								Name: s3.AWSAccessKeyId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret",
 										},
+										Key: "awsAccessKeyID",
 									},
 								},
+							},
+							{
+								Name: s3.AWSSecretAccessKey,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret",
+										},
+										Key: "awsSecretAccessKey",
+									},
+								},
+							},
+							{
+								Name:  s3.S3UseHttps,
+								Value: "1",
+							},
+							{
+								Name:  s3.S3Endpoint,
+								Value: "s3.aws.com",
+							},
+							{
+								Name:  s3.AWSEndpointUrl,
+								Value: "https://s3.aws.com",
+							},
+							{
+								Name:  s3.S3VerifySSL,
+								Value: "1",
+							},
+							{
+								Name:  s3.AWSAnonymousCredential,
+								Value: "false",
+							},
+							{
+								Name:  s3.AWSRegion,
+								Value: "us-east-2",
 							},
 						},
 					},
@@ -447,76 +398,60 @@ func TestS3CredentialBuilderWithSecretData(t *testing.T) {
 		"Build s3 secrets data envs with protocol": {
 			serviceAccount: existingServiceAccountWithProtocol,
 			secret:         existingS3SecretWithProtocol,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
-							},
-						},
-					},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
 				},
 			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Env: []corev1.EnvVar{
-											{
-												Name: s3.AWSAccessKeyId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret-with-protocol",
-														},
-														Key: "awsAccessKeyID",
-													},
-												},
-											},
-											{
-												Name: s3.AWSSecretAccessKey,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret-with-protocol",
-														},
-														Key: "awsSecretAccessKey",
-													},
-												},
-											},
-											{
-												Name:  s3.S3UseHttps,
-												Value: "0",
-											},
-											{
-												Name:  s3.S3Endpoint,
-												Value: "s3.aws.com",
-											},
-											{
-												Name:  s3.AWSEndpointUrl,
-												Value: "http://s3.aws.com",
-											},
-											{
-												Name:  s3.S3VerifySSL,
-												Value: "0",
-											},
-											{
-												Name:  s3.AWSAnonymousCredential,
-												Value: "false",
-											},
-											{
-												Name:  s3.AWSRegion,
-												Value: "us-east-2",
-											},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Env: []corev1.EnvVar{
+							{
+								Name: s3.AWSAccessKeyId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret-with-protocol",
 										},
+										Key: "awsAccessKeyID",
 									},
 								},
+							},
+							{
+								Name: s3.AWSSecretAccessKey,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret-with-protocol",
+										},
+										Key: "awsSecretAccessKey",
+									},
+								},
+							},
+							{
+								Name:  s3.S3UseHttps,
+								Value: "0",
+							},
+							{
+								Name:  s3.S3Endpoint,
+								Value: "s3.aws.com",
+							},
+							{
+								Name:  s3.AWSEndpointUrl,
+								Value: "http://s3.aws.com",
+							},
+							{
+								Name:  s3.S3VerifySSL,
+								Value: "0",
+							},
+							{
+								Name:  s3.AWSAnonymousCredential,
+								Value: "false",
+							},
+							{
+								Name:  s3.AWSRegion,
+								Value: "us-east-2",
 							},
 						},
 					},
@@ -536,8 +471,8 @@ func TestS3CredentialBuilderWithSecretData(t *testing.T) {
 			scenario.serviceAccount.Namespace,
 			nil,
 			scenario.serviceAccount.Name,
-			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
-			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+			&scenario.inputPodSpec.Containers[0],
+			&scenario.inputPodSpec.Volumes,
 		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -547,7 +482,7 @@ func TestS3CredentialBuilderWithSecretData(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
-			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+			if diff := cmp.Diff(scenario.expectedPodSpec, scenario.inputPodSpec); diff != "" {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
@@ -598,85 +533,69 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 		},
 	}
 	scenarios := map[string]struct {
-		serviceAccount        *corev1.ServiceAccount
-		secret                *corev1.Secret
-		inputConfiguration    *knservingv1.Configuration
-		expectedConfiguration *knservingv1.Configuration
-		shouldFail            bool
+		serviceAccount  *corev1.ServiceAccount
+		secret          *corev1.Secret
+		inputPodSpec    *corev1.PodSpec
+		expectedPodSpec *corev1.PodSpec
+		shouldFail      bool
 	}{
 		"Build s3 secrets envs": {
 			serviceAccount: existingServiceAccount,
 			secret:         existingS3Secret,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
-							},
-						},
-					},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
 				},
 			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Env: []corev1.EnvVar{
-											{
-												Name: s3.AWSAccessKeyId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret",
-														},
-														Key: "awsAccessKeyID",
-													},
-												},
-											},
-											{
-												Name: s3.AWSSecretAccessKey,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret",
-														},
-														Key: "awsSecretAccessKey",
-													},
-												},
-											},
-											{
-												Name:  s3.S3UseHttps,
-												Value: "1",
-											},
-											{
-												Name:  s3.S3Endpoint,
-												Value: "s3.aws.com",
-											},
-											{
-												Name:  s3.AWSEndpointUrl,
-												Value: "https://s3.aws.com",
-											},
-											{
-												Name:  s3.S3VerifySSL,
-												Value: "1",
-											},
-											{
-												Name:  s3.AWSAnonymousCredential,
-												Value: "false",
-											},
-											{
-												Name:  s3.AWSRegion,
-												Value: "us-east-2",
-											},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Env: []corev1.EnvVar{
+							{
+								Name: s3.AWSAccessKeyId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret",
 										},
+										Key: "awsAccessKeyID",
 									},
 								},
+							},
+							{
+								Name: s3.AWSSecretAccessKey,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret",
+										},
+										Key: "awsSecretAccessKey",
+									},
+								},
+							},
+							{
+								Name:  s3.S3UseHttps,
+								Value: "1",
+							},
+							{
+								Name:  s3.S3Endpoint,
+								Value: "s3.aws.com",
+							},
+							{
+								Name:  s3.AWSEndpointUrl,
+								Value: "https://s3.aws.com",
+							},
+							{
+								Name:  s3.S3VerifySSL,
+								Value: "1",
+							},
+							{
+								Name:  s3.AWSAnonymousCredential,
+								Value: "false",
+							},
+							{
+								Name:  s3.AWSRegion,
+								Value: "us-east-2",
 							},
 						},
 					},
@@ -687,76 +606,60 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 		"Build s3 secrets envs with protocol": {
 			serviceAccount: existingServiceAccountWithProtocol,
 			secret:         existingS3SecretWithProtocol,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
-							},
-						},
-					},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
 				},
 			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Env: []corev1.EnvVar{
-											{
-												Name: s3.AWSAccessKeyId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret-with-protocol",
-														},
-														Key: "awsAccessKeyID",
-													},
-												},
-											},
-											{
-												Name: s3.AWSSecretAccessKey,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret-with-protocol",
-														},
-														Key: "awsSecretAccessKey",
-													},
-												},
-											},
-											{
-												Name:  s3.S3UseHttps,
-												Value: "0",
-											},
-											{
-												Name:  s3.S3Endpoint,
-												Value: "s3.aws.com",
-											},
-											{
-												Name:  s3.AWSEndpointUrl,
-												Value: "http://s3.aws.com",
-											},
-											{
-												Name:  s3.S3VerifySSL,
-												Value: "0",
-											},
-											{
-												Name:  s3.AWSAnonymousCredential,
-												Value: "false",
-											},
-											{
-												Name:  s3.AWSRegion,
-												Value: "us-east-2",
-											},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Env: []corev1.EnvVar{
+							{
+								Name: s3.AWSAccessKeyId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret-with-protocol",
 										},
+										Key: "awsAccessKeyID",
 									},
 								},
+							},
+							{
+								Name: s3.AWSSecretAccessKey,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret-with-protocol",
+										},
+										Key: "awsSecretAccessKey",
+									},
+								},
+							},
+							{
+								Name:  s3.S3UseHttps,
+								Value: "0",
+							},
+							{
+								Name:  s3.S3Endpoint,
+								Value: "s3.aws.com",
+							},
+							{
+								Name:  s3.AWSEndpointUrl,
+								Value: "http://s3.aws.com",
+							},
+							{
+								Name:  s3.S3VerifySSL,
+								Value: "0",
+							},
+							{
+								Name:  s3.AWSAnonymousCredential,
+								Value: "false",
+							},
+							{
+								Name:  s3.AWSRegion,
+								Value: "us-east-2",
 							},
 						},
 					},
@@ -778,8 +681,8 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 			scenario.serviceAccount.Namespace,
 			annotations,
 			scenario.serviceAccount.Name,
-			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
-			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+			&scenario.inputPodSpec.Containers[0],
+			&scenario.inputPodSpec.Volumes,
 		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -789,7 +692,7 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
-			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+			if diff := cmp.Diff(scenario.expectedPodSpec, scenario.inputPodSpec); diff != "" {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
@@ -837,85 +740,69 @@ func TestS3CredentialBuilderWithStorageSecretData(t *testing.T) {
 		},
 	}
 	scenarios := map[string]struct {
-		serviceAccount        *corev1.ServiceAccount
-		secret                *corev1.Secret
-		inputConfiguration    *knservingv1.Configuration
-		expectedConfiguration *knservingv1.Configuration
-		shouldFail            bool
+		serviceAccount  *corev1.ServiceAccount
+		secret          *corev1.Secret
+		inputPodSpec    *corev1.PodSpec
+		expectedPodSpec *corev1.PodSpec
+		shouldFail      bool
 	}{
 		"Build s3 secret data envs": {
 			serviceAccount: existingServiceAccount,
 			secret:         existingS3Secret,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
-							},
-						},
-					},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
 				},
 			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Env: []corev1.EnvVar{
-											{
-												Name: s3.AWSAccessKeyId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret",
-														},
-														Key: "awsAccessKeyID",
-													},
-												},
-											},
-											{
-												Name: s3.AWSSecretAccessKey,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret",
-														},
-														Key: "awsSecretAccessKey",
-													},
-												},
-											},
-											{
-												Name:  s3.S3UseHttps,
-												Value: "1",
-											},
-											{
-												Name:  s3.S3Endpoint,
-												Value: "s3.aws.com",
-											},
-											{
-												Name:  s3.AWSEndpointUrl,
-												Value: "https://s3.aws.com",
-											},
-											{
-												Name:  s3.S3VerifySSL,
-												Value: "1",
-											},
-											{
-												Name:  s3.AWSAnonymousCredential,
-												Value: "false",
-											},
-											{
-												Name:  s3.AWSRegion,
-												Value: "us-east-2",
-											},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Env: []corev1.EnvVar{
+							{
+								Name: s3.AWSAccessKeyId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret",
 										},
+										Key: "awsAccessKeyID",
 									},
 								},
+							},
+							{
+								Name: s3.AWSSecretAccessKey,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret",
+										},
+										Key: "awsSecretAccessKey",
+									},
+								},
+							},
+							{
+								Name:  s3.S3UseHttps,
+								Value: "1",
+							},
+							{
+								Name:  s3.S3Endpoint,
+								Value: "s3.aws.com",
+							},
+							{
+								Name:  s3.AWSEndpointUrl,
+								Value: "https://s3.aws.com",
+							},
+							{
+								Name:  s3.S3VerifySSL,
+								Value: "1",
+							},
+							{
+								Name:  s3.AWSAnonymousCredential,
+								Value: "false",
+							},
+							{
+								Name:  s3.AWSRegion,
+								Value: "us-east-2",
 							},
 						},
 					},
@@ -926,76 +813,60 @@ func TestS3CredentialBuilderWithStorageSecretData(t *testing.T) {
 		"Build s3 secret data envs with protocol": {
 			serviceAccount: existingServiceAccountWithProtocol,
 			secret:         existingS3SecretWithProtocol,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
-							},
-						},
-					},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
 				},
 			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Env: []corev1.EnvVar{
-											{
-												Name: s3.AWSAccessKeyId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret-with-protocol",
-														},
-														Key: "awsAccessKeyID",
-													},
-												},
-											},
-											{
-												Name: s3.AWSSecretAccessKey,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret-with-protocol",
-														},
-														Key: "awsSecretAccessKey",
-													},
-												},
-											},
-											{
-												Name:  s3.S3UseHttps,
-												Value: "0",
-											},
-											{
-												Name:  s3.S3Endpoint,
-												Value: "s3.aws.com",
-											},
-											{
-												Name:  s3.AWSEndpointUrl,
-												Value: "http://s3.aws.com",
-											},
-											{
-												Name:  s3.S3VerifySSL,
-												Value: "0",
-											},
-											{
-												Name:  s3.AWSAnonymousCredential,
-												Value: "false",
-											},
-											{
-												Name:  s3.AWSRegion,
-												Value: "us-east-2",
-											},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Env: []corev1.EnvVar{
+							{
+								Name: s3.AWSAccessKeyId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret-with-protocol",
 										},
+										Key: "awsAccessKeyID",
 									},
 								},
+							},
+							{
+								Name: s3.AWSSecretAccessKey,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "s3-secret-with-protocol",
+										},
+										Key: "awsSecretAccessKey",
+									},
+								},
+							},
+							{
+								Name:  s3.S3UseHttps,
+								Value: "0",
+							},
+							{
+								Name:  s3.S3Endpoint,
+								Value: "s3.aws.com",
+							},
+							{
+								Name:  s3.AWSEndpointUrl,
+								Value: "http://s3.aws.com",
+							},
+							{
+								Name:  s3.S3VerifySSL,
+								Value: "0",
+							},
+							{
+								Name:  s3.AWSAnonymousCredential,
+								Value: "false",
+							},
+							{
+								Name:  s3.AWSRegion,
+								Value: "us-east-2",
 							},
 						},
 					},
@@ -1017,8 +888,8 @@ func TestS3CredentialBuilderWithStorageSecretData(t *testing.T) {
 			scenario.serviceAccount.Namespace,
 			annotations,
 			scenario.serviceAccount.Name,
-			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
-			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+			&scenario.inputPodSpec.Containers[0],
+			&scenario.inputPodSpec.Volumes,
 		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -1028,7 +899,7 @@ func TestS3CredentialBuilderWithStorageSecretData(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
-			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+			if diff := cmp.Diff(scenario.expectedPodSpec, scenario.inputPodSpec); diff != "" {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
@@ -1063,61 +934,45 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 		},
 	}
 	scenarios := map[string]struct {
-		serviceAccount        *corev1.ServiceAccount
-		inputConfiguration    *knservingv1.Configuration
-		expectedConfiguration *knservingv1.Configuration
-		shouldFail            bool
+		serviceAccount  *corev1.ServiceAccount
+		inputPodSpec    *corev1.PodSpec
+		expectedPodSpec *corev1.PodSpec
+		shouldFail      bool
 	}{
 		"Build s3 service account envs": {
 			serviceAccount: existingServiceAccount,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
-							},
-						},
-					},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
 				},
 			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Env: []corev1.EnvVar{
-											{
-												Name:  s3.S3UseHttps,
-												Value: "1",
-											},
-											{
-												Name:  s3.S3Endpoint,
-												Value: "s3.aws.com",
-											},
-											{
-												Name:  s3.AWSEndpointUrl,
-												Value: "https://s3.aws.com",
-											},
-											{
-												Name:  s3.S3VerifySSL,
-												Value: "1",
-											},
-											{
-												Name:  s3.AWSAnonymousCredential,
-												Value: "true",
-											},
-											{
-												Name:  s3.AWSRegion,
-												Value: "us-east-2",
-											},
-										},
-									},
-								},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Env: []corev1.EnvVar{
+							{
+								Name:  s3.S3UseHttps,
+								Value: "1",
+							},
+							{
+								Name:  s3.S3Endpoint,
+								Value: "s3.aws.com",
+							},
+							{
+								Name:  s3.AWSEndpointUrl,
+								Value: "https://s3.aws.com",
+							},
+							{
+								Name:  s3.S3VerifySSL,
+								Value: "1",
+							},
+							{
+								Name:  s3.AWSAnonymousCredential,
+								Value: "true",
+							},
+							{
+								Name:  s3.AWSRegion,
+								Value: "us-east-2",
 							},
 						},
 					},
@@ -1127,54 +982,38 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 		},
 		"Build s3 service account envs with protocol": {
 			serviceAccount: existingServiceAccountWithProtocol,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
-							},
-						},
-					},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
 				},
 			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Env: []corev1.EnvVar{
-											{
-												Name:  s3.S3UseHttps,
-												Value: "0",
-											},
-											{
-												Name:  s3.S3Endpoint,
-												Value: "s3.aws.com",
-											},
-											{
-												Name:  s3.AWSEndpointUrl,
-												Value: "http://s3.aws.com",
-											},
-											{
-												Name:  s3.S3VerifySSL,
-												Value: "0",
-											},
-											{
-												Name:  s3.AWSAnonymousCredential,
-												Value: "true",
-											},
-											{
-												Name:  s3.AWSRegion,
-												Value: "us-east-2",
-											},
-										},
-									},
-								},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Env: []corev1.EnvVar{
+							{
+								Name:  s3.S3UseHttps,
+								Value: "0",
+							},
+							{
+								Name:  s3.S3Endpoint,
+								Value: "s3.aws.com",
+							},
+							{
+								Name:  s3.AWSEndpointUrl,
+								Value: "http://s3.aws.com",
+							},
+							{
+								Name:  s3.S3VerifySSL,
+								Value: "0",
+							},
+							{
+								Name:  s3.AWSAnonymousCredential,
+								Value: "true",
+							},
+							{
+								Name:  s3.AWSRegion,
+								Value: "us-east-2",
 							},
 						},
 					},
@@ -1193,8 +1032,8 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 			scenario.serviceAccount.Namespace,
 			nil,
 			scenario.serviceAccount.Name,
-			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
-			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+			&scenario.inputPodSpec.Containers[0],
+			&scenario.inputPodSpec.Volumes,
 		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -1204,7 +1043,7 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
-			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+			if diff := cmp.Diff(scenario.expectedPodSpec, scenario.inputPodSpec); diff != "" {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
@@ -1236,58 +1075,42 @@ func TestGCSCredentialBuilder(t *testing.T) {
 		},
 	}
 	scenarios := map[string]struct {
-		serviceAccount        *corev1.ServiceAccount
-		inputConfiguration    *knservingv1.Configuration
-		expectedConfiguration *knservingv1.Configuration
-		shouldFail            bool
+		serviceAccount  *corev1.ServiceAccount
+		inputPodSpec    *corev1.PodSpec
+		expectedPodSpec *corev1.PodSpec
+		shouldFail      bool
 	}{
 		"Build gcs secrets volume": {
 			serviceAccount: existingServiceAccount,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
+				},
+			},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      gcs.GCSCredentialVolumeName,
+								ReadOnly:  true,
+								MountPath: gcs.GCSCredentialVolumeMountPath,
+							},
+						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  gcs.GCSCredentialEnvKey,
+								Value: gcs.GCSCredentialVolumeMountPath + "gcloud-application-credentials.json",
 							},
 						},
 					},
 				},
-			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										VolumeMounts: []corev1.VolumeMount{
-											{
-												Name:      gcs.GCSCredentialVolumeName,
-												ReadOnly:  true,
-												MountPath: gcs.GCSCredentialVolumeMountPath,
-											},
-										},
-										Env: []corev1.EnvVar{
-											{
-												Name:  gcs.GCSCredentialEnvKey,
-												Value: gcs.GCSCredentialVolumeMountPath + "gcloud-application-credentials.json",
-											},
-										},
-									},
-								},
-								Volumes: []corev1.Volume{
-									{
-										Name: gcs.GCSCredentialVolumeName,
-										VolumeSource: corev1.VolumeSource{
-											Secret: &corev1.SecretVolumeSource{
-												SecretName: "user-gcp-sa",
-											},
-										},
-									},
-								},
+				Volumes: []corev1.Volume{
+					{
+						Name: gcs.GCSCredentialVolumeName,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: "user-gcp-sa",
 							},
 						},
 					},
@@ -1307,8 +1130,8 @@ func TestGCSCredentialBuilder(t *testing.T) {
 			scenario.serviceAccount.Namespace,
 			nil,
 			scenario.serviceAccount.Name,
-			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
-			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+			&scenario.inputPodSpec.Containers[0],
+			&scenario.inputPodSpec.Volumes,
 		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -1318,7 +1141,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
-			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+			if diff := cmp.Diff(scenario.expectedPodSpec, scenario.inputPodSpec); diff != "" {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
@@ -1355,79 +1178,63 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 	}
 
 	scenarios := map[string]struct {
-		serviceAccount        *corev1.ServiceAccount
-		inputConfiguration    *knservingv1.Configuration
-		expectedConfiguration *knservingv1.Configuration
-		shouldFail            bool
+		serviceAccount  *corev1.ServiceAccount
+		inputPodSpec    *corev1.PodSpec
+		expectedPodSpec *corev1.PodSpec
+		shouldFail      bool
 	}{
 		"Custom Azure Secret": {
 			serviceAccount: customOnlyServiceAccount,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
-							},
-						},
-					},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
 				},
 			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Env: []corev1.EnvVar{
-											{
-												Name: azure.AzureSubscriptionId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "az-custom-secret",
-														},
-														Key: azure.LegacyAzureSubscriptionId,
-													},
-												},
-											},
-											{
-												Name: azure.AzureTenantId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "az-custom-secret",
-														},
-														Key: azure.LegacyAzureTenantId,
-													},
-												},
-											},
-											{
-												Name: azure.AzureClientId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "az-custom-secret",
-														},
-														Key: azure.LegacyAzureClientId,
-													},
-												},
-											},
-											{
-												Name: azure.AzureClientSecret,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "az-custom-secret",
-														},
-														Key: azure.LegacyAzureClientSecret,
-													},
-												},
-											},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Env: []corev1.EnvVar{
+							{
+								Name: azure.AzureSubscriptionId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "az-custom-secret",
 										},
+										Key: azure.LegacyAzureSubscriptionId,
+									},
+								},
+							},
+							{
+								Name: azure.AzureTenantId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "az-custom-secret",
+										},
+										Key: azure.LegacyAzureTenantId,
+									},
+								},
+							},
+							{
+								Name: azure.AzureClientId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "az-custom-secret",
+										},
+										Key: azure.LegacyAzureClientId,
+									},
+								},
+							},
+							{
+								Name: azure.AzureClientSecret,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "az-custom-secret",
+										},
+										Key: azure.LegacyAzureClientSecret,
 									},
 								},
 							},
@@ -1449,8 +1256,8 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 			scenario.serviceAccount.Namespace,
 			nil,
 			scenario.serviceAccount.Name,
-			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
-			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+			&scenario.inputPodSpec.Containers[0],
+			&scenario.inputPodSpec.Volumes,
 		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -1460,7 +1267,7 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
-			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+			if diff := cmp.Diff(scenario.expectedPodSpec, scenario.inputPodSpec); diff != "" {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
@@ -1498,52 +1305,36 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 	}
 
 	scenarios := map[string]struct {
-		serviceAccount        *corev1.ServiceAccount
-		inputConfiguration    *knservingv1.Configuration
-		expectedConfiguration *knservingv1.Configuration
-		shouldFail            bool
+		serviceAccount  *corev1.ServiceAccount
+		inputPodSpec    *corev1.PodSpec
+		expectedPodSpec *corev1.PodSpec
+		shouldFail      bool
 	}{
 		"Custom HDFS Secret": {
 			serviceAccount: customOnlyServiceAccount,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
+				},
+			},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      hdfs.HdfsVolumeName,
+								ReadOnly:  true,
+								MountPath: hdfs.MountPath,
 							},
 						},
 					},
 				},
-			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										VolumeMounts: []corev1.VolumeMount{
-											{
-												Name:      hdfs.HdfsVolumeName,
-												ReadOnly:  true,
-												MountPath: hdfs.MountPath,
-											},
-										},
-									},
-								},
-								Volumes: []corev1.Volume{
-									{
-										Name: hdfs.HdfsVolumeName,
-										VolumeSource: corev1.VolumeSource{
-											Secret: &corev1.SecretVolumeSource{
-												SecretName: "hdfs-custom-secret",
-											},
-										},
-									},
-								},
+				Volumes: []corev1.Volume{
+					{
+						Name: hdfs.HdfsVolumeName,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: "hdfs-custom-secret",
 							},
 						},
 					},
@@ -1563,8 +1354,8 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 			scenario.serviceAccount.Namespace,
 			nil,
 			scenario.serviceAccount.Name,
-			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
-			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+			&scenario.inputPodSpec.Containers[0],
+			&scenario.inputPodSpec.Volumes,
 		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -1574,7 +1365,7 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
-			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+			if diff := cmp.Diff(scenario.expectedPodSpec, scenario.inputPodSpec); diff != "" {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
@@ -1613,90 +1404,74 @@ func TestAzureCredentialBuilder(t *testing.T) {
 	}
 
 	scenarios := map[string]struct {
-		serviceAccount        *corev1.ServiceAccount
-		inputConfiguration    *knservingv1.Configuration
-		expectedConfiguration *knservingv1.Configuration
-		shouldFail            bool
+		serviceAccount  *corev1.ServiceAccount
+		inputPodSpec    *corev1.PodSpec
+		expectedPodSpec *corev1.PodSpec
+		shouldFail      bool
 	}{
 		"Custom Azure Secret": {
 			serviceAccount: customOnlyServiceAccount,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
-							},
-						},
-					},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
 				},
 			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Env: []corev1.EnvVar{
-											{
-												Name: azure.AzureSubscriptionId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "az-custom-secret",
-														},
-														Key: azure.AzureSubscriptionId,
-													},
-												},
-											},
-											{
-												Name: azure.AzureTenantId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "az-custom-secret",
-														},
-														Key: azure.AzureTenantId,
-													},
-												},
-											},
-											{
-												Name: azure.AzureClientId,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "az-custom-secret",
-														},
-														Key: azure.AzureClientId,
-													},
-												},
-											},
-											{
-												Name: azure.AzureClientSecret,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "az-custom-secret",
-														},
-														Key: azure.AzureClientSecret,
-													},
-												},
-											},
-											{
-												Name: azure.AzureStorageAccessKey,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "az-custom-secret",
-														},
-														Key: azure.AzureStorageAccessKey,
-													},
-												},
-											},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Env: []corev1.EnvVar{
+							{
+								Name: azure.AzureSubscriptionId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "az-custom-secret",
 										},
+										Key: azure.AzureSubscriptionId,
+									},
+								},
+							},
+							{
+								Name: azure.AzureTenantId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "az-custom-secret",
+										},
+										Key: azure.AzureTenantId,
+									},
+								},
+							},
+							{
+								Name: azure.AzureClientId,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "az-custom-secret",
+										},
+										Key: azure.AzureClientId,
+									},
+								},
+							},
+							{
+								Name: azure.AzureClientSecret,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "az-custom-secret",
+										},
+										Key: azure.AzureClientSecret,
+									},
+								},
+							},
+							{
+								Name: azure.AzureStorageAccessKey,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "az-custom-secret",
+										},
+										Key: azure.AzureStorageAccessKey,
 									},
 								},
 							},
@@ -1718,8 +1493,8 @@ func TestAzureCredentialBuilder(t *testing.T) {
 			scenario.serviceAccount.Namespace,
 			nil,
 			scenario.serviceAccount.Name,
-			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
-			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+			&scenario.inputPodSpec.Containers[0],
+			&scenario.inputPodSpec.Volumes,
 		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -1729,7 +1504,7 @@ func TestAzureCredentialBuilder(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
-			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+			if diff := cmp.Diff(scenario.expectedPodSpec, scenario.inputPodSpec); diff != "" {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
@@ -1764,46 +1539,30 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 	}
 
 	scenarios := map[string]struct {
-		serviceAccount        *corev1.ServiceAccount
-		inputConfiguration    *knservingv1.Configuration
-		expectedConfiguration *knservingv1.Configuration
-		shouldFail            bool
+		serviceAccount  *corev1.ServiceAccount
+		inputPodSpec    *corev1.PodSpec
+		expectedPodSpec *corev1.PodSpec
+		shouldFail      bool
 	}{
 		"Custom Azure Secret": {
 			serviceAccount: customOnlyServiceAccount,
-			inputConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{},
-								},
-							},
-						},
-					},
+			inputPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{},
 				},
 			},
-			expectedConfiguration: &knservingv1.Configuration{
-				Spec: knservingv1.ConfigurationSpec{
-					Template: knservingv1.RevisionTemplateSpec{
-						Spec: knservingv1.RevisionSpec{
-							PodSpec: corev1.PodSpec{
-								Containers: []corev1.Container{
-									{
-										Env: []corev1.EnvVar{
-											{
-												Name: azure.AzureStorageAccessKey,
-												ValueFrom: &corev1.EnvVarSource{
-													SecretKeyRef: &corev1.SecretKeySelector{
-														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "az-custom-secret",
-														},
-														Key: azure.AzureStorageAccessKey,
-													},
-												},
-											},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Env: []corev1.EnvVar{
+							{
+								Name: azure.AzureStorageAccessKey,
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "az-custom-secret",
 										},
+										Key: azure.AzureStorageAccessKey,
 									},
 								},
 							},
@@ -1825,8 +1584,8 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 			scenario.serviceAccount.Namespace,
 			nil,
 			scenario.serviceAccount.Name,
-			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
-			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+			&scenario.inputPodSpec.Containers[0],
+			&scenario.inputPodSpec.Volumes,
 		)
 		if scenario.shouldFail && err == nil {
 			t.Errorf("Test %q failed: returned success but expected error", name)
@@ -1836,7 +1595,7 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 			if err != nil {
 				t.Errorf("Test %q failed: returned error: %v", name, err)
 			}
-			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+			if diff := cmp.Diff(scenario.expectedPodSpec, scenario.inputPodSpec); diff != "" {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}

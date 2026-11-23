@@ -58,8 +58,7 @@ const (
 	// ReasonImportJobConflict indicates the deterministic import Job name is occupied by a foreign Job.
 	ReasonImportJobConflict = "ImportJobConflict"
 	// ReasonReimportBlocked indicates the retained import Job is gone after a successful import,
-	// but InferenceService or LLMInferenceService consumers still reference the cache, so no
-	// replacement import Job is created until they are removed.
+	// but Pods still mount the claim, so no replacement import Job is created until they exit.
 	ReasonReimportBlocked = "ReimportBlocked"
 	// ReasonImportSucceeded indicates the import Job completed successfully.
 	ReasonImportSucceeded = "ImportSucceeded"

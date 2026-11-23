@@ -32,10 +32,8 @@ CURRENT_YEAR := $(shell date +%Y)
 
 # Base Image URL
 BASE_IMG ?= python:3.11-slim-bookworm
-PMML_BASE_IMG ?= eclipse-temurin:21-jdk-noble
 
 CRD_OPTIONS ?= "crd:maxDescLen=0"
-KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -46,12 +44,6 @@ ENGINE ?= docker
 # Empty string for local build when using podman, it allows to build different architectures
 # to use do: ENGINE=podman ARCH="--arch x86_64" make docker-build-something
 ARCH ?=
-
-# CPU/Memory limits for controller-manager
-KSERVE_CONTROLLER_CPU_LIMIT ?= 100m
-KSERVE_CONTROLLER_MEMORY_LIMIT ?= 300Mi
-$(shell perl -pi -e 's/cpu:.*/cpu: $(KSERVE_CONTROLLER_CPU_LIMIT)/' config/default/manager_resources_patch.yaml)
-$(shell perl -pi -e 's/memory:.*/memory: $(KSERVE_CONTROLLER_MEMORY_LIMIT)/' config/default/manager_resources_patch.yaml)
 
 # Force the Go toolchain defined in go.mod.
 # When GOTOOLCHAIN=auto, the Go command may download a minimal toolchain to the
@@ -77,7 +69,7 @@ ifdef GOTAGS
 export GOFLAGS += -tags=$(GOTAGS)
 endif
 
-all: test manager agent router
+all: test build
 
 ##@ General
 

@@ -48,7 +48,7 @@ func (r *KernelCacheNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(r.enqueueCurrentNode), builder.WithPredicates(r.currentNodeReadinessPredicate())).
 		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.enqueueCurrentNodeForPod), builder.WithPredicates(r.currentPodPredicate())).
 		Watches(&batchv1.Job{}, handler.EnqueueRequestsFromMapFunc(r.enqueueCurrentNodeForJob), builder.WithPredicates(r.currentJobPredicate())).
-		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(r.enqueueCurrentNodeForConfigMap), builder.WithPredicates(r.inferenceServiceConfigMapPredicate())).
+		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(r.enqueueCurrentNodeForConfigMap), builder.WithPredicates(r.localModelConfigMapPredicate())).
 		Complete(r)
 }
 
@@ -100,9 +100,9 @@ func (r *KernelCacheNodeReconciler) isRelevantJob(obj client.Object) bool {
 	return true
 }
 
-func (r *KernelCacheNodeReconciler) inferenceServiceConfigMapPredicate() predicate.Funcs {
+func (r *KernelCacheNodeReconciler) localModelConfigMapPredicate() predicate.Funcs {
 	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		return obj.GetNamespace() == constants.KServeNamespace && obj.GetName() == constants.InferenceServiceConfigMapName
+		return obj.GetNamespace() == constants.KServeNamespace && obj.GetName() == constants.LocalModelConfigMapName
 	})
 }
 
@@ -127,12 +127,12 @@ func (r *KernelCacheNodeReconciler) enqueueCurrentNodeForConfigMap(ctx context.C
 
 func (r *KernelCacheNodeReconciler) currentPodPredicate() predicate.Funcs {
 	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		return obj.GetLabels()[constants.InferenceServicePodLabelKey] != ""
+		return obj.GetLabels()[constants.KernelCacheWorkloadLabelKey] != ""
 	})
 }
 
 func (r *KernelCacheNodeReconciler) enqueueCurrentNodeForPod(_ context.Context, obj client.Object) []reconcile.Request {
-	if obj.GetLabels()[constants.InferenceServicePodLabelKey] == "" {
+	if obj.GetLabels()[constants.KernelCacheWorkloadLabelKey] == "" {
 		return nil
 	}
 

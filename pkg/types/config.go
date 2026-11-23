@@ -57,15 +57,3 @@ type StorageInitializerConfig struct {
 	// persistentVolumeClaim, or hostPath.
 	ModelVolumeSource *corev1.VolumeSource `json:"modelVolumeSource,omitempty"`
 }
-
-// ResolveOciModelMode returns the effective OCI model mode for the given config.
-// Priority: OciModelMode (explicit) > EnableOciImageSource/EnableOciModelSupport (backcompat) > "" (disabled).
-func ResolveOciModelMode(cfg *StorageInitializerConfig) string {
-	if cfg.OciModelMode != "" {
-		return cfg.OciModelMode
-	}
-	if cfg.EnableOciImageSource || cfg.EnableOciModelSupport {
-		return OciModelModeModelcar
-	}
-	return ""
-}

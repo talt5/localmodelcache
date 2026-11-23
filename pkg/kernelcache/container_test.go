@@ -20,8 +20,6 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestResolveRuntimeContainerName(t *testing.T) {
@@ -39,24 +37,29 @@ func TestResolveRuntimeContainerName(t *testing.T) {
 			want:       "custom-runtime",
 		},
 		{
-			name:       "defaults to inference service container",
-			containers: []corev1.Container{{Name: constants.InferenceServiceContainerName}},
-			want:       constants.InferenceServiceContainerName,
+			name:       "defaults to the only container",
+			containers: []corev1.Container{{Name: "vllm"}},
+			want:       "vllm",
 		},
 		{
-			name:       "falls back to llm inference service container",
-			containers: []corev1.Container{{Name: constants.LLMInferenceServiceContainerName}},
-			want:       constants.LLMInferenceServiceContainerName,
+			name:       "ignores the capture sidecar",
+			containers: []corev1.Container{{Name: "vllm"}, {Name: MCVContainerName}},
+			want:       "vllm",
 		},
 		{
 			name:        "rejects missing explicit container",
-			containers:  []corev1.Container{{Name: constants.InferenceServiceContainerName}},
+			containers:  []corev1.Container{{Name: "vllm"}},
 			requested:   "custom-runtime",
 			wantFailure: true,
 		},
 		{
-			name:        "rejects when no standard container is present",
-			containers:  []corev1.Container{{Name: "custom-runtime"}},
+			name:        "rejects several containers without an explicit name",
+			containers:  []corev1.Container{{Name: "vllm"}, {Name: "proxy"}},
+			wantFailure: true,
+		},
+		{
+			name:        "rejects a pod with only the sidecar",
+			containers:  []corev1.Container{{Name: MCVContainerName}},
 			wantFailure: true,
 		},
 	}

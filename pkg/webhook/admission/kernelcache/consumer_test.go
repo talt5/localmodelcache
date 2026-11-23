@@ -24,8 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 )
 
 func TestInjectKernelCacheMountResolvesOptionalContainerPath(t *testing.T) {
@@ -61,7 +60,7 @@ func TestInjectKernelCacheMountResolvesOptionalContainerPath(t *testing.T) {
 			pod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Name: "model-pod", Namespace: "team"},
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{
-					Name: constants.InferenceServiceContainerName,
+					Name: "vllm",
 					Env:  test.env,
 				}}},
 			}
@@ -79,7 +78,7 @@ func TestInjectKernelCacheMountResolvesOptionalContainerPath(t *testing.T) {
 				},
 			}
 
-			err := injectKernelCacheMount(pod, cache, &v1beta1.KernelCacheConfig{})
+			err := injectKernelCacheMount(pod, cache, &kernelcacheconfig.KernelCacheConfig{})
 			require.NoError(t, err)
 			require.Contains(t, pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 				Name:      "kernel-cache-runtime-0",
@@ -95,7 +94,7 @@ func TestInjectKernelCacheMountRejectsUnresolvedEnvironment(t *testing.T) {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: "model-pod", Namespace: "team"},
 		Spec: corev1.PodSpec{Containers: []corev1.Container{{
-			Name: constants.InferenceServiceContainerName,
+			Name: "vllm",
 			Env: []corev1.EnvVar{{
 				Name:      "VLLM_CACHE_ROOT",
 				ValueFrom: &corev1.EnvVarSource{},
@@ -113,6 +112,6 @@ func TestInjectKernelCacheMountRejectsUnresolvedEnvironment(t *testing.T) {
 		},
 	}
 
-	err := injectKernelCacheMount(pod, cache, &v1beta1.KernelCacheConfig{})
+	err := injectKernelCacheMount(pod, cache, &kernelcacheconfig.KernelCacheConfig{})
 	require.ErrorContains(t, err, "VLLM_CACHE_ROOT uses valueFrom")
 }

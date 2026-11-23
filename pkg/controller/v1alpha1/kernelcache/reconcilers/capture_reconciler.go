@@ -42,7 +42,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
 	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
@@ -91,18 +90,18 @@ const (
 
 var errCaptureProducerGone = errors.New("capture producer Pod is no longer available")
 
-// KernelCacheCaptureReconciler processes capture results for enabled InferenceServices.
+// KernelCacheCaptureReconciler processes capture results for Deployments that opt into the kernel cache.
 type KernelCacheCaptureReconciler struct {
 	client.Client
 	Reader client.Reader
 }
 
 func (r *KernelCacheCaptureReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	inferenceService := &v1beta1.InferenceService{}
-	if err := r.Get(ctx, req.NamespacedName, inferenceService); err != nil {
+	deployment := &appsv1.Deployment{}
+	if err := r.Get(ctx, req.NamespacedName, deployment); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	if !inferenceService.DeletionTimestamp.IsZero() {
+	if !deployment.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 
@@ -115,11 +114,11 @@ func (r *KernelCacheCaptureReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	captures := &v1alpha1.KernelCacheCaptureList{}
-	if err := r.List(ctx, captures, client.InNamespace(inferenceService.Namespace)); err != nil {
+	if err := r.List(ctx, captures, client.InNamespace(deployment.Namespace)); err != nil {
 		return ctrl.Result{}, err
 	}
 	for i := range captures.Items {
-		if !captureReferencesInferenceService(&captures.Items[i], inferenceService) {
+		if !captureReferencesDeployment(&captures.Items[i], deployment) {
 			continue
 		}
 		current, err := r.reconcileRuntimeResult(ctx, &captures.Items[i])
@@ -221,7 +220,7 @@ func (r *KernelCacheCaptureReconciler) deleteOwnedCaptureObject(ctx context.Cont
 func (r *KernelCacheCaptureReconciler) shouldDeleteGeneratedCapture(
 	ctx context.Context,
 	capture *v1alpha1.KernelCacheCapture,
-	config *v1beta1.KernelCacheConfig,
+	config *kernelcacheconfig.KernelCacheConfig,
 ) (bool, error) {
 	if capture.Labels[constants.KernelCacheCaptureGeneratedLabelKey] != "true" {
 		return false, nil
@@ -304,16 +303,16 @@ func (r *KernelCacheCaptureReconciler) markCaptureProducerGone(ctx context.Conte
 
 func (r *KernelCacheCaptureReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta1.InferenceService{}).
+		For(&appsv1.Deployment{}, builder.WithPredicates(kernelCacheDeploymentPredicate())).
 		Watches(&v1alpha1.KernelCacheCapture{}, handler.EnqueueRequestsFromMapFunc(r.captureSourceRequests)).
 		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.capturePodSourceRequests), builder.WithPredicates(capturePodPredicate())).
 		Complete(r)
 }
 
-// capturePodPredicate accepts only Pods associated with an InferenceService.
+// capturePodPredicate accepts only Pods the kernel cache webhook mapped to a Deployment.
 func capturePodPredicate() predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		return obj.GetLabels()[constants.InferenceServicePodLabelKey] != ""
+		return obj.GetLabels()[constants.KernelCacheWorkloadLabelKey] != ""
 	})
 }
 
@@ -322,14 +321,14 @@ func (r *KernelCacheCaptureReconciler) capturePodSourceRequests(_ context.Contex
 	if !ok {
 		return nil
 	}
-	inferenceServiceName := pod.Labels[constants.InferenceServicePodLabelKey]
-	if inferenceServiceName == "" {
+	deploymentName := pod.Labels[constants.KernelCacheWorkloadLabelKey]
+	if deploymentName == "" {
 		return nil
 	}
-	return []reconcile.Request{{NamespacedName: client.ObjectKey{Namespace: pod.Namespace, Name: inferenceServiceName}}}
+	return []reconcile.Request{{NamespacedName: client.ObjectKey{Namespace: pod.Namespace, Name: deploymentName}}}
 }
 
-func captureSigningSpec(config *v1beta1.KernelCacheConfig) *v1alpha1.KernelCacheSigningSpec {
+func captureSigningSpec(config *kernelcacheconfig.KernelCacheConfig) *v1alpha1.KernelCacheSigningSpec {
 	if config.ArtifactSecurity.Mode != string(kernelcachetypes.ModeCert) || config.ArtifactSecurity.Cert.SigningProfileRef == "" {
 		return nil
 	}
@@ -340,7 +339,7 @@ func captureSigningSpec(config *v1beta1.KernelCacheConfig) *v1alpha1.KernelCache
 
 func (r *KernelCacheCaptureReconciler) captureSourceRequests(_ context.Context, object client.Object) []reconcile.Request {
 	capture, ok := object.(*v1alpha1.KernelCacheCapture)
-	if !ok || capture.Spec.SourceRef.Kind != "InferenceService" {
+	if !ok || capture.Spec.SourceRef.Kind != constants.KernelCacheWorkloadKind {
 		return nil
 	}
 	return []reconcile.Request{{NamespacedName: types.NamespacedName{
@@ -349,10 +348,10 @@ func (r *KernelCacheCaptureReconciler) captureSourceRequests(_ context.Context, 
 	}}}
 }
 
-func captureReferencesInferenceService(capture *v1alpha1.KernelCacheCapture, inferenceService *v1beta1.InferenceService) bool {
-	return capture.Namespace == inferenceService.Namespace &&
-		capture.Spec.SourceRef.Kind == "InferenceService" &&
-		capture.Spec.SourceRef.Name == inferenceService.Name
+func captureReferencesDeployment(capture *v1alpha1.KernelCacheCapture, deployment *appsv1.Deployment) bool {
+	return capture.Namespace == deployment.Namespace &&
+		capture.Spec.SourceRef.Kind == constants.KernelCacheWorkloadKind &&
+		capture.Spec.SourceRef.Name == deployment.Name
 }
 
 func (r *KernelCacheCaptureReconciler) reconcileRuntimeResult(ctx context.Context, capture *v1alpha1.KernelCacheCapture) (*v1alpha1.KernelCacheCapture, error) {
@@ -530,7 +529,7 @@ func captureRuntimeResultComplete(capture *v1alpha1.KernelCacheCapture) bool {
 func (r *KernelCacheCaptureReconciler) reconcileArtifactSigning(
 	ctx context.Context,
 	capture *v1alpha1.KernelCacheCapture,
-	config *v1beta1.KernelCacheConfig,
+	config *kernelcacheconfig.KernelCacheConfig,
 ) error {
 	if !captureRuntimeResultComplete(capture) {
 		return nil
@@ -647,7 +646,7 @@ func (r *KernelCacheCaptureReconciler) reconcileArtifactSigning(
 	})
 }
 
-func captureSigningSecurityConfig(config *v1beta1.KernelCacheConfig) kernelcachetypes.SecurityConfig {
+func captureSigningSecurityConfig(config *kernelcacheconfig.KernelCacheConfig) kernelcachetypes.SecurityConfig {
 	securityConfig := config.ArtifactSecurity.ToSecurityConfig()
 	if securityConfig.Mode == kernelcachetypes.ModeCert && config.ArtifactSecurity.Cert.SigningProfileRef != "" {
 		securityConfig.Cert.SigningSecret = constants.KServeNamespace + "/" + config.ArtifactSecurity.Cert.SigningProfileRef
@@ -734,7 +733,11 @@ func (r *KernelCacheCaptureReconciler) completeCaptureStatus(ctx context.Context
 		return errCaptureProducerGone
 	}
 	for index := range cachePaths {
-		containerName, err := kernelcacheutil.ResolveRuntimeContainerName(capturePod.Spec.Containers, cachePaths[index].ContainerName)
+		requested := cachePaths[index].ContainerName
+		if requested == "" {
+			requested = capturePod.Annotations[constants.KernelCacheContainerAnnotationKey]
+		}
+		containerName, err := kernelcacheutil.ResolveRuntimeContainerName(capturePod.Spec.Containers, requested)
 		if err != nil {
 			return err
 		}
@@ -800,7 +803,7 @@ func (r *KernelCacheCaptureReconciler) capturePod(ctx context.Context, capture *
 	if pod.DeletionTimestamp != nil {
 		return nil, nil
 	}
-	if pod.Labels[constants.InferenceServicePodLabelKey] != capture.Spec.SourceRef.Name {
+	if pod.Labels[constants.KernelCacheWorkloadLabelKey] != capture.Spec.SourceRef.Name {
 		return nil, errors.New("capture Pod does not belong to sourceRef")
 	}
 	reader := r.Reader
@@ -812,7 +815,7 @@ func (r *KernelCacheCaptureReconciler) capturePod(ctx context.Context, capture *
 		if podRevisionID == "" {
 			return nil, errors.New("generated capture Pod revision label is required")
 		}
-		revision, err := workload.ResolveDeploymentBackedInferenceServiceRevision(ctx, reader, pod)
+		revision, err := workload.ResolveDeploymentRevision(ctx, reader, pod)
 		if err != nil {
 			return nil, err
 		}
@@ -827,7 +830,7 @@ func (r *KernelCacheCaptureReconciler) capturePod(ctx context.Context, capture *
 		if owner == nil || owner.Kind != "ReplicaSet" || owner.APIVersion != appsv1.SchemeGroupVersion.String() || owner.UID != revision.ReplicaSet.UID {
 			return nil, errors.New("capture Pod workload revision does not match capture owner")
 		}
-	} else if resolved, err := workload.ResolveDeploymentBackedInferenceService(ctx, reader, pod); err != nil {
+	} else if resolved, err := workload.ResolveDeployment(ctx, reader, pod); err != nil {
 		return nil, err
 	} else if resolved != nil && resolved.Name != capture.Spec.SourceRef.Name {
 		return nil, errors.New("capture Pod ownership chain does not match sourceRef")

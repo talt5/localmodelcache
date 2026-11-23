@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/kernelcache/captureconfig"
 	"github.com/kserve/kserve/pkg/kernelcache/reporter"
@@ -90,7 +89,7 @@ func TestCaptureControllerCreatesDeterministicCaptureAndReporterIdentity(t *test
 	require.NoError(t, appsv1.AddToScheme(scheme))
 	require.NoError(t, rbacv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 
 	const (
 		namespace   = "team"
@@ -101,16 +100,16 @@ func TestCaptureControllerCreatesDeterministicCaptureAndReporterIdentity(t *test
 	controller := true
 	captureValue, err := captureconfig.MarshalCaptureConfig(newTestCaptureConfig(captureName, sessionID))
 	require.NoError(t, err)
-	inferenceService := &v1beta1.InferenceService{
-		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: namespace, UID: "isvc-uid"},
-	}
+	deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{
+		Name: "model", Namespace: namespace, UID: "deployment-uid",
+	}}
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "model-pod",
 			Namespace: namespace,
 			UID:       podUID,
 			Labels: map[string]string{
-				constants.InferenceServicePodLabelKey: inferenceService.Name,
+				constants.KernelCacheWorkloadLabelKey: deployment.Name,
 				"pod-template-hash":                   "669889f77f",
 			},
 			Annotations: map[string]string{
@@ -128,28 +127,23 @@ func TestCaptureControllerCreatesDeterministicCaptureAndReporterIdentity(t *test
 		}}},
 	}
 	replicaSet := &appsv1.ReplicaSet{ObjectMeta: metav1.ObjectMeta{
-		Name: "model-predictor-rs", Namespace: namespace, UID: "replicaset-uid",
+		Name: "model-669889f77f", Namespace: namespace, UID: "replicaset-uid",
 		OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(
-			&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "model-predictor", Namespace: namespace, UID: "deployment-uid"}},
-			appsv1.SchemeGroupVersion.WithKind("Deployment"),
+			deployment, appsv1.SchemeGroupVersion.WithKind("Deployment"),
 		)},
-	}}
-	deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{
-		Name: "model-predictor", Namespace: namespace, UID: "deployment-uid",
-		OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(inferenceService, v1beta1.SchemeGroupVersion.WithKind("InferenceService"))},
 	}}
 	pod.OwnerReferences[0].Name = replicaSet.Name
 	pod.OwnerReferences[0].UID = replicaSet.UID
 	pod.OwnerReferences[0].APIVersion = appsv1.SchemeGroupVersion.String()
 	pod.OwnerReferences[0].Kind = "ReplicaSet"
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true}`},
 	}
 	namespaceObject := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(namespaceObject, configMap, inferenceService, deployment, replicaSet, pod).
+		WithObjects(namespaceObject, configMap, deployment, replicaSet, pod).
 		WithStatusSubresource(&v1alpha1.KernelCacheCapture{}).
 		Build()
 	clientset := kubernetesfake.NewSimpleClientset(pod.DeepCopy())
@@ -178,7 +172,7 @@ func TestCaptureControllerCreatesDeterministicCaptureAndReporterIdentity(t *test
 	require.NoError(t, k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: captureName}, capture))
 	require.Equal(t, "true", capture.Labels[constants.KernelCacheCaptureGeneratedLabelKey])
 	require.Empty(t, capture.Annotations)
-	require.Equal(t, v1alpha1.KernelCacheSourceRef{Kind: "InferenceService", Name: inferenceService.Name}, capture.Spec.SourceRef)
+	require.Equal(t, v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: deployment.Name}, capture.Spec.SourceRef)
 	require.Equal(t, "registry.example/team/cache:session", capture.Spec.TargetImage)
 	require.Equal(t, []v1alpha1.KernelCachePath{{ContainerName: "kserve-container", ContainerPath: "/tmp/vllm", OCIPath: "io.vllm.cache"}}, capture.Spec.CachePaths)
 	require.Len(t, capture.OwnerReferences, 1)
@@ -225,13 +219,13 @@ func TestCaptureControllerCreatesDeterministicCaptureAndReporterIdentity(t *test
 	require.True(t, apierrors.IsNotFound(err))
 }
 
-func TestCaptureControllerIgnoresPodWithoutVerifiedInferenceServiceOwner(t *testing.T) {
+func TestCaptureControllerIgnoresPodWithoutVerifiedDeploymentOwner(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, rbacv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 
 	const namespace = "team"
 	configValue, err := captureconfig.MarshalCaptureConfig(newTestCaptureConfig("model-capture", "session"))
@@ -240,7 +234,7 @@ func TestCaptureControllerIgnoresPodWithoutVerifiedInferenceServiceOwner(t *test
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "user-created-pod",
 			Namespace: namespace,
-			Labels:    map[string]string{constants.InferenceServicePodLabelKey: "model"},
+			Labels:    map[string]string{constants.KernelCacheWorkloadLabelKey: "model"},
 		},
 		Spec: corev1.PodSpec{Containers: []corev1.Container{{
 			Name: "mcv",
@@ -248,7 +242,7 @@ func TestCaptureControllerIgnoresPodWithoutVerifiedInferenceServiceOwner(t *test
 		}}},
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true}`},
 	}
 	namespaceObject := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
@@ -266,13 +260,13 @@ func TestCaptureControllerRemovesTokenRequesterBindingWhenDisabled(t *testing.T)
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, rbacv1.AddToScheme(scheme))
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":false}`},
 	}
 	namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "team"}}
-	service := &v1beta1.InferenceService{ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team"}}
+	service := optedInDeployment("model", "team")
 	binding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      reporter.TokenRequesterRole,
@@ -299,10 +293,13 @@ func TestCaptureControllerRemovesTokenRequesterBindingWhenDisabled(t *testing.T)
 func TestTokenRequesterBindingRequestsEnqueueWorkloadsInNamespace(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
-	require.NoError(t, v1beta1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
+	notOptedIn := optedInDeployment("plain", "team")
+	notOptedIn.Spec.Template.Annotations = nil
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
-		&v1beta1.InferenceService{ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team"}},
-		&v1beta1.InferenceService{ObjectMeta: metav1.ObjectMeta{Name: "other", Namespace: "other"}},
+		optedInDeployment("model", "team"),
+		notOptedIn,
+		optedInDeployment("other", "other"),
 	).Build()
 	r := &KernelCacheCaptureControllerReconciler{Client: c, Reader: c}
 
@@ -310,4 +307,14 @@ func TestTokenRequesterBindingRequestsEnqueueWorkloadsInNamespace(t *testing.T) 
 		Name: reporter.TokenRequesterRole, Namespace: "team",
 	}})
 	require.Equal(t, []ctrl.Request{{NamespacedName: client.ObjectKey{Namespace: "team", Name: "model"}}}, requests)
+}
+
+// optedInDeployment returns a Deployment whose Pods opt into the kernel cache.
+func optedInDeployment(name, namespace string) *appsv1.Deployment {
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{constants.KernelCacheSupportedAnnotationKey: "true"},
+		}}},
+	}
 }

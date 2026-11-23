@@ -30,11 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
-	"knative.dev/pkg/apis"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -165,6 +161,9 @@ var _ = Describe("CachedModel controller", func() {
 				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
 				return err == nil && cachedModel.Status.ModelCopies != nil
 			}, timeout, interval).Should(BeTrue())
+			// A cluster-scoped cache reports where the files are, but exposes no claims.
+			Expect(cachedModel.Status.SubPath).To(Equal(v1alpha1.GetStorageSubPath(sourceModelUri)))
+			Expect(cachedModel.Status.PersistentVolumeClaims).To(BeEmpty())
 
 			persistentVolume1 := &corev1.PersistentVolume{}
 			Eventually(func() bool {
@@ -334,309 +333,6 @@ var _ = Describe("CachedModel controller", func() {
 				return false
 			}, timeout, interval).Should(BeTrue(), "LocalModelInfo should include imagePullSecrets")
 		})
-
-		It("Should create pvs and pvcs for inference services", func() {
-			ctx, cancel := context.WithCancel(context.Background())
-			DeferCleanup(cancel)
-			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "gpu1",
-				},
-				Spec: localModelNodeGroupSpec1,
-			}
-			nodeGroup2 := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "gpu2",
-				},
-				Spec: localModelNodeGroupSpec1,
-			}
-			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
-			Expect(k8sClient.Create(ctx, nodeGroup2)).Should(Succeed())
-			defer k8sClient.Delete(ctx, nodeGroup1)
-			defer k8sClient.Delete(ctx, nodeGroup2)
-
-			modelName := "iris2"
-			isvcNamespace := "default"
-			isvcName1 := "foo"
-			isvcName2 := "bar"
-			cachedModel := &v1alpha1.LocalModelCache{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: modelName,
-				},
-				Spec: localModelSpec,
-			}
-			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
-			defer func() {
-				Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName}, cachedModel)
-					return err != nil && errors.IsNotFound(err)
-				}, timeout, interval).Should(BeTrue(), "Should not get the local model after deletion")
-			}()
-			// No nodegroup annotation, should pick the default nodegroup,
-			// which is the first one in the model cache nodegroup list
-			isvc1 := &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      isvcName1,
-					Namespace: isvcNamespace,
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{
-						Model: &v1beta1.ModelSpec{
-							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
-								StorageURI: ptr.To(sourceModelUri),
-							},
-							ModelFormat: v1beta1.ModelFormat{Name: "sklearn"},
-						},
-					},
-				},
-			}
-			// Has nodegroup annotation, should pick the specified nodegroup
-			isvc2 := &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        isvcName2,
-					Namespace:   isvcNamespace,
-					Annotations: map[string]string{constants.NodeGroupAnnotationKey: "gpu2"},
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{
-						Model: &v1beta1.ModelSpec{
-							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
-								StorageURI: ptr.To(sourceModelUri),
-							},
-							ModelFormat: v1beta1.ModelFormat{Name: "sklearn"},
-						},
-					},
-				},
-			}
-
-			// Mutating webhook adds a local model label
-			cachedModelList := &v1alpha1.LocalModelCacheList{}
-			cachedModelList.Items = []v1alpha1.LocalModelCache{*cachedModel}
-			isvc1.DefaultInferenceService(nil, nil, nil, cachedModelList, nil)
-			isvc2.DefaultInferenceService(nil, nil, nil, cachedModelList, nil)
-
-			Expect(k8sClient.Create(ctx, isvc1)).Should(Succeed())
-			inferenceService1 := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: isvcName1, Namespace: isvcNamespace}, inferenceService1)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
-			Expect(k8sClient.Create(ctx, isvc2)).Should(Succeed())
-			inferenceService2 := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: isvcName2, Namespace: isvcNamespace}, inferenceService2)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
-
-			// Expects a pv and a pvc are created in the isvcNamespace
-			pvLookupKey1 := types.NamespacedName{Name: modelName + "-" + nodeGroup1.Name + "-" + isvcNamespace}
-			pvLookupKey2 := types.NamespacedName{Name: modelName + "-" + nodeGroup2.Name + "-" + isvcNamespace}
-			pvcLookupKey1 := types.NamespacedName{Name: modelName + "-" + nodeGroup1.Name, Namespace: isvcNamespace}
-			pvcLookupKey2 := types.NamespacedName{Name: modelName + "-" + nodeGroup2.Name, Namespace: isvcNamespace}
-
-			persistentVolume1 := &corev1.PersistentVolume{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pvLookupKey1, persistentVolume1)
-				return err == nil && persistentVolume1 != nil
-			}, timeout, interval).Should(BeTrue())
-			persistentVolume2 := &corev1.PersistentVolume{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pvLookupKey2, persistentVolume2)
-				return err == nil && persistentVolume2 != nil
-			}, timeout, interval).Should(BeTrue())
-
-			persistentVolumeClaim1 := &corev1.PersistentVolumeClaim{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pvcLookupKey1, persistentVolumeClaim1)
-				return err == nil && persistentVolumeClaim1 != nil
-			}, timeout, interval).Should(BeTrue())
-			persistentVolumeClaim2 := &corev1.PersistentVolumeClaim{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pvcLookupKey2, persistentVolumeClaim2)
-				return err == nil && persistentVolumeClaim2 != nil
-			}, timeout, interval).Should(BeTrue())
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName}, cachedModel)
-				if err != nil {
-					return false
-				}
-				if len(cachedModel.Status.InferenceServices) != 2 {
-					return false
-				}
-				// Check for both services in any order
-				foundIsvc1 := false
-				foundIsvc2 := false
-
-				for _, isvc := range cachedModel.Status.InferenceServices {
-					if isvc.Name == isvcName1 && isvc.Namespace == isvcNamespace {
-						foundIsvc1 = true
-					} else if isvc.Name == isvcName2 && isvc.Namespace == isvcNamespace {
-						foundIsvc2 = true
-					}
-				}
-
-				return foundIsvc1 && foundIsvc2
-			}, timeout, interval).Should(BeTrue(), "Node status should have both isvcs")
-
-			Expect(k8sClient.Delete(ctx, isvc1)).Should(Succeed())
-			Expect(k8sClient.Delete(ctx, isvc2)).Should(Succeed())
-		})
-
-		It("Should track LLMInferenceService in cluster-scoped cache status", func() {
-			defer GinkgoRecover()
-			ctx, cancel := context.WithCancel(context.Background())
-			DeferCleanup(cancel)
-			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "gpu1",
-				},
-				Spec: localModelNodeGroupSpec1,
-			}
-			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
-			defer k8sClient.Delete(ctx, nodeGroup1)
-
-			modelName := fmt.Sprintf("llm-cache-%d", time.Now().UnixNano())
-			llmSvcName := "test-llm-svc"
-			llmSvcNamespace := "default"
-			cachedModel := &v1alpha1.LocalModelCache{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: modelName,
-				},
-				Spec: v1alpha1.LocalModelCacheSpec{
-					SourceModelUri: sourceModelUri,
-					ModelSize:      resource.MustParse("10Gi"),
-					NodeGroups:     []string{"gpu1"},
-				},
-			}
-			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
-			defer func() {
-				Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName}, cachedModel)
-					return err != nil && errors.IsNotFound(err)
-				}, timeout, interval).Should(BeTrue())
-			}()
-
-			// Create LLMInferenceService with localmodel label (simulating the webhook)
-			modelUri, _ := apis.ParseURL(sourceModelUri)
-			llmSvc := &v1alpha2.LLMInferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      llmSvcName,
-					Namespace: llmSvcNamespace,
-					Labels: map[string]string{
-						constants.LocalModelLabel: modelName,
-					},
-					Annotations: map[string]string{
-						constants.LocalModelSourceUriAnnotationKey: sourceModelUri,
-						constants.LocalModelPVCNameAnnotationKey:   modelName + "-gpu1",
-					},
-				},
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Model: v1alpha2.LLMModelSpec{
-						URI: *modelUri,
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, llmSvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, llmSvc)
-
-			// Verify the cache status tracks the LLMInferenceService
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName}, cachedModel)
-				if err != nil {
-					return false
-				}
-				if len(cachedModel.Status.LLMInferenceServices) != 1 {
-					return false
-				}
-				return cachedModel.Status.LLMInferenceServices[0].Name == llmSvcName &&
-					cachedModel.Status.LLMInferenceServices[0].Namespace == llmSvcNamespace
-			}, timeout, interval).Should(BeTrue(), "Cache status should track the LLMInferenceService")
-		})
-
-		It("Should track LLMInferenceService referenced only via LoRA adapter in cluster-scoped cache status", func() {
-			defer GinkgoRecover()
-			ctx, cancel := context.WithCancel(context.Background())
-			DeferCleanup(cancel)
-			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "gpu1",
-				},
-				Spec: localModelNodeGroupSpec1,
-			}
-			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
-			defer k8sClient.Delete(ctx, nodeGroup1)
-
-			adapterURI := "hf://org/lora-adapter-only"
-			baseURI := "hf://org/remote-base"
-			modelName := fmt.Sprintf("lora-adapter-cache-%d", time.Now().UnixNano())
-			llmSvcName := "test-llm-lora-adapter-only"
-			llmSvcNamespace := "default"
-			cachedModel := &v1alpha1.LocalModelCache{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: modelName,
-				},
-				Spec: v1alpha1.LocalModelCacheSpec{
-					SourceModelUri: adapterURI,
-					ModelSize:      resource.MustParse("10Gi"),
-					NodeGroups:     []string{"gpu1"},
-				},
-			}
-			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
-			defer func() {
-				Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName}, cachedModel)
-					return err != nil && errors.IsNotFound(err)
-				}, timeout, interval).Should(BeTrue())
-			}()
-
-			baseModelURI, err := apis.ParseURL(baseURI)
-			Expect(err).NotTo(HaveOccurred())
-			adapterModelURI, err := apis.ParseURL(adapterURI)
-			Expect(err).NotTo(HaveOccurred())
-			llmSvc := &v1alpha2.LLMInferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      llmSvcName,
-					Namespace: llmSvcNamespace,
-					Annotations: map[string]string{
-						constants.LocalModelLoRAAnnotationKey: fmt.Sprintf(
-							`{"my-adapter":{"cache":%q}}`,
-							modelName,
-						),
-					},
-				},
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Model: v1alpha2.LLMModelSpec{
-						URI: *baseModelURI,
-						LoRA: &v1alpha2.LoRASpec{
-							Adapters: []v1alpha2.LLMModelSpec{
-								{
-									Name: ptr.To("my-adapter"),
-									URI:  *adapterModelURI,
-								},
-							},
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, llmSvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, llmSvc)
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName}, cachedModel)
-				if err != nil {
-					return false
-				}
-				if len(cachedModel.Status.LLMInferenceServices) != 1 {
-					return false
-				}
-				return cachedModel.Status.LLMInferenceServices[0].Name == llmSvcName &&
-					cachedModel.Status.LLMInferenceServices[0].Namespace == llmSvcNamespace
-			}, timeout, interval).Should(BeTrue(), "Cache status should track the LLMInferenceService via LoRA adapter reference")
-		})
 	})
 
 	Context("When DisableVolumeManagement is set to true", func() {
@@ -646,7 +342,7 @@ var _ = Describe("CachedModel controller", func() {
 
 			// Update configmap to enable DisableVolumeManagement
 			configMap := &corev1.ConfigMap{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)).Should(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, configMap)).Should(Succeed())
 			originalData := configMap.Data["localModel"]
 			configMap.Data["localModel"] = `{
 				"jobNamespace": "kserve-localmodel-jobs",
@@ -979,119 +675,163 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 			}, timeout, interval).Should(BeTrue(), "Node status should be downloaded")
 		})
 
-		It("Should create pvs and pvcs for inference services in the same namespace only", func() {
+		It("Should create the serving PV and PVC in its own namespace without any consumer", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
-			testNamespace := fmt.Sprintf("test-ns-isvc-%d", time.Now().UnixNano())
-			otherNamespace := fmt.Sprintf("other-ns-%d", time.Now().UnixNano())
+			testNamespace := fmt.Sprintf("test-ns-serving-%d", time.Now().UnixNano())
 			namespaceObj := createTestNamespace(ctx, testNamespace)
 			defer k8sClient.Delete(ctx, namespaceObj)
-			otherNamespaceObj := createTestNamespace(ctx, otherNamespace)
-			defer k8sClient.Delete(ctx, otherNamespaceObj)
 
 			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "gpu1",
-				},
-				Spec: localModelNodeGroupSpec1,
+				ObjectMeta: metav1.ObjectMeta{Name: "gpu1"},
+				Spec:       localModelNodeGroupSpec1,
 			}
 			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
 			defer k8sClient.Delete(ctx, nodeGroup1)
 
-			modelName := "ns-iris2"
+			modelName := "ns-serving"
 			cachedModel := &v1alpha1.LocalModelNamespaceCache{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      modelName,
-					Namespace: testNamespace,
-				},
-				Spec: localModelNamespaceSpec,
+				ObjectMeta: metav1.ObjectMeta{Name: modelName, Namespace: testNamespace},
+				Spec:       localModelNamespaceSpec,
+			}
+			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
+
+			servingPVName := modelName + "-gpu1-" + testNamespace
+			servingPVCName := modelName + "-gpu1"
+
+			servingPV := &corev1.PersistentVolume{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: servingPVName}, servingPV)
+			}, timeout, interval).Should(Succeed(), "serving PV should be created without any consumer")
+			Expect(servingPV.Spec.NodeAffinity).To(Equal(localModelNodeGroupSpec1.PersistentVolumeSpec.NodeAffinity))
+			Expect(servingPV.Spec.HostPath.Path).To(Equal("/models/"+v1alpha1.GetStorageSubPath(sourceModelUri)),
+				"the serving PV should expose only this model's folder")
+
+			// The download Job mounts models/<storage key> itself, so its PV keeps the root.
+			downloadPV := &corev1.PersistentVolume{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: servingPVName + "-download"}, downloadPV)
+			}, timeout, interval).Should(Succeed())
+			Expect(downloadPV.Spec.HostPath.Path).To(Equal("/models"))
+
+			servingPVC := &corev1.PersistentVolumeClaim{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: servingPVCName, Namespace: testNamespace}, servingPVC)
+			}, timeout, interval).Should(Succeed(), "serving PVC should be created in the cache namespace")
+			Expect(servingPVC.Spec.VolumeName).To(Equal(servingPVName))
+			Expect(metav1.IsControlledBy(servingPVC, cachedModel)).To(BeTrue(), "the cache should own its serving PVC")
+
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: modelName, Namespace: testNamespace}, cachedModel)).To(Succeed())
+				g.Expect(cachedModel.Status.PersistentVolumeClaims).To(Equal([]string{servingPVCName}))
+				g.Expect(cachedModel.Status.SubPath).To(BeEmpty())
+			}, timeout, interval).Should(Succeed(), "status should tell workloads which claim to mount, with no subPath")
+
+			// Deleting the cache deletes the cluster-scoped serving PV, which it cannot own. The
+			// admission-added pv-protection finalizer keeps it Terminating in envtest, where no
+			// controller releases it.
+			Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
+			Eventually(func() bool {
+				pv := &corev1.PersistentVolume{}
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: servingPVName}, pv)
+				return errors.IsNotFound(err) || (err == nil && !pv.DeletionTimestamp.IsZero())
+			}, timeout, interval).Should(BeTrue(), "serving PV should be deleted with the cache")
+		})
+
+		It("Should not create the serving PVC when volume management is disabled", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			configMap := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, configMap)).Should(Succeed())
+			originalData := configMap.Data["localModel"]
+			configMap.Data["localModel"] = `{
+				"jobNamespace": "kserve-localmodel-jobs",
+				"defaultJobImage": "kserve/storage-initializer:latest",
+				"disableVolumeManagement": true
+			}`
+			Expect(k8sClient.Update(ctx, configMap)).Should(Succeed())
+			defer func() {
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, configMap)).Should(Succeed())
+				configMap.Data["localModel"] = originalData
+				Expect(k8sClient.Update(ctx, configMap)).Should(Succeed())
+			}()
+
+			testNamespace := fmt.Sprintf("test-ns-novolume-%d", time.Now().UnixNano())
+			namespaceObj := createTestNamespace(ctx, testNamespace)
+			defer k8sClient.Delete(ctx, namespaceObj)
+
+			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{Name: "gpu1"},
+				Spec:       localModelNodeGroupSpec1,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup1)
+
+			modelName := "ns-novolume"
+			cachedModel := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: modelName, Namespace: testNamespace},
+				Spec:       localModelNamespaceSpec,
 			}
 			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
 			defer k8sClient.Delete(ctx, cachedModel)
 
-			isvcName1 := "ns-foo"
-			isvc1 := &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      isvcName1,
-					Namespace: testNamespace,
-					Labels: map[string]string{
-						constants.LocalModelLabel:          modelName,
-						constants.LocalModelNamespaceLabel: testNamespace,
-					},
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{
-						Model: &v1beta1.ModelSpec{
-							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
-								StorageURI: ptr.To(sourceModelUri),
-							},
-							ModelFormat: v1beta1.ModelFormat{Name: "sklearn"},
-						},
-					},
-				},
+			// The download PVC still exists; only the serving claim is left to the user.
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: modelName + "-gpu1-" + testNamespace + "-download", Namespace: modelCacheNamespace}, &corev1.PersistentVolumeClaim{})
+			}, timeout, interval).Should(Succeed())
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName + "-gpu1", Namespace: testNamespace}, &corev1.PersistentVolumeClaim{})
+				return errors.IsNotFound(err)
+			}, time.Second*2, interval).Should(BeTrue(), "no serving PVC when volume management is disabled")
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: modelName, Namespace: testNamespace}, cachedModel)).Should(Succeed())
+			Expect(cachedModel.Status.PersistentVolumeClaims).To(BeEmpty())
+			Expect(cachedModel.Status.SubPath).To(Equal(v1alpha1.GetStorageSubPath(sourceModelUri)),
+				"users who manage the volume need the model's path in it")
+		})
+
+		It("Should not offer a claim backed by a PV that exposes another path", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			testNamespace := fmt.Sprintf("test-ns-stalepv-%d", time.Now().UnixNano())
+			namespaceObj := createTestNamespace(ctx, testNamespace)
+			defer k8sClient.Delete(ctx, namespaceObj)
+
+			modelName := "ns-stalepv"
+			// A PV left by an earlier version, or by a deleted cache of another model.
+			stalePV := &corev1.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{Name: modelName + "-gpu1-" + testNamespace},
+				Spec:       *localModelNodeGroupSpec1.PersistentVolumeSpec.DeepCopy(),
 			}
+			Expect(k8sClient.Create(ctx, stalePV)).Should(Succeed())
+			defer k8sClient.Delete(ctx, stalePV)
 
-			isvcName2 := "ns-bar"
-			isvc2 := &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      isvcName2,
-					Namespace: otherNamespace,
-					Labels: map[string]string{
-						constants.LocalModelLabel:          modelName,
-						constants.LocalModelNamespaceLabel: testNamespace, // Wrong - ISVC is in different namespace
-					},
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{
-						Model: &v1beta1.ModelSpec{
-							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
-								StorageURI: ptr.To(sourceModelUri),
-							},
-							ModelFormat: v1beta1.ModelFormat{Name: "sklearn"},
-						},
-					},
-				},
+			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{Name: "gpu1"},
+				Spec:       localModelNodeGroupSpec1,
 			}
+			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup1)
 
-			Expect(k8sClient.Create(ctx, isvc1)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc1)
-			Expect(k8sClient.Create(ctx, isvc2)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc2)
+			cachedModel := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: modelName, Namespace: testNamespace},
+				Spec:       localModelNamespaceSpec,
+			}
+			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
+			defer k8sClient.Delete(ctx, cachedModel)
 
-			inferenceService1 := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: isvcName1, Namespace: testNamespace}, inferenceService1)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
-
-			pvLookupKey := types.NamespacedName{Name: modelName + "-gpu1-" + testNamespace}
-			pvcLookupKey := types.NamespacedName{Name: modelName + "-gpu1", Namespace: testNamespace}
-
-			persistentVolume := &corev1.PersistentVolume{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pvLookupKey, persistentVolume)
-				return err == nil && persistentVolume != nil
-			}, timeout, interval).Should(BeTrue(), "Serving PV should be created for ISVC in same namespace")
-
-			persistentVolumeClaim := &corev1.PersistentVolumeClaim{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pvcLookupKey, persistentVolumeClaim)
-				return err == nil && persistentVolumeClaim != nil
-			}, timeout, interval).Should(BeTrue(), "Serving PVC should be created for ISVC in same namespace")
-
-			modelLookupKey := types.NamespacedName{Name: modelName, Namespace: testNamespace}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
-				if err != nil {
-					return false
-				}
-				if len(cachedModel.Status.InferenceServices) != 1 {
-					return false
-				}
-				return cachedModel.Status.InferenceServices[0].Name == isvcName1 &&
-					cachedModel.Status.InferenceServices[0].Namespace == testNamespace
-			}, timeout, interval).Should(BeTrue(), "Status should only include ISVC from the same namespace")
+			// The download still goes ahead.
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: stalePV.Name + "-download", Namespace: modelCacheNamespace}, &corev1.PersistentVolumeClaim{})
+			}, timeout, interval).Should(Succeed())
+			Consistently(func(g Gomega) {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName + "-gpu1", Namespace: testNamespace}, &corev1.PersistentVolumeClaim{})
+				g.Expect(errors.IsNotFound(err)).To(BeTrue(), "no claim should be bound to the stale PV")
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: modelName, Namespace: testNamespace}, cachedModel)).To(Succeed())
+				g.Expect(cachedModel.Status.PersistentVolumeClaims).To(BeEmpty())
+			}, time.Second*2, interval).Should(Succeed())
 		})
 
 		It("Should delete LocalModelNamespaceCache and run finalizer cleanup", func() {
@@ -1306,189 +1046,6 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 			// Note: In a real cluster, when LocalModelNamespaceCache is deleted,
 			// the finalizer explicitly deletes the PV since it cannot rely on garbage collection.
 			// This is verified by the finalizer being present and the deletion logic in utils.go.
-		})
-
-		It("Should create serving PV/PVC for ISVC and update status when ISVC is removed", func() {
-			ctx, cancel := context.WithCancel(context.Background())
-			DeferCleanup(cancel)
-
-			testNamespace := fmt.Sprintf("test-ns-cleanup-%d", time.Now().UnixNano())
-			namespaceObj := createTestNamespace(ctx, testNamespace)
-			defer k8sClient.Delete(ctx, namespaceObj)
-
-			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "gpu1",
-				},
-				Spec: localModelNodeGroupSpec1,
-			}
-			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
-			defer k8sClient.Delete(ctx, nodeGroup1)
-
-			modelName := "ns-iris-cleanup"
-			cachedModel := &v1alpha1.LocalModelNamespaceCache{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      modelName,
-					Namespace: testNamespace,
-				},
-				Spec: localModelNamespaceSpec,
-			}
-			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
-			defer k8sClient.Delete(ctx, cachedModel)
-
-			isvcName := "cleanup-isvc"
-			isvc := &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      isvcName,
-					Namespace: testNamespace,
-					Labels: map[string]string{
-						constants.LocalModelLabel:          modelName,
-						constants.LocalModelNamespaceLabel: testNamespace,
-					},
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{
-						Model: &v1beta1.ModelSpec{
-							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
-								StorageURI: ptr.To(sourceModelUri),
-							},
-							ModelFormat: v1beta1.ModelFormat{Name: "sklearn"},
-						},
-					},
-				},
-			}
-
-			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc)
-
-			inferenceService := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: isvcName, Namespace: testNamespace}, inferenceService)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
-
-			// Wait for the serving PVC to be created
-			servingPVCLookupKey := types.NamespacedName{Name: modelName + "-gpu1", Namespace: testNamespace}
-			servingPVC := &corev1.PersistentVolumeClaim{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, servingPVCLookupKey, servingPVC)
-				return err == nil && servingPVC != nil
-			}, timeout, interval).Should(BeTrue(), "Serving PVC should be created for ISVC")
-
-			// Wait for the serving PV to be created
-			servingPVLookupKey := types.NamespacedName{Name: modelName + "-gpu1-" + testNamespace}
-			servingPV := &corev1.PersistentVolume{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, servingPVLookupKey, servingPV)
-				return err == nil && servingPV != nil
-			}, timeout, interval).Should(BeTrue(), "Serving PV should be created for ISVC")
-
-			modelLookupKey := types.NamespacedName{Name: modelName, Namespace: testNamespace}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
-				if err != nil {
-					return false
-				}
-				return len(cachedModel.Status.InferenceServices) == 1
-			}, timeout, interval).Should(BeTrue(), "Cache status should show the ISVC")
-
-			Expect(cachedModel.Status.InferenceServices[0].Name).To(Equal(isvcName))
-			Expect(cachedModel.Status.InferenceServices[0].Namespace).To(Equal(testNamespace))
-
-			// Note: In envtest, when ISVC is deleted, the cleanup logic in ReconcileForIsvcs
-			// will attempt to delete the serving PV/PVC. However, envtest's behavior for
-			// resource deletion may differ from a real cluster.
-			// The key verification is that:
-			// 1. Serving PV/PVC are created when ISVC exists
-			// 2. Status correctly tracks the ISVC
-			// 3. The cleanup code path exists in ReconcileForIsvcs (verified by code inspection)
-		})
-
-		It("Should track LLMInferenceService referenced only via LoRA adapter in namespace-scoped cache status", func() {
-			defer GinkgoRecover()
-			ctx, cancel := context.WithCancel(context.Background())
-			DeferCleanup(cancel)
-
-			testNamespace := fmt.Sprintf("test-ns-lora-%d", time.Now().UnixNano())
-			namespaceObj := createTestNamespace(ctx, testNamespace)
-			defer k8sClient.Delete(ctx, namespaceObj)
-
-			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "gpu1",
-				},
-				Spec: localModelNodeGroupSpec1,
-			}
-			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
-			defer k8sClient.Delete(ctx, nodeGroup1)
-
-			adapterURI := "hf://org/ns-lora-adapter-only"
-			baseURI := "hf://org/remote-base"
-			modelName := fmt.Sprintf("ns-lora-adapter-cache-%d", time.Now().UnixNano())
-			llmSvcName := "test-llm-ns-lora-adapter-only"
-			cachedModel := &v1alpha1.LocalModelNamespaceCache{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      modelName,
-					Namespace: testNamespace,
-				},
-				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
-					SourceModelUri: adapterURI,
-					ModelSize:      resource.MustParse("10Gi"),
-					NodeGroups:     []string{"gpu1"},
-				},
-			}
-			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
-			defer func() {
-				Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
-				Eventually(func() bool {
-					err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName, Namespace: testNamespace}, cachedModel)
-					return err != nil && errors.IsNotFound(err)
-				}, timeout, interval).Should(BeTrue())
-			}()
-
-			baseModelURI, err := apis.ParseURL(baseURI)
-			Expect(err).NotTo(HaveOccurred())
-			adapterModelURI, err := apis.ParseURL(adapterURI)
-			Expect(err).NotTo(HaveOccurred())
-			llmSvc := &v1alpha2.LLMInferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      llmSvcName,
-					Namespace: testNamespace,
-					Annotations: map[string]string{
-						constants.LocalModelLoRAAnnotationKey: fmt.Sprintf(
-							`{"my-adapter":{"cache":%q,"namespace":%q}}`,
-							modelName, testNamespace,
-						),
-					},
-				},
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Model: v1alpha2.LLMModelSpec{
-						URI: *baseModelURI,
-						LoRA: &v1alpha2.LoRASpec{
-							Adapters: []v1alpha2.LLMModelSpec{
-								{
-									Name: ptr.To("my-adapter"),
-									URI:  *adapterModelURI,
-								},
-							},
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, llmSvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, llmSvc)
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName, Namespace: testNamespace}, cachedModel)
-				if err != nil {
-					return false
-				}
-				if len(cachedModel.Status.LLMInferenceServices) != 1 {
-					return false
-				}
-				return cachedModel.Status.LLMInferenceServices[0].Name == llmSvcName &&
-					cachedModel.Status.LLMInferenceServices[0].Namespace == testNamespace
-			}, timeout, interval).Should(BeTrue(), "Namespace cache status should track the LLMInferenceService via LoRA adapter reference")
 		})
 	})
 })

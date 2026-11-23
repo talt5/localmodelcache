@@ -27,13 +27,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 )
 
 // NewTransport returns an HTTP transport that trusts the system certificate
 // pool and, when configured, the registry CA bundle in the workload namespace.
 // The returned transport is a clone and never mutates http.DefaultTransport.
-func NewTransport(ctx context.Context, reader client.Reader, namespace string, config v1beta1.KernelCacheRegistryConfig) (http.RoundTripper, error) {
+func NewTransport(ctx context.Context, reader client.Reader, namespace string, config kernelcacheconfig.KernelCacheRegistryConfig) (http.RoundTripper, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if config.Insecure {
 		transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: true} // #nosec G402 -- explicit registry.insecure opt-in

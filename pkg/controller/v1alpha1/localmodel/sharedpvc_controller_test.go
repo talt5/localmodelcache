@@ -34,12 +34,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"knative.dev/pkg/apis"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
@@ -164,11 +159,11 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			}, duration, interval).Should(Equal(1))
 		})
 
-		It("Should track an InferenceService consumer", func() {
+		It("Should report the claim and subPath that workloads mount", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
-			ns := fmt.Sprintf("test-shared-isvc-status-%d", time.Now().UnixNano())
+			ns := fmt.Sprintf("test-shared-mount-status-%d", time.Now().UnixNano())
 			defer k8sClient.Delete(ctx, createTestNamespace(ctx, ns))
 
 			pvc := makeRWXPVC("shared-pvc", ns)
@@ -179,98 +174,12 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			Expect(k8sClient.Create(ctx, cache)).Should(Succeed())
 			defer k8sClient.Delete(ctx, cache)
 
-			isvc := &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "shared-consumer",
-					Namespace: ns,
-					Labels: map[string]string{
-						constants.LocalModelLabel:          cache.Name,
-						constants.LocalModelNamespaceLabel: ns,
-					},
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{
-						Model: &v1beta1.ModelSpec{
-							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{StorageURI: ptr.To(sourceModelUri)},
-							ModelFormat:            v1beta1.ModelFormat{Name: "sklearn"},
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc)
-
-			cacheKey := types.NamespacedName{Name: cache.Name, Namespace: ns}
-			Eventually(func() bool {
+			Eventually(func(g Gomega) {
 				current := &v1alpha1.LocalModelNamespaceCache{}
-				if err := k8sClient.Get(ctx, cacheKey, current); err != nil || len(current.Status.InferenceServices) != 1 {
-					return false
-				}
-				return current.Status.InferenceServices[0] == (v1alpha1.NamespacedName{Name: isvc.Name, Namespace: ns})
-			}, timeout, interval).Should(BeTrue(), "shared cache status should track ISVC consumer")
-
-			Expect(k8sClient.Delete(ctx, isvc)).Should(Succeed())
-			Eventually(func() bool {
-				current := &v1alpha1.LocalModelNamespaceCache{}
-				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
-					return false
-				}
-				return len(current.Status.InferenceServices) == 0
-			}, timeout, interval).Should(BeTrue(), "shared cache status should clear removed ISVC consumer")
-		})
-
-		It("Should track an LLMInferenceService referenced only through LoRA", func() {
-			ctx, cancel := context.WithCancel(context.Background())
-			DeferCleanup(cancel)
-
-			ns := fmt.Sprintf("test-shared-lora-status-%d", time.Now().UnixNano())
-			defer k8sClient.Delete(ctx, createTestNamespace(ctx, ns))
-
-			pvc := makeRWXPVC("shared-pvc", ns)
-			Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, pvc)
-
-			adapterURI := "hf://org/shared-lora-adapter"
-			baseURI := "hf://org/shared-remote-base"
-			cache := makeSharedCache("shared-lora-status", ns, pvc.Name)
-			cache.Spec.SourceModelUri = adapterURI
-			Expect(k8sClient.Create(ctx, cache)).Should(Succeed())
-			defer k8sClient.Delete(ctx, cache)
-
-			baseModelURI, err := apis.ParseURL(baseURI)
-			Expect(err).NotTo(HaveOccurred())
-			adapterModelURI, err := apis.ParseURL(adapterURI)
-			Expect(err).NotTo(HaveOccurred())
-			llmSvc := &v1alpha2.LLMInferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "shared-lora-consumer",
-					Namespace: ns,
-					Annotations: map[string]string{
-						constants.LocalModelLoRAAnnotationKey: fmt.Sprintf(
-							`{"my-adapter":{"cache":%q,"namespace":%q}}`, cache.Name, ns),
-					},
-				},
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Model: v1alpha2.LLMModelSpec{
-						URI: *baseModelURI,
-						LoRA: &v1alpha2.LoRASpec{Adapters: []v1alpha2.LLMModelSpec{{
-							Name: ptr.To("my-adapter"),
-							URI:  *adapterModelURI,
-						}}},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, llmSvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, llmSvc)
-
-			cacheKey := types.NamespacedName{Name: cache.Name, Namespace: ns}
-			Eventually(func() bool {
-				current := &v1alpha1.LocalModelNamespaceCache{}
-				if err := k8sClient.Get(ctx, cacheKey, current); err != nil || len(current.Status.LLMInferenceServices) != 1 {
-					return false
-				}
-				return current.Status.LLMInferenceServices[0] == (v1alpha1.NamespacedName{Name: llmSvc.Name, Namespace: ns})
-			}, timeout, interval).Should(BeTrue(), "shared cache status should track LoRA-only LLM consumer")
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: cache.Name, Namespace: ns}, current)).To(Succeed())
+				g.Expect(current.Status.SubPath).To(Equal(v1alpha1.GetStorageSubPath(cache.Spec.SourceModelUri)))
+				g.Expect(current.Status.PersistentVolumeClaims).To(Equal([]string{pvc.Name}))
+			}, timeout, interval).Should(Succeed())
 		})
 
 		It("Should not trust a foreign Job with the deterministic import name", func() {
@@ -426,26 +335,9 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 				return k8sClient.Get(ctx, cacheKey, current) == nil && current.IsReady() && current.Status.SharedPVCImport != nil
 			}, timeout, interval).Should(BeTrue())
 
-			// An LLMInferenceService bound while the cache was Ready.
-			baseModelURI, err := apis.ParseURL(sourceModelUri)
-			Expect(err).NotTo(HaveOccurred())
-			llmSvc := &v1alpha2.LLMInferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "replace-llm-consumer",
-					Namespace: ns,
-					Labels: map[string]string{
-						constants.LocalModelLabel:          cache.Name,
-						constants.LocalModelNamespaceLabel: ns,
-					},
-				},
-				Spec: v1alpha2.LLMInferenceServiceSpec{Model: v1alpha2.LLMModelSpec{URI: *baseModelURI}},
-			}
-			Expect(k8sClient.Create(ctx, llmSvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, llmSvc)
-
 			// Delete the claim. envtest has no pvc-protection controller, so the admission-added
 			// finalizer holds it Terminating the way draining Pods would in a real cluster. The
-			// cache must stop binding new consumers while keeping the record for the bound one.
+			// cache reports the dying claim and keeps the import record while Pods drain.
 			Expect(k8sClient.Delete(ctx, pvc)).Should(Succeed())
 			Eventually(func() bool {
 				current := &v1alpha1.LocalModelNamespaceCache{}
@@ -470,9 +362,8 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 				return errors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
 
-			// The claim is gone and the data with it: PVCNotFound, record cleared, so the bound
-			// LLMInferenceService is released on its next admission. The completed Job is
-			// retained as before; nothing is created without a claim.
+			// The claim is gone and the data with it: PVCNotFound and the record is cleared. The
+			// completed Job is retained as before; nothing is created without a claim.
 			Eventually(func() bool {
 				current := &v1alpha1.LocalModelNamespaceCache{}
 				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
@@ -772,7 +663,7 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			}, duration, interval).Should(Equal(1), "never concurrent import Jobs")
 		})
 
-		It("Should not re-import after success while consumers remain, then create one replacement once they are gone", func() {
+		It("Should not re-import after success while a Pod mounts the claim, then create one replacement once it is gone", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -805,93 +696,7 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 					current.Status.SharedPVCImport.CompletionTime != nil
 			}, timeout, interval).Should(BeTrue(), "a completed import must be recorded against the claim UID")
 
-			isvc := &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "reimport-consumer",
-					Namespace: ns,
-					Labels: map[string]string{
-						constants.LocalModelLabel:          cache.Name,
-						constants.LocalModelNamespaceLabel: ns,
-					},
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{
-						Model: &v1beta1.ModelSpec{
-							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{StorageURI: ptr.To(sourceModelUri)},
-							ModelFormat:            v1beta1.ModelFormat{Name: "sklearn"},
-						},
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc)
-			baseModelURI, err := apis.ParseURL(sourceModelUri)
-			Expect(err).NotTo(HaveOccurred())
-			llmSvc := &v1alpha2.LLMInferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "reimport-llm-consumer",
-					Namespace: ns,
-					Labels: map[string]string{
-						constants.LocalModelLabel:          cache.Name,
-						constants.LocalModelNamespaceLabel: ns,
-					},
-				},
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Model: v1alpha2.LLMModelSpec{URI: *baseModelURI},
-				},
-			}
-			Expect(k8sClient.Create(ctx, llmSvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, llmSvc)
-			Eventually(func() [2]int {
-				current := &v1alpha1.LocalModelNamespaceCache{}
-				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
-					return [2]int{-1, -1}
-				}
-				return [2]int{len(current.Status.InferenceServices), len(current.Status.LLMInferenceServices)}
-			}, timeout, interval).Should(Equal([2]int{1, 1}), "both consumer kinds are tracked")
-
-			// The retained Job disappears while the consumers still read the destination.
-			Expect(k8sClient.Delete(ctx, originalJob, client.PropagationPolicy(metav1.DeletePropagationBackground))).Should(Succeed())
-
-			blockedReason := func() string {
-				current := &v1alpha1.LocalModelNamespaceCache{}
-				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
-					return ""
-				}
-				if condition := current.Status.GetCondition(v1alpha1.LocalModelCacheReady); condition != nil {
-					return condition.Reason
-				}
-				return ""
-			}
-			importJobCount := func() int {
-				jobs := &batchv1.JobList{}
-				_ = k8sClient.List(ctx, jobs, client.InNamespace(ns))
-				return len(jobs.Items)
-			}
-			Eventually(blockedReason, timeout, interval).Should(Equal(v1alpha1.ReasonReimportBlocked))
-			Consistently(importJobCount, duration, interval).Should(Equal(0), "no replacement Job while consumers reference the cache")
-			current := &v1alpha1.LocalModelNamespaceCache{}
-			Expect(k8sClient.Get(ctx, cacheKey, current)).Should(Succeed())
-			Expect(current.Status.SharedPVCImport).NotTo(BeNil(), "the import record must survive the blocked state")
-			Expect(current.Status.GetCondition(v1alpha1.LocalModelCacheReady).Message).To(ContainSubstring("1 InferenceService and 1 LLMInferenceService"))
-
-			// An LLMInferenceService alone keeps the re-import blocked.
-			Expect(k8sClient.Delete(ctx, isvc)).Should(Succeed())
-			Eventually(func() string {
-				current := &v1alpha1.LocalModelNamespaceCache{}
-				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
-					return ""
-				}
-				if condition := current.Status.GetCondition(v1alpha1.LocalModelCacheReady); condition != nil {
-					return condition.Message
-				}
-				return ""
-			}, timeout, interval).Should(ContainSubstring("0 InferenceService and 1 LLMInferenceService"))
-			Consistently(importJobCount, duration, interval).Should(Equal(0), "no replacement Job while an LLMInferenceService references the cache")
-			Expect(blockedReason()).To(Equal(v1alpha1.ReasonReimportBlocked))
-
-			// A consumer's Pod outlives the consumer object while it terminates. The gate
-			// waits for it: envtest runs no kubelet, so the Pod stays Pending until deleted.
+			// envtest runs no kubelet, so the reader Pod stays Pending until it is deleted.
 			readerPod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Name: "reimport-reader", Namespace: ns},
 				Spec: corev1.PodSpec{
@@ -905,20 +710,29 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			Expect(k8sClient.Create(ctx, readerPod)).Should(Succeed())
 			defer k8sClient.Delete(ctx, readerPod, client.GracePeriodSeconds(0))
 
-			// Removing the last consumer object is not enough while its Pod mounts the claim.
-			Expect(k8sClient.Delete(ctx, llmSvc)).Should(Succeed())
-			Eventually(func() string {
+			// The retained Job disappears while the Pod still reads the destination.
+			Expect(k8sClient.Delete(ctx, originalJob, client.PropagationPolicy(metav1.DeletePropagationBackground))).Should(Succeed())
+
+			blockedMessage := func() string {
 				current := &v1alpha1.LocalModelNamespaceCache{}
 				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
 					return ""
 				}
-				if condition := current.Status.GetCondition(v1alpha1.LocalModelCacheReady); condition != nil {
+				if condition := current.Status.GetCondition(v1alpha1.LocalModelCacheReady); condition != nil && condition.Reason == v1alpha1.ReasonReimportBlocked {
 					return condition.Message
 				}
 				return ""
-			}, timeout, interval).Should(ContainSubstring("1 Pod(s) still mount the claim"))
+			}
+			importJobCount := func() int {
+				jobs := &batchv1.JobList{}
+				_ = k8sClient.List(ctx, jobs, client.InNamespace(ns))
+				return len(jobs.Items)
+			}
+			Eventually(blockedMessage, timeout, interval).Should(ContainSubstring("1 Pod(s) still mount the claim"))
 			Consistently(importJobCount, duration, interval).Should(Equal(0), "no replacement Job while a Pod mounts the claim")
-			Expect(blockedReason()).To(Equal(v1alpha1.ReasonReimportBlocked))
+			current := &v1alpha1.LocalModelNamespaceCache{}
+			Expect(k8sClient.Get(ctx, cacheKey, current)).Should(Succeed())
+			Expect(current.Status.SharedPVCImport).NotTo(BeNil(), "the import record must survive the blocked state")
 
 			// Once the Pod is gone, exactly one replacement import is created. No watch fires
 			// for the Pod's exit; the blocked state's timed requeue (one minute) covers it in
@@ -945,7 +759,7 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 					return false
 				}
 				return replacement.UID != originalJob.UID
-			}, timeout, interval).Should(BeTrue(), "one replacement Job once consumers and their Pods are gone")
+			}, timeout, interval).Should(BeTrue(), "one replacement Job once the Pod is gone")
 			Consistently(func() int {
 				jobs := &batchv1.JobList{}
 				_ = k8sClient.List(ctx, jobs, client.InNamespace(ns))
@@ -960,7 +774,7 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			}, timeout, interval).Should(BeTrue(), "a fresh import clears the previous record")
 		})
 
-		It("Should re-import onto a recreated PVC even while consumers reference the cache", func() {
+		It("Should re-import onto a recreated PVC even while a Pod mounts it", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -988,33 +802,18 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 				return current.Status.SharedPVCImport != nil && current.Status.SharedPVCImport.PVCUID == pvc.UID
 			}, timeout, interval).Should(BeTrue())
 
-			isvc := &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "recreated-consumer",
-					Namespace: ns,
-					Labels: map[string]string{
-						constants.LocalModelLabel:          cache.Name,
-						constants.LocalModelNamespaceLabel: ns,
-					},
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{
-						Model: &v1beta1.ModelSpec{
-							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{StorageURI: ptr.To(sourceModelUri)},
-							ModelFormat:            v1beta1.ModelFormat{Name: "sklearn"},
-						},
-					},
+			readerPod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "recreated-reader", Namespace: ns},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "server", Image: "server"}},
+					Volumes: []corev1.Volume{{
+						Name:         "model",
+						VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvc.Name}},
+					}},
 				},
 			}
-			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc)
-			Eventually(func() int {
-				current := &v1alpha1.LocalModelNamespaceCache{}
-				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
-					return -1
-				}
-				return len(current.Status.InferenceServices)
-			}, timeout, interval).Should(Equal(1))
+			Expect(k8sClient.Create(ctx, readerPod)).Should(Succeed())
+			defer k8sClient.Delete(ctx, readerPod, client.GracePeriodSeconds(0))
 
 			// Recreate the claim under the same name: a new UID and no data. envtest has no
 			// PVC-protection controller to clear the admission-added finalizer.
@@ -1031,7 +830,7 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			defer k8sClient.Delete(ctx, recreated)
 			Expect(recreated.UID).NotTo(Equal(pvc.UID))
 
-			// The stale Job is replaced despite the consumer: the old record names the old claim.
+			// The stale Job is replaced despite the Pod: the old record names the old claim.
 			Eventually(func() bool {
 				current := &batchv1.Job{}
 				if err := k8sClient.Get(ctx, jobKey, current); err != nil {
@@ -1056,10 +855,9 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 					return false
 				}
 				return replacement.UID != originalJob.UID && replacement.Annotations["serving.kserve.io/import-pvc-uid"] == string(recreated.UID)
-			}, timeout, interval).Should(BeTrue(), "a recreated claim must be imported again even with consumers")
-			// The record is what holds a bound consumer's binding through NotReady. Clearing it
-			// as soon as the fresh import starts is what releases the consumer, on its next
-			// admission, from a claim that holds no data yet.
+			}, timeout, interval).Should(BeTrue(), "a recreated claim must be imported again even while a Pod mounts it")
+			// The record names the old claim. It is cleared as soon as the fresh import starts,
+			// and the cache stays NotReady until the new claim holds the model.
 			Eventually(func() bool {
 				current := &v1alpha1.LocalModelNamespaceCache{}
 				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {

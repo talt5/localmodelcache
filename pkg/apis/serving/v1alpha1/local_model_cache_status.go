@@ -28,14 +28,22 @@ type LocalModelCacheStatus struct {
 	// How many nodes have the model available locally
 	// +optional
 	ModelCopies *ModelCopies `json:"copies,omitempty"`
-	// Inference services using this local model
-	InferenceServices []NamespacedName `json:"inferenceServices,omitempty"`
-	// LLM inference services using this local model
-	LLMInferenceServices []NamespacedName `json:"llmInferenceServices,omitempty"`
+	// SubPath is the directory, relative to the root of the cache's volume, that holds the
+	// model files: models/<storage key>. Mount it with volumeMounts[].subPath. It is empty for
+	// a node-local LocalModelNamespaceCache whose claims the controller creates, since the root
+	// of each claim already is that directory.
+	// +optional
+	SubPath string `json:"subPath,omitempty"`
+	// PersistentVolumeClaims lists the claims in the cache's namespace that expose the model to
+	// workloads: <cache>-<node group> for each node group of a node-local
+	// LocalModelNamespaceCache, or spec.pvcRef in shared-PVC mode. It is empty for a
+	// cluster-scoped LocalModelCache, which only pre-loads the nodes.
+	// +optional
+	PersistentVolumeClaims []string `json:"persistentVolumeClaims,omitempty"`
 
 	// Conditions describes the observed state of the cache. For shared-PVC mode
 	// (LocalModelNamespaceCache with pvcRef) a positive-polarity Ready condition is the
-	// stable readiness contract for serving admission and downstream consumers.
+	// stable readiness contract for the workloads that mount the claim.
 	// +optional
 	// +patchMergeKey=type
 	// +patchStrategy=merge

@@ -32,7 +32,7 @@ import (
 	clienttesting "k8s.io/client-go/testing"
 	controllerfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 )
 
 func TestScopedPusherNamesUseSixByteDigest(t *testing.T) {
@@ -100,12 +100,12 @@ func TestSecretBoundAccessLifecycle(t *testing.T) {
 		}}, nil
 	})
 	manager := &Credentials{Client: client}
-	cfg := v1beta1.KernelCacheRegistryConfig{
+	cfg := kernelcacheconfig.KernelCacheRegistryConfig{
 		Endpoint: "registry.example:5000",
-		Auth: v1beta1.KernelCacheRegistryAuth{
-			Type:        v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken,
-			PushRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
-			PullRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
+		Auth: kernelcacheconfig.KernelCacheRegistryAuth{
+			Type:        kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken,
+			PushRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
+			PullRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
 		},
 	}
 	result, err := manager.IssueForCapture(ctx, pod, captureName, cfg)
@@ -129,7 +129,7 @@ func TestSecretBoundAccessLifecycle(t *testing.T) {
 func TestNoAuthDoesNotAccessKubernetes(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	manager := &Credentials{Client: client}
-	secret, err := manager.IssueForCapture(context.Background(), &corev1.Pod{}, "capture", v1beta1.KernelCacheRegistryConfig{})
+	secret, err := manager.IssueForCapture(context.Background(), &corev1.Pod{}, "capture", kernelcacheconfig.KernelCacheRegistryConfig{})
 	require.NoError(t, err)
 	require.Nil(t, secret)
 	require.Empty(t, client.Actions())

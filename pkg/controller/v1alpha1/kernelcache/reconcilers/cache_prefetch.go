@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
 	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
 )
@@ -115,7 +115,7 @@ func (r *KernelCacheReconciler) ensureKernelCacheArtifactPrefetchJobs(
 	kernelCache *v1alpha1.KernelCache,
 	nodeGroup *v1alpha1.KernelCacheNodeGroup,
 	readyNodes *corev1.NodeList,
-	config *v1beta1.KernelCacheConfig,
+	config *kernelcacheconfig.KernelCacheConfig,
 ) error {
 	for i := range readyNodes.Items {
 		if err := r.ensureKernelCacheArtifactPrefetchJob(ctx, kernelCache, nodeGroup, &readyNodes.Items[i], config); err != nil {
@@ -130,7 +130,7 @@ func (r *KernelCacheReconciler) ensureKernelCacheArtifactPrefetchJob(
 	kernelCache *v1alpha1.KernelCache,
 	nodeGroup *v1alpha1.KernelCacheNodeGroup,
 	node *corev1.Node,
-	config *v1beta1.KernelCacheConfig,
+	config *kernelcacheconfig.KernelCacheConfig,
 ) error {
 	kernelCacheNode := &v1alpha1.KernelCacheNode{}
 	if err := r.Get(ctx, client.ObjectKey{Name: node.Name}, kernelCacheNode); err == nil {
@@ -182,7 +182,7 @@ func (r *KernelCacheReconciler) ensureRuntimeImagePrefetchJobs(
 	kernelCache *v1alpha1.KernelCache,
 	nodeGroup *v1alpha1.KernelCacheNodeGroup,
 	readyNodes *corev1.NodeList,
-	config *v1beta1.KernelCacheConfig,
+	config *kernelcacheconfig.KernelCacheConfig,
 ) (bool, error) {
 	runtimeImage := runtimeImageForKernelCache(kernelCache)
 	if !config.RuntimeImagePrefetch.Enabled || runtimeImage == "" || isIneligibleRuntimeImageReference(runtimeImage) {
@@ -207,7 +207,7 @@ func (r *KernelCacheReconciler) ensureRuntimeImagePrefetchJob(
 	runtimeImage string,
 	tolerations []corev1.Toleration,
 	node *corev1.Node,
-	config *v1beta1.KernelCacheConfig,
+	config *kernelcacheconfig.KernelCacheConfig,
 ) (bool, error) {
 	jobName := runtimeImagePrefetchJobName(runtimeImage, node, tolerations)
 	job := &batchv1.Job{}
@@ -348,19 +348,19 @@ func readableJobNamePart(value string, maxLength int) string {
 	return value
 }
 
-func kernelCacheJobTTL(config *v1beta1.KernelCacheConfig) *int32 {
+func kernelCacheJobTTL(config *kernelcacheconfig.KernelCacheConfig) *int32 {
 	if config.JobTTLSecondsAfterFinished != nil {
 		return config.JobTTLSecondsAfterFinished
 	}
-	ttl := v1beta1.DefaultKernelCacheJobTTLSeconds
+	ttl := kernelcacheconfig.DefaultKernelCacheJobTTLSeconds
 	return &ttl
 }
 
-func runtimeImagePrefetchJobTTL(config *v1beta1.KernelCacheConfig) *int32 {
+func runtimeImagePrefetchJobTTL(config *kernelcacheconfig.KernelCacheConfig) *int32 {
 	if config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished != nil {
 		return config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished
 	}
-	ttl := v1beta1.DefaultKernelCacheRuntimeImagePrefetchJobTTLSeconds
+	ttl := kernelcacheconfig.DefaultKernelCacheRuntimeImagePrefetchJobTTLSeconds
 	return &ttl
 }
 

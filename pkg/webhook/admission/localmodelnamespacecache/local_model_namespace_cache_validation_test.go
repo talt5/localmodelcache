@@ -16,11 +16,9 @@ limitations under the License.
 package localmodelnamespacecache
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/onsi/gomega"
-	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,37 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 var storageURI = "gs://testbucket/testmodel"
-
-func makeTestInferenceService() v1beta1.InferenceService {
-	inferenceservice := v1beta1.InferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "sklearn-iris",
-			Namespace: "default",
-			Labels: map[string]string{
-				constants.LocalModelLabel: "iris",
-			},
-		},
-		Spec: v1beta1.InferenceServiceSpec{
-			Predictor: v1beta1.PredictorSpec{
-				Model: &v1beta1.ModelSpec{
-					ModelFormat: v1beta1.ModelFormat{
-						Name: "sklearn",
-					},
-					PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
-						StorageURI: proto.String(storageURI),
-					},
-				},
-			},
-		},
-	}
-	return inferenceservice
-}
 
 func makeTestLocalModelNamespaceCache() v1alpha1.LocalModelNamespaceCache {
 	return v1alpha1.LocalModelNamespaceCache{
@@ -70,14 +40,6 @@ func makeTestLocalModelNamespaceCache() v1alpha1.LocalModelNamespaceCache {
 			ModelSize:      resource.MustParse("1Gi"),
 			NodeGroups:     []string{"gpu1"},
 			SourceModelUri: storageURI,
-		},
-		Status: v1alpha1.LocalModelCacheStatus{
-			InferenceServices: []v1alpha1.NamespacedName{
-				{
-					Namespace: "default",
-					Name:      "sklearn-iris",
-				},
-			},
 		},
 	}
 }
@@ -95,110 +57,107 @@ func makeTestLocalModelNodeGroup(name string) v1alpha1.LocalModelNodeGroup {
 	}
 }
 
-func makeTestInferenceServiceForNamespaceCache() v1beta1.InferenceService {
-	isvc := makeTestInferenceService()
-	isvc.Labels[constants.LocalModelNamespaceLabel] = "default"
-	return isvc
-}
-
-func TestUnableToDeleteLocalModelNamespaceCacheWithActiveIsvc(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	lmnc := makeTestLocalModelNamespaceCache()
-	isvc := makeTestInferenceServiceForNamespaceCache()
-	s := runtime.NewScheme()
-	err := v1beta1.AddToScheme(s)
-	if err != nil {
-		t.Errorf("unable to add scheme : %v", err)
-	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&isvc).WithScheme(s).Build()
-	validator := LocalModelNamespaceCacheValidator{Client: fakeClient}
-	warnings, err := validator.ValidateDelete(t.Context(), &lmnc)
-	g.Expect(warnings).NotTo(gomega.BeNil())
-	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelNamespaceCache %s/%s is being used by InferenceService %s/%s",
-		lmnc.Namespace, lmnc.Name, isvc.Namespace, isvc.Name)))
-}
-
-func makeTestLLMInferenceServiceForNamespaceCache() v1alpha2.LLMInferenceService {
-	return v1alpha2.LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "llm-iris",
-			Namespace: "default",
-			Labels: map[string]string{
-				constants.LocalModelLabel:          "iris",
-				constants.LocalModelNamespaceLabel: "default",
+// makeTestPodMountingClaim returns the Pod vllm-0 in namespace, mounting claim.
+func makeTestPodMountingClaim(namespace, claim string, phase corev1.PodPhase) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "vllm-0", Namespace: namespace},
+		Spec: corev1.PodSpec{Volumes: []corev1.Volume{{
+			Name: "model",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: claim, ReadOnly: true},
 			},
-		},
+		}}},
+		Status: corev1.PodStatus{Phase: phase},
 	}
 }
 
-func makeTestLocalModelNamespaceCacheWithLLMIsvc() v1alpha1.LocalModelNamespaceCache {
-	lmnc := makeTestLocalModelNamespaceCache()
-	lmnc.Status.InferenceServices = nil
-	lmnc.Status.LLMInferenceServices = []v1alpha1.NamespacedName{
+func TestValidateDelete_InUseCheck(t *testing.T) {
+	nodeLocal := makeTestLocalModelNamespaceCache()
+	shared := makeTestSharedPVCCache("model-store")
+
+	tests := []struct {
+		name    string
+		cache   v1alpha1.LocalModelNamespaceCache
+		pods    []*corev1.Pod
+		wantErr string
+	}{
 		{
-			Namespace: "default",
-			Name:      "llm-iris",
+			name:  "node-local cache without pods",
+			cache: nodeLocal,
 		},
-	}
-	return lmnc
-}
-
-func TestUnableToDeleteLocalModelNamespaceCacheWithActiveLLMIsvc(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	lmnc := makeTestLocalModelNamespaceCacheWithLLMIsvc()
-	llmIsvc := makeTestLLMInferenceServiceForNamespaceCache()
-	s := runtime.NewScheme()
-	err := v1alpha2.AddToScheme(s)
-	if err != nil {
-		t.Errorf("unable to add scheme : %v", err)
-	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&llmIsvc).WithScheme(s).Build()
-	validator := LocalModelNamespaceCacheValidator{Client: fakeClient}
-	warnings, err := validator.ValidateDelete(t.Context(), &lmnc)
-	g.Expect(warnings).NotTo(gomega.BeNil())
-	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelNamespaceCache %s/%s is being used by LLMInferenceService %s/%s",
-		lmnc.Namespace, lmnc.Name, llmIsvc.Namespace, llmIsvc.Name)))
-}
-
-func makeTestLLMInferenceServiceWithLoRAAdapterOnlyForNamespaceCache() v1alpha2.LLMInferenceService {
-	return v1alpha2.LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "llm-lora-only",
-			Namespace: "default",
-			Annotations: map[string]string{
-				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"iris","namespace":"default"}}`,
-			},
-		},
-	}
-}
-
-func makeTestLocalModelNamespaceCacheWithLoRAOnlyLLMIsvc() v1alpha1.LocalModelNamespaceCache {
-	lmnc := makeTestLocalModelNamespaceCache()
-	lmnc.Status.InferenceServices = nil
-	lmnc.Status.LLMInferenceServices = []v1alpha1.NamespacedName{
 		{
-			Namespace: "default",
-			Name:      "llm-lora-only",
+			name:    "running pod mounts the cache claim",
+			cache:   nodeLocal,
+			pods:    []*corev1.Pod{makeTestPodMountingClaim("default", "iris-gpu1", corev1.PodRunning)},
+			wantErr: "LocalModelNamespaceCache default/iris is in use: Pod vllm-0 mounts PersistentVolumeClaim iris-gpu1",
+		},
+		{
+			name:    "pending pod mounts the cache claim",
+			cache:   nodeLocal,
+			pods:    []*corev1.Pod{makeTestPodMountingClaim("default", "iris-gpu1", corev1.PodPending)},
+			wantErr: "Pod vllm-0 mounts PersistentVolumeClaim iris-gpu1",
+		},
+		{
+			name:  "finished pod no longer blocks",
+			cache: nodeLocal,
+			pods:  []*corev1.Pod{makeTestPodMountingClaim("default", "iris-gpu1", corev1.PodSucceeded)},
+		},
+		{
+			name:  "pod in another namespace with the same claim name",
+			cache: nodeLocal,
+			pods:  []*corev1.Pod{makeTestPodMountingClaim("other", "iris-gpu1", corev1.PodRunning)},
+		},
+		{
+			name:  "pod mounts an unrelated claim",
+			cache: nodeLocal,
+			pods:  []*corev1.Pod{makeTestPodMountingClaim("default", "scratch", corev1.PodRunning)},
+		},
+		{
+			name:  "shared-PVC cache keeps the data on delete",
+			cache: shared,
+			pods:  []*corev1.Pod{makeTestPodMountingClaim("default", "model-store", corev1.PodRunning)},
 		},
 	}
-	return lmnc
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			s := runtime.NewScheme()
+			g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+			g.Expect(corev1.AddToScheme(s)).To(gomega.Succeed())
+			builder := fake.NewClientBuilder().WithScheme(s)
+			for _, pod := range tt.pods {
+				builder = builder.WithObjects(pod)
+			}
+			validator := LocalModelNamespaceCacheValidator{Client: builder.Build()}
+			cache := tt.cache
+			_, err := validator.ValidateDelete(t.Context(), &cache)
+			if tt.wantErr == "" {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+				return
+			}
+			g.Expect(err).To(gomega.HaveOccurred())
+			g.Expect(err.Error()).To(gomega.ContainSubstring(tt.wantErr))
+		})
+	}
 }
 
-func TestUnableToDeleteLocalModelNamespaceCacheWithActiveLLMIsvcLoRAAdapterOnly(t *testing.T) {
+// The validator lists Pods through Reader when it is set, so the manager's APIReader is used
+// instead of a cluster-wide Pod informer.
+func TestValidateDelete_UsesReaderForPods(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	lmnc := makeTestLocalModelNamespaceCacheWithLoRAOnlyLLMIsvc()
-	llmIsvc := makeTestLLMInferenceServiceWithLoRAAdapterOnlyForNamespaceCache()
 	s := runtime.NewScheme()
-	err := v1alpha2.AddToScheme(s)
-	if err != nil {
-		t.Errorf("unable to add scheme : %v", err)
+	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+	g.Expect(corev1.AddToScheme(s)).To(gomega.Succeed())
+	reader := fake.NewClientBuilder().WithScheme(s).
+		WithObjects(makeTestPodMountingClaim("default", "iris-gpu1", corev1.PodRunning)).
+		Build()
+	validator := LocalModelNamespaceCacheValidator{
+		Client: fake.NewClientBuilder().WithScheme(s).Build(),
+		Reader: reader,
 	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&llmIsvc).WithScheme(s).Build()
-	validator := LocalModelNamespaceCacheValidator{Client: fakeClient}
-	warnings, err := validator.ValidateDelete(t.Context(), &lmnc)
-	g.Expect(warnings).NotTo(gomega.BeNil())
-	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelNamespaceCache %s/%s is being used by LLMInferenceService %s/%s",
-		lmnc.Namespace, lmnc.Name, llmIsvc.Namespace, llmIsvc.Name)))
+	cache := makeTestLocalModelNamespaceCache()
+	_, err := validator.ValidateDelete(t.Context(), &cache)
+	g.Expect(err).To(gomega.HaveOccurred())
 }
 
 func TestUnableToCreateLocalModelNamespaceCacheWithMissingNodeGroup(t *testing.T) {

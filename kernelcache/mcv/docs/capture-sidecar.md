@@ -54,7 +54,7 @@ The webhook provides grouped JSON configuration through three environment variab
 
 The sidecar sends HTTP requests to `url` until the workload responds or the timeout expires. The default timeout is 600 seconds (10 minutes).
 
-The cluster-wide default is configured in the `kernelcache` section of `inferenceservice-config`:
+The cluster-wide default is configured in the `kernelcache` section of the `kserve-localmodel-config` ConfigMap:
 
 ```json
 {

@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
 )
 
@@ -49,11 +49,11 @@ func TestReconcilePrefetchServiceAccountAccessCreatesCrossNamespaceBinding(t *te
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 	reconciler := &KernelCacheReconciler{Client: k8sClient}
 	kernelCache := &v1alpha1.KernelCache{ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "source"}}
-	config := &v1beta1.KernelCacheConfig{
+	config := &kernelcacheconfig.KernelCacheConfig{
 		JobNamespace: "jobs",
-		Registry: v1beta1.KernelCacheRegistryConfig{Auth: v1beta1.KernelCacheRegistryAuth{
-			Type:        v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken,
-			PullRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
+		Registry: kernelcacheconfig.KernelCacheRegistryConfig{Auth: kernelcacheconfig.KernelCacheRegistryAuth{
+			Type:        kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken,
+			PullRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
 		}},
 	}
 
@@ -91,7 +91,7 @@ func TestCleanupPrefetchRoleBindingUsesReaderForCurrentKernelCaches(t *testing.T
 		}
 	}
 
-	binding := buildPrefetchImagePullRoleBinding("source", "jobs", &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"})
+	binding := buildPrefetchImagePullRoleBinding("source", "jobs", &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"})
 	cachedClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
 		&v1alpha1.KernelCache{ObjectMeta: metav1.ObjectMeta{Name: "stale-cache", Namespace: "source"}},
 		binding,
@@ -99,7 +99,7 @@ func TestCleanupPrefetchRoleBindingUsesReaderForCurrentKernelCaches(t *testing.T
 	reader := fake.NewClientBuilder().WithScheme(scheme).Build()
 	reconciler := &KernelCacheReconciler{Client: cachedClient, Reader: reader}
 
-	ready, err := reconciler.cleanupPrefetchRoleBindingAfterKernelCacheDeletion(t.Context(), "source", &v1beta1.KernelCacheConfig{JobNamespace: "jobs"})
+	ready, err := reconciler.cleanupPrefetchRoleBindingAfterKernelCacheDeletion(t.Context(), "source", &kernelcacheconfig.KernelCacheConfig{JobNamespace: "jobs"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestReconcilePrefetchServiceAccountAccessRemovesBindingWhenAuthIsDisabled(t
 		}
 	}
 
-	binding := buildPrefetchImagePullRoleBinding("source", "jobs", &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"})
+	binding := buildPrefetchImagePullRoleBinding("source", "jobs", &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"})
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
 		&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
 			Name: kernelCachePrefetchServiceAccount, Namespace: "jobs",
@@ -135,7 +135,7 @@ func TestReconcilePrefetchServiceAccountAccessRemovesBindingWhenAuthIsDisabled(t
 	reconciler := &KernelCacheReconciler{Client: k8sClient}
 	kernelCache := &v1alpha1.KernelCache{ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "source"}}
 
-	ready, err := reconciler.reconcilePrefetchServiceAccountAccess(t.Context(), kernelCache, &v1beta1.KernelCacheConfig{JobNamespace: "jobs"})
+	ready, err := reconciler.reconcilePrefetchServiceAccountAccess(t.Context(), kernelCache, &kernelcacheconfig.KernelCacheConfig{JobNamespace: "jobs"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +159,7 @@ func TestReconcilePrefetchServiceAccountAccessKeepsBindingWhileJobIsActive(t *te
 		}
 	}
 
-	binding := buildPrefetchImagePullRoleBinding("source", "jobs", &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"})
+	binding := buildPrefetchImagePullRoleBinding("source", "jobs", &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"})
 	jobMetadata := kernelcachelabels.ObjectMeta("cache", "source", "node")
 	job := &batchv1.Job{ObjectMeta: metav1.ObjectMeta{
 		Name: "prefetch-job", Namespace: "jobs", Labels: jobMetadata.Labels,
@@ -175,7 +175,7 @@ func TestReconcilePrefetchServiceAccountAccessKeepsBindingWhileJobIsActive(t *te
 	reconciler := &KernelCacheReconciler{Client: k8sClient}
 	kernelCache := &v1alpha1.KernelCache{ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "source"}}
 
-	ready, err := reconciler.reconcilePrefetchServiceAccountAccess(t.Context(), kernelCache, &v1beta1.KernelCacheConfig{JobNamespace: "jobs"})
+	ready, err := reconciler.reconcilePrefetchServiceAccountAccess(t.Context(), kernelCache, &kernelcacheconfig.KernelCacheConfig{JobNamespace: "jobs"})
 	if err != nil {
 		t.Fatal(err)
 	}

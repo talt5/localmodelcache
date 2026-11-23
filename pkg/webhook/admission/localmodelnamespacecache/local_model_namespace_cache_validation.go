@@ -21,16 +21,13 @@ import (
 	"errors"
 	"fmt"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/api/core/v1"
 	apivalidation "k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/localmodelcache"
 )
 
@@ -46,6 +43,8 @@ var localModelNamespaceCacheValidatorLogger = logf.Log.WithName("localmodelnames
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type LocalModelNamespaceCacheValidator struct {
 	client.Client
+	// Reader lists Pods for the in-use check on delete. Set it to the manager's APIReader.
+	Reader client.Reader
 }
 
 // +kubebuilder:webhook:verbs=create;update;delete,path=/validate-localmodelnamespacecaches,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=localmodelnamespacecaches,versions=v1alpha1,name=localmodelnamespacecache.kserve-webhook-server.validator
@@ -102,56 +101,44 @@ func (v *LocalModelNamespaceCacheValidator) ValidateUpdate(ctx context.Context, 
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+// ValidateDelete denies deleting a node-local cache while a Pod in its namespace mounts one of
+// its claims. The node agent removes a model folder once no cache references its source URI,
+// which would pull the files out from under the running Pod. A shared-PVC cache never deletes
+// the data on its claim, so it can always be deleted.
 func (v *LocalModelNamespaceCacheValidator) ValidateDelete(ctx context.Context, localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache) (admission.Warnings, error) {
 	localModelNamespaceCacheValidatorLogger.Info("validate delete", "name", localModelNamespaceCache.Name, "namespace", localModelNamespaceCache.Namespace)
-
-	// Delete protection relies on Status.InferenceServices / Status.LLMInferenceServices
-	// being up-to-date. A newly created consumer may not appear in status yet if the
-	// reconciler has not run, so deletion can race and succeed until the next reconcile.
-	// This gap already existed for base-model references; LoRA adapter references inherit it.
-	for _, isvcMeta := range localModelNamespaceCache.Status.InferenceServices {
-		isvc := v1beta1.InferenceService{}
-		if err := v.Get(ctx, client.ObjectKey(isvcMeta), &isvc); err != nil {
-			if apierrors.IsNotFound(err) {
-				continue
-			}
-			localModelNamespaceCacheValidatorLogger.Error(err, "Error getting InferenceService", "name", isvcMeta.Name, "namespace", isvcMeta.Namespace)
-			return nil, err
-		}
-		modelName, ok := isvc.Labels[constants.LocalModelLabel]
-		if !ok {
-			continue
-		}
-		modelNamespace := isvc.Labels[constants.LocalModelNamespaceLabel]
-		if modelName == localModelNamespaceCache.Name && modelNamespace == localModelNamespaceCache.Namespace {
-			return admission.Warnings{}, fmt.Errorf("LocalModelNamespaceCache %s/%s is being used by InferenceService %s/%s",
-				localModelNamespaceCache.Namespace, localModelNamespaceCache.Name, isvcMeta.Namespace, isvcMeta.Name)
-		}
+	if localModelNamespaceCache.Spec.SharedPVCMode() {
+		return nil, nil
+	}
+	claims := localmodelcache.NamespaceCacheClaimNames(localModelNamespaceCache)
+	if len(claims) == 0 {
+		return nil, nil
 	}
 
-	// Check if current LocalModelNamespaceCache is being used by LLMInferenceServices in the same namespace
-	for _, llmIsvcMeta := range localModelNamespaceCache.Status.LLMInferenceServices {
-		llmIsvc := v1alpha2.LLMInferenceService{}
-		if err := v.Get(ctx, client.ObjectKey(llmIsvcMeta), &llmIsvc); err != nil {
-			if apierrors.IsNotFound(err) {
-				continue
+	pods := &corev1.PodList{}
+	if err := v.podReader().List(ctx, pods, client.InNamespace(localModelNamespaceCache.Namespace)); err != nil {
+		localModelNamespaceCacheValidatorLogger.Error(err, "Unable to list Pods", "namespace", localModelNamespaceCache.Namespace)
+		return nil, err
+	}
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		for _, claim := range claims {
+			if localmodelcache.PodMountsClaim(pod, claim) {
+				return admission.Warnings{}, fmt.Errorf("LocalModelNamespaceCache %s/%s is in use: Pod %s mounts PersistentVolumeClaim %s. Delete the workload first",
+					localModelNamespaceCache.Namespace, localModelNamespaceCache.Name, pod.Name, claim)
 			}
-			localModelNamespaceCacheValidatorLogger.Error(err, "Error getting LLMInferenceService", "name", llmIsvcMeta.Name, "namespace", llmIsvcMeta.Namespace)
-			return nil, err
-		}
-		if localmodelcache.LLMISVCReferencesNamespaceCache(
-			localModelNamespaceCache.Name,
-			localModelNamespaceCache.Namespace,
-			llmIsvc.Namespace,
-			llmIsvc.Labels,
-			llmIsvc.Annotations,
-		) {
-			return admission.Warnings{}, fmt.Errorf("LocalModelNamespaceCache %s/%s is being used by LLMInferenceService %s/%s",
-				localModelNamespaceCache.Namespace, localModelNamespaceCache.Name, llmIsvcMeta.Namespace, llmIsvcMeta.Name)
 		}
 	}
 	return nil, nil
+}
+
+// podReader returns the reader used to list Pods. The manager's APIReader avoids a
+// cluster-wide Pod informer; unit tests that set no Reader fall back to the client.
+func (v *LocalModelNamespaceCacheValidator) podReader() client.Reader {
+	if v.Reader != nil {
+		return v.Reader
+	}
+	return v.Client
 }
 
 // validateStorageMode enforces the mutually-exclusive, at-least-one storage-mode rule and

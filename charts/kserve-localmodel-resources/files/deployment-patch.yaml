@@ -16,3 +16,8 @@ spec:
         imagePullPolicy: {{ .Values.kserve.localmodel.controller.imagePullPolicy }}
         resources:
           {{- toYaml .Values.kserve.localmodel.controller.resources | nindent 10 }}
+  {{- if .Values.openshift.enabled }}
+    metadata:
+      annotations:
+        openshift.io/required-scc: restricted-v2
+  {{- end }}

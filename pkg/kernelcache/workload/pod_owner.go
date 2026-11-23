@@ -24,19 +24,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 const (
-	replicaSetKind       = "ReplicaSet"
-	deploymentKind       = "Deployment"
-	inferenceServiceKind = "InferenceService"
+	replicaSetKind = "ReplicaSet"
+	deploymentKind = "Deployment"
 )
 
-// ResolveDeploymentBackedInferenceService resolves the InferenceService owning
-// a Deployment-backed Pod without requiring a revision label.
-func ResolveDeploymentBackedInferenceService(ctx context.Context, reader client.Reader, pod *corev1.Pod) (*v1beta1.InferenceService, error) {
+// ResolveDeployment resolves the Deployment that owns a Pod through its ReplicaSet,
+// without requiring a revision label. It returns nil when the Pod is not owned by a
+// Deployment or an owner reference does not match the object it names.
+func ResolveDeployment(ctx context.Context, reader client.Reader, pod *corev1.Pod) (*appsv1.Deployment, error) {
 	resolved, err := resolveDeploymentBackedWorkload(ctx, reader, pod)
 	if err != nil || resolved == nil {
 		return nil, err
@@ -73,23 +71,11 @@ func resolveDeploymentBackedWorkload(ctx context.Context, reader client.Reader, 
 		return nil, nil
 	}
 
-	inferenceServiceRef := controllerOwner(deployment, v1beta1.SchemeGroupVersion.String(), inferenceServiceKind)
-	if inferenceServiceRef == nil {
-		return nil, nil
-	}
-	inferenceService := &v1beta1.InferenceService{}
-	if err := reader.Get(ctx, client.ObjectKey{Namespace: deployment.Namespace, Name: inferenceServiceRef.Name}, inferenceService); err != nil {
-		return nil, err
-	}
-	if inferenceService.UID != inferenceServiceRef.UID {
-		return nil, nil
-	}
-
 	revisionID := pod.Labels[appsv1.DefaultDeploymentUniqueLabelKey]
 	if revisionID == "" {
 		revisionID = replicaSet.Labels[appsv1.DefaultDeploymentUniqueLabelKey]
 	}
-	return &WorkloadRevision{Source: inferenceService, ReplicaSet: replicaSet, RevisionID: revisionID}, nil
+	return &WorkloadRevision{Source: deployment, ReplicaSet: replicaSet, RevisionID: revisionID}, nil
 }
 
 func controllerOwner(obj metav1.Object, apiVersion, kind string) *metav1.OwnerReference {

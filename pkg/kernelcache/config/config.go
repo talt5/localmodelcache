@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package config loads the KernelCache section from the shared
-// inferenceservice-config ConfigMap.
+// Package config loads the KernelCache section from the kserve-localmodel-config
+// ConfigMap.
 package config
 
 import (
@@ -26,22 +26,22 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-// Load gets and parses the KernelCache configuration from the shared ConfigMap.
-func Load(ctx context.Context, reader client.Reader) (*v1beta1.KernelCacheConfig, error) {
+// Load gets and parses the KernelCache configuration from the kserve-localmodel-config
+// ConfigMap in constants.KServeNamespace.
+func Load(ctx context.Context, reader client.Reader) (*KernelCacheConfig, error) {
 	configMap := &corev1.ConfigMap{}
-	key := client.ObjectKey{Namespace: constants.KServeNamespace, Name: constants.InferenceServiceConfigMapName}
+	key := client.ObjectKey{Namespace: constants.KServeNamespace, Name: constants.LocalModelConfigMapName}
 	if err := reader.Get(ctx, key, configMap); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("inferenceservice-config was not found: %w", err)
+			return nil, fmt.Errorf("%s was not found: %w", constants.LocalModelConfigMapName, err)
 		}
 		return nil, fmt.Errorf("get ConfigMap %s/%s: %w", key.Namespace, key.Name, err)
 	}
 
-	config, err := v1beta1.NewKernelCacheConfig(configMap)
+	config, err := NewKernelCacheConfig(configMap)
 	if err != nil {
 		return nil, fmt.Errorf("parse KernelCache configuration from ConfigMap %s/%s: %w", key.Namespace, key.Name, err)
 	}

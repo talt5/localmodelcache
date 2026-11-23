@@ -38,7 +38,7 @@ func TestBuildFootprintsByImageReference(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := Build(KernelCacheIdentityFactors{
-				Namespace: "team", WorkloadKind: "InferenceService", WorkloadName: "model", RuntimeImage: tc.image,
+				Namespace: "team", WorkloadKind: "Deployment", WorkloadName: "model", RuntimeImage: tc.image,
 				ModelURIHash: modelHash, RuntimeConfigFactors: map[string]string{TensorParallelSizeFactor: "2"},
 			})
 			require.NoError(t, err)
@@ -54,7 +54,7 @@ func TestBuildFootprintsByImageReference(t *testing.T) {
 
 func TestBuildRequiresModelURIHash(t *testing.T) {
 	_, err := Build(KernelCacheIdentityFactors{
-		Namespace: "team", WorkloadKind: "InferenceService", WorkloadName: "model",
+		Namespace: "team", WorkloadKind: "Deployment", WorkloadName: "model",
 		RuntimeImage: "registry.example/vllm:v0.10",
 	})
 	require.Error(t, err)
@@ -63,7 +63,7 @@ func TestBuildRequiresModelURIHash(t *testing.T) {
 func TestBuildTrimsRuntimeImage(t *testing.T) {
 	image := "registry.example/vllm@sha256:" + strings.Repeat("b", 64)
 	result, err := Build(KernelCacheIdentityFactors{
-		Namespace: "team", WorkloadKind: "InferenceService", WorkloadName: "model",
+		Namespace: "team", WorkloadKind: "Deployment", WorkloadName: "model",
 		RuntimeImage: "  " + image + "  ", ModelURIHash: "sha256:" + strings.Repeat("a", 64),
 	})
 
@@ -75,7 +75,7 @@ func TestBuildTrimsRuntimeImage(t *testing.T) {
 func TestBuildSeparatesWorkloadAndCompatibilityFactors(t *testing.T) {
 	base := KernelCacheIdentityFactors{
 		Namespace:            "team-a",
-		WorkloadKind:         "InferenceService",
+		WorkloadKind:         "Deployment",
 		WorkloadName:         "model-a",
 		RuntimeImage:         "registry.example/vllm@sha256:" + strings.Repeat("b", 64),
 		ModelURIHash:         "sha256:" + strings.Repeat("a", 64),
@@ -101,7 +101,7 @@ func TestBuildSeparatesWorkloadAndCompatibilityFactors(t *testing.T) {
 func TestBuildIncludesWorkloadMetadataOnlyInWorkloadFootprint(t *testing.T) {
 	base := KernelCacheIdentityFactors{
 		Namespace:            "team-a",
-		WorkloadKind:         "InferenceService",
+		WorkloadKind:         "Deployment",
 		WorkloadName:         "model-a",
 		RuntimeImage:         "registry.example/vllm@sha256:" + strings.Repeat("b", 64),
 		ModelURIHash:         "sha256:" + strings.Repeat("a", 64),
@@ -125,7 +125,7 @@ func TestBuildIncludesWorkloadMetadataOnlyInWorkloadFootprint(t *testing.T) {
 func TestBuildSeparatesWorkloadKinds(t *testing.T) {
 	base := KernelCacheIdentityFactors{
 		Namespace:            "team",
-		WorkloadKind:         "InferenceService",
+		WorkloadKind:         "Deployment",
 		WorkloadName:         "model",
 		RuntimeImage:         "registry.example/vllm@sha256:" + strings.Repeat("b", 64),
 		ModelURIHash:         "sha256:" + strings.Repeat("a", 64),
@@ -135,20 +135,20 @@ func TestBuildSeparatesWorkloadKinds(t *testing.T) {
 	require.NoError(t, err)
 
 	secondInput := base
-	secondInput.WorkloadKind = "LLMInferenceService"
+	secondInput.WorkloadKind = "StatefulSet"
 	second, err := Build(secondInput)
 	require.NoError(t, err)
 
 	require.NotEqual(t, first.Footprints.WorkloadFootprint, second.Footprints.WorkloadFootprint)
 	require.Equal(t, first.Footprints.CompatibilityFootprint, second.Footprints.CompatibilityFootprint)
-	require.Equal(t, "InferenceService", first.Factors[WorkloadKindFactor])
-	require.Equal(t, "LLMInferenceService", second.Factors[WorkloadKindFactor])
+	require.Equal(t, "Deployment", first.Factors[WorkloadKindFactor])
+	require.Equal(t, "StatefulSet", second.Factors[WorkloadKindFactor])
 }
 
 func TestBuildIncludesRuntimeConfigFactorsOnlyInCompatibilityFootprint(t *testing.T) {
 	base := KernelCacheIdentityFactors{
 		Namespace:    "team-a",
-		WorkloadKind: "InferenceService",
+		WorkloadKind: "Deployment",
 		WorkloadName: "model-a",
 		RuntimeImage: "registry.example/vllm@sha256:" + strings.Repeat("b", 64),
 		ModelURIHash: "sha256:" + strings.Repeat("a", 64),

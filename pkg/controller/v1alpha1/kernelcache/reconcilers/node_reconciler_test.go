@@ -43,7 +43,7 @@ func kernelCacheConfigMap(enabled bool) *corev1.ConfigMap {
 	}
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.InferenceServiceConfigMapName,
+			Name:      constants.LocalModelConfigMapName,
 			Namespace: constants.KServeNamespace,
 		},
 		Data: map[string]string{"kernelcache": value},
@@ -198,17 +198,17 @@ func TestKernelCacheNodeReconcilerEnqueuesSingleGlobalRequestForNodeEvent(t *tes
 
 func TestKernelCacheNodeReconcilerConfigMapPredicate(t *testing.T) {
 	reconciler := &KernelCacheNodeReconciler{}
-	predicate := reconciler.inferenceServiceConfigMapPredicate()
+	predicate := reconciler.localModelConfigMapPredicate()
 
 	matching := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
-		Name:      constants.InferenceServiceConfigMapName,
+		Name:      constants.LocalModelConfigMapName,
 		Namespace: constants.KServeNamespace,
 	}}
 	if !predicate.Create(event.CreateEvent{Object: matching}) {
-		t.Fatal("expected the InferenceService ConfigMap to enqueue the controller")
+		t.Fatal("expected the local model ConfigMap to enqueue the controller")
 	}
 	if predicate.Create(event.CreateEvent{Object: &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
-		Name:      constants.InferenceServiceConfigMapName,
+		Name:      constants.LocalModelConfigMapName,
 		Namespace: "other",
 	}}}) {
 		t.Fatal("did not expect a ConfigMap from another namespace to enqueue the controller")

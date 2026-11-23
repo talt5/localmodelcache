@@ -27,23 +27,23 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-func TestInferenceServiceModelSourceResolver(t *testing.T) {
-	resolver := inferenceServiceModelSourceResolver{}
+func TestAnnotationModelSourceResolver(t *testing.T) {
+	resolver := annotationModelSourceResolver{}
 
 	t.Run("resolves annotation", func(t *testing.T) {
 		pod := &corev1.Pod{}
 		pod.Annotations = map[string]string{
-			constants.StorageInitializerSourceUriInternalAnnotationKey: " hf://Qwen/Qwen3-0.6B ",
+			constants.KernelCacheModelURIAnnotationKey: " hf://Qwen/Qwen3-0.6B ",
 		}
 
-		uri, known, err := resolver.Resolve(context.Background(), nil, pod, workloadRef{Kind: "InferenceService", Name: "qwen"})
+		uri, known, err := resolver.Resolve(context.Background(), nil, pod, workloadRef{Kind: constants.KernelCacheWorkloadKind, Name: "qwen"})
 		require.NoError(t, err)
 		require.True(t, known)
 		require.Equal(t, "hf://Qwen/Qwen3-0.6B", uri)
 	})
 
 	t.Run("returns unresolved when annotation is missing", func(t *testing.T) {
-		uri, known, err := resolver.Resolve(context.Background(), nil, &corev1.Pod{}, workloadRef{Kind: "InferenceService", Name: "qwen"})
+		uri, known, err := resolver.Resolve(context.Background(), nil, &corev1.Pod{}, workloadRef{Kind: constants.KernelCacheWorkloadKind, Name: "qwen"})
 		require.NoError(t, err)
 		require.False(t, known)
 		require.Empty(t, uri)
@@ -51,10 +51,10 @@ func TestInferenceServiceModelSourceResolver(t *testing.T) {
 
 	t.Run("returns unresolved when annotation is invalid", func(t *testing.T) {
 		pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
-			constants.StorageInitializerSourceUriInternalAnnotationKey: "%",
+			constants.KernelCacheModelURIAnnotationKey: "%",
 		}}}
 
-		uri, known, err := resolver.Resolve(context.Background(), nil, pod, workloadRef{Kind: "InferenceService", Name: "qwen"})
+		uri, known, err := resolver.Resolve(context.Background(), nil, pod, workloadRef{Kind: constants.KernelCacheWorkloadKind, Name: "qwen"})
 		require.NoError(t, err)
 		require.False(t, known)
 		require.Empty(t, uri)
@@ -66,7 +66,7 @@ func TestResolveWorkloadModelSourceDoesNotAssumeUnsupportedWorkloads(t *testing.
 		context.Background(),
 		nil,
 		&corev1.Pod{},
-		workloadRef{Kind: "LLMInferenceService", Name: "llm"},
+		workloadRef{Kind: "StatefulSet", Name: "llm"},
 	)
 	require.NoError(t, err)
 	require.False(t, known)

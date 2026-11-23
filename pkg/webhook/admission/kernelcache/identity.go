@@ -22,8 +22,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
 	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
 )
 
@@ -39,7 +39,7 @@ func identityForPod(pod *corev1.Pod, modelURI string) (v1alpha1.KernelCacheIdent
 		return v1alpha1.KernelCacheIdentity{}, err
 	}
 
-	container, err := runtimeContainerForPod(pod, workload)
+	container, err := runtimeContainerForPod(pod)
 	if err != nil {
 		return v1alpha1.KernelCacheIdentity{}, err
 	}
@@ -51,32 +51,31 @@ func identityForPod(pod *corev1.Pod, modelURI string) (v1alpha1.KernelCacheIdent
 	return cacheidentity.Build(identityFactors)
 }
 
-// workloadRefForPod extracts the workload kind and name from the Pod labels.
+// workloadRefForPod reads the Deployment that the webhook resolved for the Pod and recorded in
+// the kernelcache-workload label.
 func workloadRefForPod(pod *corev1.Pod) (workloadRef, error) {
-	if name := pod.Labels[constants.InferenceServicePodLabelKey]; name != "" {
-		return workloadRef{Kind: "InferenceService", Name: name}, nil
+	if name := pod.Labels[constants.KernelCacheWorkloadLabelKey]; name != "" {
+		return workloadRef{Kind: constants.KernelCacheWorkloadKind, Name: name}, nil
 	}
-
-	if name := pod.Labels[constants.KubernetesAppNameLabelKey]; name != "" &&
-		pod.Labels[constants.KubernetesPartOfLabelKey] == constants.LLMInferenceServicePartOfValue {
-		return workloadRef{Kind: v1alpha2.LLMInferenceServiceGVK.Kind, Name: name}, nil
-	}
-
-	return workloadRef{}, errors.New("workload identity labels are required")
+	return workloadRef{}, errors.New("workload identity label is required")
 }
 
-// runtimeContainerForPod finds the runtime container associated with the workload kind.
-func runtimeContainerForPod(pod *corev1.Pod, workload workloadRef) (*corev1.Container, error) {
-	containerNames := []string{constants.InferenceServiceContainerName, constants.LLMInferenceServiceContainerName}
-	if workload.Kind == v1alpha2.LLMInferenceServiceGVK.Kind {
-		containerNames[0], containerNames[1] = containerNames[1], containerNames[0]
+// resolveRuntimeContainerName resolves the requested container, or else the container the
+// kernelcache-container annotation names, or else the Pod's only runtime container.
+func resolveRuntimeContainerName(pod *corev1.Pod, requested string) (string, error) {
+	if requested == "" {
+		requested = pod.Annotations[constants.KernelCacheContainerAnnotationKey]
 	}
-	for _, name := range containerNames {
-		if index := findContainerIndex(pod.Spec.Containers, name); index >= 0 {
-			return &pod.Spec.Containers[index], nil
-		}
+	return kernelcacheutil.ResolveRuntimeContainerName(pod.Spec.Containers, requested)
+}
+
+// runtimeContainerForPod finds the Pod's runtime container.
+func runtimeContainerForPod(pod *corev1.Pod) (*corev1.Container, error) {
+	name, err := resolveRuntimeContainerName(pod, "")
+	if err != nil {
+		return nil, err
 	}
-	return nil, errors.New("runtime container was not found")
+	return &pod.Spec.Containers[findContainerIndex(pod.Spec.Containers, name)], nil
 }
 
 // buildRuntimeIdentityFactors builds runtime identity factors from a container and model URI.

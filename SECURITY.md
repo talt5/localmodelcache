@@ -2,8 +2,6 @@
 
 KServe provides security updates for the **latest minor release and the preceding minor release** (e.g., v0.19 and v0.18). Older releases do not receive security patches. Users are encouraged to upgrade to the latest release.
 
-For the full release policy including cadence, versioning, and support windows, see [RELEASES.md](RELEASES.md).
-
 ## Reporting a Vulnerability
 
 We strongly encourage you to report security vulnerabilities privately, before disclosing them in any public forums. Only the active maintainers and KServe security group members will receive the reported security vulnerabilities and the issues are treated as top priority.

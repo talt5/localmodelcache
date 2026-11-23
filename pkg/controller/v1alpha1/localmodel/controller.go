@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices,verbs=get;list;watch
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodegroups,verbs=get;list;watch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelcaches,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelcaches/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelcaches/finalizers,verbs=update
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnamespacecaches,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnamespacecaches/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnamespacecaches/finalizers,verbs=update
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodes/status,verbs=get;watch
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get

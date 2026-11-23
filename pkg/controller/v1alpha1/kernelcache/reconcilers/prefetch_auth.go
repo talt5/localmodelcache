@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
 )
 
@@ -38,10 +38,10 @@ import (
 func (r *KernelCacheReconciler) reconcilePrefetchServiceAccountAccess(
 	ctx context.Context,
 	kernelCache *v1alpha1.KernelCache,
-	config *v1beta1.KernelCacheConfig,
+	config *kernelcacheconfig.KernelCacheConfig,
 ) (bool, error) {
 	requiresPullBinding := config.Registry.Auth.Type ==
-		v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken
+		kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken
 
 	if requiresPullBinding && config.Registry.Auth.PullRoleRef == nil {
 		return false, errors.New("registry pull RoleRef is required for serviceAccountToken authentication")
@@ -118,7 +118,7 @@ func (r *KernelCacheReconciler) reconcilePrefetchServiceAccountAccess(
 func (r *KernelCacheReconciler) cleanupPrefetchRoleBindingAfterKernelCacheDeletion(
 	ctx context.Context,
 	sourceNamespace string,
-	config *v1beta1.KernelCacheConfig,
+	config *kernelcacheconfig.KernelCacheConfig,
 ) (bool, error) {
 	kernelCaches := &v1alpha1.KernelCacheList{}
 	reader := r.Reader
@@ -154,7 +154,7 @@ func (r *KernelCacheReconciler) cleanupPrefetchRoleBindingAfterKernelCacheDeleti
 	return true, r.deleteManagedPrefetchRoleBinding(ctx, binding)
 }
 
-func buildPrefetchImagePullRoleBinding(sourceNamespace, jobNamespace string, roleRef *v1beta1.KernelCacheRegistryRoleRef) *rbacv1.RoleBinding {
+func buildPrefetchImagePullRoleBinding(sourceNamespace, jobNamespace string, roleRef *kernelcacheconfig.KernelCacheRegistryRoleRef) *rbacv1.RoleBinding {
 	var desiredRoleRef rbacv1.RoleRef
 	if roleRef != nil {
 		desiredRoleRef = kernelCacheRegistryRoleRef(roleRef)

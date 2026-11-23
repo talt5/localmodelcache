@@ -72,7 +72,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		_, err = clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Create(context.Background(),
 			&corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: map[string]string{

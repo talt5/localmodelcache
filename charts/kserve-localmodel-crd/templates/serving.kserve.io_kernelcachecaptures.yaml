@@ -84,7 +84,7 @@ spec:
                 properties:
                   kind:
                     enum:
-                    - InferenceService
+                    - Deployment
                     type: string
                   name:
                     minLength: 1

@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	"github.com/kserve/kserve/pkg/kernelcache/registry"
 	kernelcachesecurity "github.com/kserve/kserve/pkg/kernelcache/security"
 	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
@@ -39,7 +39,7 @@ import (
 func (r *KernelCacheReconciler) reconcileArtifactVerification(
 	ctx context.Context,
 	kernelCache *v1alpha1.KernelCache,
-	config *v1beta1.KernelCacheConfig,
+	config *kernelcacheconfig.KernelCacheConfig,
 ) (bool, error) {
 	mode := config.ArtifactSecurity.Mode
 	if verification := kernelCache.Status.Verification; verification != nil && verification.Mode == mode &&

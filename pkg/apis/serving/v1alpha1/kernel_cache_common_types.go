@@ -97,12 +97,13 @@ type KernelCacheIdentity struct {
 	Factors map[string]string `json:"factors,omitempty"`
 }
 
-// KernelCacheSourceRef identifies the source InferenceService for a capture.
+// KernelCacheSourceRef identifies the source Deployment for a capture.
 // +k8s:openapi-gen=true
 type KernelCacheSourceRef struct {
-	// Kind is the kind of the source workload.
+	// Kind is the kind of the source workload. Captures come from Deployments whose Pod
+	// template sets the serving.kserve.io/kernelcache-supported annotation.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=InferenceService
+	// +kubebuilder:validation:Enum=Deployment
 	Kind string `json:"kind"`
 
 	// Name is the name of the source workload.

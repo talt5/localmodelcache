@@ -16,25 +16,7 @@ limitations under the License.
 
 package utils
 
-import (
-	"strings"
-)
-
 type PredicateFn[T any] func(T) bool
-
-func FilterSlice[T any](items []T, predicate PredicateFn[T]) []T {
-	if len(items) == 0 {
-		return []T{}
-	}
-
-	result := make([]T, 0, len(items))
-	for _, item := range items {
-		if predicate(item) {
-			result = append(result, item)
-		}
-	}
-	return result
-}
 
 func Includes[T comparable](slice []T, value T) bool {
 	for _, v := range slice {
@@ -43,33 +25,4 @@ func Includes[T comparable](slice []T, value T) bool {
 		}
 	}
 	return false
-}
-
-func IncludesArg(slice []string, arg string) bool {
-	for _, v := range slice {
-		if v == arg || strings.HasPrefix(v, arg) {
-			return true
-		}
-	}
-	return false
-}
-
-func Filter[K comparable, V any](origin map[K]V, predicate PredicateFn[K]) map[K]V {
-	result := make(map[K]V)
-	for k, v := range origin {
-		if predicate(k) {
-			result[k] = v
-		}
-	}
-	return result
-}
-
-func Union[K comparable, V any](maps ...map[K]V) map[K]V {
-	result := make(map[K]V)
-	for _, m := range maps {
-		for k, v := range m {
-			result[k] = v
-		}
-	}
-	return result
 }

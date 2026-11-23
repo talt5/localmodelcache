@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
 )
 
@@ -48,9 +48,9 @@ func TestEnsurePusherIdentityForCaptureCreatesOwnedResources(t *testing.T) {
 	}}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(capture).Build()
 	reconciler := &KernelCacheCaptureControllerReconciler{Client: k8sClient, Reader: k8sClient}
-	config := v1beta1.KernelCacheRegistryConfig{Auth: v1beta1.KernelCacheRegistryAuth{
-		Type:        v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken,
-		PushRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
+	config := kernelcacheconfig.KernelCacheRegistryConfig{Auth: kernelcacheconfig.KernelCacheRegistryAuth{
+		Type:        kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken,
+		PushRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
 	}}
 
 	if err := reconciler.ensurePusherIdentityForCapture(t.Context(), capture, config); err != nil {
@@ -89,10 +89,10 @@ func TestEnsureControllerRegistryBindingsCreatesAndUpdatesBindings(t *testing.T)
 		OperatorNamespace:      "kserve",
 		OperatorServiceAccount: "localmodel-controller",
 	}
-	config := v1beta1.KernelCacheRegistryConfig{Auth: v1beta1.KernelCacheRegistryAuth{
-		Type:        v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken,
-		PushRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
-		PullRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
+	config := kernelcacheconfig.KernelCacheRegistryConfig{Auth: kernelcacheconfig.KernelCacheRegistryAuth{
+		Type:        kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken,
+		PushRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
+		PullRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
 	}}
 
 	if err := reconciler.ensureControllerRegistryBindings(t.Context(), "team", config); err != nil {
@@ -158,9 +158,9 @@ func TestEnsurePusherIdentityForCapturePreservesActiveRoleRef(t *testing.T) {
 	}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(capture, binding).Build()
 	reconciler := &KernelCacheCaptureControllerReconciler{Client: k8sClient, Reader: k8sClient}
-	config := v1beta1.KernelCacheRegistryConfig{Auth: v1beta1.KernelCacheRegistryAuth{
-		Type:        v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken,
-		PushRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher-v2"},
+	config := kernelcacheconfig.KernelCacheRegistryConfig{Auth: kernelcacheconfig.KernelCacheRegistryAuth{
+		Type:        kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken,
+		PushRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher-v2"},
 	}}
 
 	if err := reconciler.ensurePusherIdentityForCapture(t.Context(), capture, config); err != nil {
@@ -207,9 +207,9 @@ func TestEnsurePusherIdentityForCaptureRejectsInactiveRoleRefDrift(t *testing.T)
 	}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(capture, binding).Build()
 	reconciler := &KernelCacheCaptureControllerReconciler{Client: k8sClient, Reader: k8sClient}
-	config := v1beta1.KernelCacheRegistryConfig{Auth: v1beta1.KernelCacheRegistryAuth{
-		Type:        v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken,
-		PushRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher-v2"},
+	config := kernelcacheconfig.KernelCacheRegistryConfig{Auth: kernelcacheconfig.KernelCacheRegistryAuth{
+		Type:        kernelcacheconfig.KernelCacheRegistryAuthTypeServiceAccountToken,
+		PushRoleRef: &kernelcacheconfig.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher-v2"},
 	}}
 
 	if err := reconciler.ensurePusherIdentityForCapture(t.Context(), capture, config); err == nil {

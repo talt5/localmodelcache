@@ -240,7 +240,7 @@ func main() {
 	}
 
 	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha1.LocalModelNamespaceCache{}).
-		WithValidator(&localmodelnamespacecachewebhook.LocalModelNamespaceCacheValidator{Client: mgr.GetClient()}).
+		WithValidator(&localmodelnamespacecachewebhook.LocalModelNamespaceCacheValidator{Client: mgr.GetClient(), Reader: mgr.GetAPIReader()}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "LocalModelNamespaceCache")
 		os.Exit(1)

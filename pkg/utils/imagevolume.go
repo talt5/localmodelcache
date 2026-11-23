@@ -17,12 +17,7 @@ limitations under the License.
 package utils
 
 import (
-	"context"
-	"strconv"
-	"strings"
-
 	"k8s.io/apimachinery/pkg/version"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // ServerVersioner is the single-method discovery interface required by
@@ -58,43 +53,4 @@ type ImageVolumeCheckResult struct {
 	// only when Status is NeedsGate or Unsupported (for use in condition messages).
 	Major string
 	Minor string
-}
-
-// CheckImageVolumeCompatibility reports the Kubernetes ImageVolume (KEP-4639)
-// support level for the cluster reached by sv.
-//
-// Thresholds (aligned with the KEP-4639 graduation schedule):
-//
-//   - minor < 31  → ImageVolumeUnsupported (feature not present)
-//   - 31 ≤ minor ≤ 32 → ImageVolumeSubPathUnsupported (alpha gate required; subPath forbidden)
-//   - 33 ≤ minor ≤ 34 → ImageVolumeNeedsGate (beta gate required; subPath supported)
-//   - minor ≥ 35  → ImageVolumeOK (beta defaults-on in 1.35, stable in 1.36)
-//
-// Discovery and parse errors are logged at V(1) and return ImageVolumeUnknown
-// so that callers never block reconciliation on a transient API-server hiccup.
-func CheckImageVolumeCompatibility(ctx context.Context, sv ServerVersioner) ImageVolumeCheckResult {
-	logger := log.FromContext(ctx)
-
-	v, err := sv.ServerVersion()
-	if err != nil {
-		logger.V(1).Info("Skipping ImageVolume cluster version check: discovery failed", "error", err)
-		return ImageVolumeCheckResult{Status: ImageVolumeUnknown}
-	}
-
-	minor, err := strconv.Atoi(strings.TrimSuffix(v.Minor, "+"))
-	if err != nil {
-		logger.V(1).Info("Skipping ImageVolume cluster version check: cannot parse minor version", "minor", v.Minor)
-		return ImageVolumeCheckResult{Status: ImageVolumeUnknown}
-	}
-
-	switch {
-	case minor < 31:
-		return ImageVolumeCheckResult{Status: ImageVolumeUnsupported, Major: v.Major, Minor: v.Minor}
-	case minor < 33:
-		return ImageVolumeCheckResult{Status: ImageVolumeSubPathUnsupported, Major: v.Major, Minor: v.Minor}
-	case minor < 35:
-		return ImageVolumeCheckResult{Status: ImageVolumeNeedsGate, Major: v.Major, Minor: v.Minor}
-	default:
-		return ImageVolumeCheckResult{Status: ImageVolumeOK, Major: v.Major, Minor: v.Minor}
-	}
 }

@@ -9,7 +9,7 @@ spec:
   commonName: kernelcache-root-ca
   secretName: kernelcache-root-ca
   issuerRef:
-    name: selfsigned-issuer
+    name: localmodel-selfsigned-issuer
     kind: Issuer
     group: cert-manager.io
 ---

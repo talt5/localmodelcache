@@ -30,6 +30,51 @@ metadata:
   namespace: kserve
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodel-leader-election-role
+  namespace: kserve
+rules:
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - list
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - configmaps/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
@@ -86,6 +131,13 @@ rules:
   - apps
   resources:
   - deployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
   - replicasets
   verbs:
   - get
@@ -310,8 +362,6 @@ rules:
   - serving.kserve.io
   resources:
   - clusterstoragecontainers
-  - inferenceservices
-  - llminferenceservices
   - localmodelnodegroups
   verbs:
   - get
@@ -331,6 +381,13 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelcaches/finalizers
+  - localmodelnamespacecaches/finalizers
+  verbs:
+  - update
 - apiGroups:
   - serving.kserve.io
   resources:
@@ -433,6 +490,12 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - localmodelnodes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - localmodelnodes/status
   verbs:
   - get
@@ -450,7 +513,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: kserve-leader-election-role
+  name: kserve-localmodel-leader-election-role
 subjects:
 - kind: ServiceAccount
   name: kserve-localmodel-controller-manager
@@ -518,6 +581,89 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kserve-localmodelnode-agent
+  namespace: kserve
+---
+apiVersion: v1
+data:
+  credentials: |-
+    {
+       "storageSpecSecretName": "storage-config",
+       "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
+       "gcs": {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3": {
+           "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
+           "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY",
+           "s3Endpoint": "",
+           "s3UseHttps": "",
+           "s3Region": "",
+           "s3VerifySSL": "",
+           "s3UseVirtualBucket": "",
+           "s3UseAccelerate": "",
+           "s3UseAnonymousCredential": "",
+           "s3CABundleConfigMap": "",
+           "s3CABundle": ""
+       }
+    }
+  kernelcache: |-
+    {
+      "enabled": false,
+      "defaultSidecarInjection": true,
+      "defaultMountType": "oci",
+      "defaultNodeGroup": "",
+      "jobNamespace": "kserve-kernelcache-jobs",
+      "mcvImage": "kserve/kserve-mcv:latest-minimal",
+      "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "runtimeImagePrefetch": {
+        "enabled": false,
+        "jobTTLSecondsAfterFinished": 86400
+      },
+      "registry": {
+        "auth": {
+          "type": "none"
+        }
+      },
+      "artifactSecurity": {
+        "mode": "cert",
+        "failurePolicy": "reject",
+        "cert": {
+          "signingProfileRef": "kernelcache-signer",
+          "trustBundle": "kserve/kernelcache-root-ca",
+          "subjectRegexp": "spiffe://kserve/kernelcache-signer"
+        }
+      },
+      "abandonedCapturePolicy": "retain",
+      "jobTTLSecondsAfterFinished": 600,
+      "mcvCaptureReadinessTimeoutSeconds": 600,
+      "reconcileIntervalSeconds": 300
+    }
+  localModel: |-
+    {
+      "jobNamespace": "kserve-localmodel-jobs",
+      "defaultJobImage": "kserve/storage-initializer:latest",
+      "fsGroup": 1000,
+      "sharedPVCImportFSGroup": 1000,
+      "jobTTLSecondsAfterFinished": 3600,
+      "reconcilationFrequencyInSecs": 60,
+      "disableVolumeManagement": false
+    }
+  storageInitializer: |-
+    {
+        "image" : "kserve/storage-initializer:latest",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "caBundleConfigMapName": "",
+        "caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodel-config
   namespace: kserve
 ---
 apiVersion: v1
@@ -775,7 +921,7 @@ spec:
   issuerRef:
     group: cert-manager.io
     kind: Issuer
-    name: selfsigned-issuer
+    name: localmodel-selfsigned-issuer
   secretName: kernelcache-root-ca
 ---
 apiVersion: cert-manager.io/v1
@@ -813,7 +959,7 @@ spec:
   - localmodel-webhook-server-service.kserve.svc
   issuerRef:
     kind: Issuer
-    name: selfsigned-issuer
+    name: localmodel-selfsigned-issuer
   secretName: localmodel-webhook-server-cert
 ---
 apiVersion: cert-manager.io/v1
@@ -827,6 +973,17 @@ metadata:
 spec:
   ca:
     secretName: kernelcache-root-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: localmodel-selfsigned-issuer
+  namespace: kserve
+spec:
+  selfSigned: {}
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -848,9 +1005,10 @@ webhooks:
       path: /mutate-kernelcache-pods
   failurePolicy: Fail
   matchConditions:
-  - expression: has(object.metadata.labels) && 'serving.kserve.io/inferenceservice'
-      in object.metadata.labels
-    name: inferenceservice-workload
+  - expression: has(object.metadata.annotations) && 'serving.kserve.io/kernelcache-supported'
+      in object.metadata.annotations && object.metadata.annotations['serving.kserve.io/kernelcache-supported']
+      == 'true'
+    name: kernelcache-opt-in
   name: kernelcache.kserve-webhook-server.pod-mutator
   namespaceSelector:
     matchExpressions:
@@ -930,4 +1088,25 @@ webhooks:
     - DELETE
     resources:
     - localmodelcaches
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: localmodel-webhook-server-service
+      namespace: kserve
+      path: /validate-serving-kserve-io-v1alpha1-localmodelnamespacecache
+  failurePolicy: Fail
+  name: localmodelnamespacecache.kserve-webhook-server.validator
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - localmodelnamespacecaches
   sideEffects: None

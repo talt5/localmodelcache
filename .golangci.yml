@@ -185,8 +185,6 @@ linters:
           files:
             - "**/pkg/apis/**"
           deny:
-            - pkg: "github.com/kserve/kserve/pkg/agent"
-              desc: "pulls cloud storage SDKs into the API types; use pkg/types for shared definitions"
             - pkg: "github.com/kserve/kserve/pkg/credentials"
               desc: "pulls cloud storage SDKs into the API types"
     forbidigo:
@@ -211,8 +209,6 @@ linters:
         G306: "0640"
     importas:
       alias:
-        - pkg: "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-          alias: ""
         - pkg: "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
           alias: ""
         - pkg: "k8s.io/api/core/v1"

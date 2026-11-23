@@ -32,8 +32,14 @@ const (
 	tritonOCIPath        = "io.triton.cache"
 )
 
-// ResolveRuntimeContainerName resolves the container that owns a cache path.
-// Standard KServe runtime container names are used when no override is provided.
+// MCVContainerName is the capture sidecar the kernel cache webhook injects. It is never the
+// runtime container.
+const MCVContainerName = "mcv"
+
+// ResolveRuntimeContainerName resolves the container that owns a cache path. The requested
+// name wins; otherwise the Pod's only container other than the capture sidecar is used. Pods
+// with several containers name theirs with the serving.kserve.io/kernelcache-container
+// annotation.
 func ResolveRuntimeContainerName(containers []corev1.Container, requested string) (string, error) {
 	if requested != "" {
 		if hasContainer(containers, requested) {
@@ -42,16 +48,20 @@ func ResolveRuntimeContainerName(containers []corev1.Container, requested string
 		return "", fmt.Errorf("cache container %q was not found", requested)
 	}
 
-	for _, candidate := range []string{
-		constants.InferenceServiceContainerName,
-		constants.LLMInferenceServiceContainerName,
-	} {
-		if hasContainer(containers, candidate) {
-			return candidate, nil
+	runtime := ""
+	for _, container := range containers {
+		if container.Name == MCVContainerName {
+			continue
 		}
+		if runtime != "" {
+			return "", fmt.Errorf("the Pod has several containers; set the %s annotation to the runtime container", constants.KernelCacheContainerAnnotationKey)
+		}
+		runtime = container.Name
 	}
-
-	return "", errors.New("containerName is required when no standard KServe runtime container is present")
+	if runtime == "" {
+		return "", errors.New("the Pod has no runtime container")
+	}
+	return runtime, nil
 }
 
 // ResolveContainerPath resolves the cache path for a runtime container.

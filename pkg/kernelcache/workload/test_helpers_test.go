@@ -26,17 +26,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 type deploymentBackedWorkloadFixture struct {
-	scheme           *runtime.Scheme
-	reader           client.Client
-	pod              *corev1.Pod
-	replicaSet       *appsv1.ReplicaSet
-	deployment       *appsv1.Deployment
-	inferenceService *v1beta1.InferenceService
+	scheme     *runtime.Scheme
+	reader     client.Client
+	pod        *corev1.Pod
+	replicaSet *appsv1.ReplicaSet
+	deployment *appsv1.Deployment
 }
 
 func newDeploymentBackedWorkloadFixture(t *testing.T) *deploymentBackedWorkloadFixture {
@@ -49,21 +46,12 @@ func newDeploymentBackedWorkloadFixture(t *testing.T) *deploymentBackedWorkloadF
 	if err := appsv1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
-	if err := v1beta1.AddToScheme(scheme); err != nil {
-		t.Fatal(err)
-	}
 
-	inferenceService := &v1beta1.InferenceService{ObjectMeta: metav1.ObjectMeta{
-		Name: "model", Namespace: "team", UID: types.UID("inferenceservice-uid"),
-	}}
 	deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{
-		Name: "model-predictor", Namespace: "team", UID: types.UID("deployment-uid"),
-		OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(
-			inferenceService, v1beta1.SchemeGroupVersion.WithKind(inferenceServiceKind),
-		)},
+		Name: "vllm", Namespace: "team", UID: types.UID("deployment-uid"),
 	}}
 	replicaSet := &appsv1.ReplicaSet{ObjectMeta: metav1.ObjectMeta{
-		Name: "model-predictor-abc", Namespace: "team", UID: types.UID("replicaset-uid"),
+		Name: "vllm-abc", Namespace: "team", UID: types.UID("replicaset-uid"),
 		Labels: map[string]string{
 			appsv1.DefaultDeploymentUniqueLabelKey: "abc123",
 		},
@@ -72,7 +60,7 @@ func newDeploymentBackedWorkloadFixture(t *testing.T) *deploymentBackedWorkloadF
 		)},
 	}}
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
-		Name: "model-predictor-abc-xyz", Namespace: "team",
+		Name: "vllm-abc-xyz", Namespace: "team",
 		Labels: map[string]string{
 			appsv1.DefaultDeploymentUniqueLabelKey: "abc123",
 		},
@@ -82,11 +70,10 @@ func newDeploymentBackedWorkloadFixture(t *testing.T) *deploymentBackedWorkloadF
 	}}
 
 	fixture := &deploymentBackedWorkloadFixture{
-		scheme:           scheme,
-		pod:              pod,
-		replicaSet:       replicaSet,
-		deployment:       deployment,
-		inferenceService: inferenceService,
+		scheme:     scheme,
+		pod:        pod,
+		replicaSet: replicaSet,
+		deployment: deployment,
 	}
 	fixture.rebuildReader()
 	return fixture
@@ -94,5 +81,5 @@ func newDeploymentBackedWorkloadFixture(t *testing.T) *deploymentBackedWorkloadF
 
 func (f *deploymentBackedWorkloadFixture) rebuildReader() {
 	f.reader = fake.NewClientBuilder().WithScheme(f.scheme).
-		WithObjects(f.inferenceService, f.deployment, f.replicaSet).Build()
+		WithObjects(f.deployment, f.replicaSet).Build()
 }

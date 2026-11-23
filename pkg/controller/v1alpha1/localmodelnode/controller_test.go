@@ -191,7 +191,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			fsMock.mockModel(&MockFileInfo{name: storageKey, isDir: true})
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
@@ -301,7 +301,7 @@ var _ = Describe("LocalModelNode controller", func() {
 
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
@@ -383,7 +383,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			DeferCleanup(cancel)
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
@@ -490,7 +490,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			fsMock.clear()
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
@@ -553,7 +553,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			storageKey := v1alpha1.GetStorageKey(sourceModelUri)
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
@@ -633,7 +633,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			fsMock.clear()
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: map[string]string{
@@ -734,7 +734,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			fsMock.clear()
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: map[string]string{
@@ -821,7 +821,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			fsMock.clear()
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: map[string]string{
@@ -943,7 +943,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			fsMock.clear()
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: map[string]string{
@@ -1024,7 +1024,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			fsMock.clear()
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: map[string]string{
@@ -1114,7 +1114,7 @@ var _ = Describe("LocalModelNode controller", func() {
 
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: map[string]string{
@@ -1214,7 +1214,7 @@ var _ = Describe("LocalModelNode controller", func() {
 
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: map[string]string{
@@ -1322,7 +1322,7 @@ var _ = Describe("LocalModelNode controller", func() {
 
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: map[string]string{
@@ -1497,7 +1497,7 @@ var _ = Describe("LocalModelNode controller", func() {
 
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
@@ -1600,7 +1600,7 @@ var _ = Describe("LocalModelNode controller", func() {
 
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
+					Name:      constants.LocalModelConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: map[string]string{
