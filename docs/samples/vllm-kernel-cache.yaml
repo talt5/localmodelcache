@@ -1,0 +1,40 @@
+# Reuse vLLM's compiled kernels across restarts with the kernel cache.
+#
+# The kernelcache key of the kserve-localmodel-config ConfigMap must set "enabled": true and
+# a registry endpoint. The first Pods of a new ReplicaSet get a capture sidecar that packages
+# the compiled caches into an OCI image; once a KernelCache is ready, later Pods with the same
+# runtime image, arguments and model mount it and skip compilation.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qwen3-kernelcache
+  namespace: inference
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qwen3-kernelcache
+  template:
+    metadata:
+      labels:
+        app: qwen3-kernelcache
+      annotations:
+        serving.kserve.io/kernelcache-supported: "true"
+        # Part of the cache identity: Pods serving another model never share a cache.
+        serving.kserve.io/kernelcache-model-uri: hf://Qwen/Qwen3-0.6B
+        # Needed only when the Pod has more than one container.
+        serving.kserve.io/kernelcache-container: vllm
+    spec:
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          args: ["--model", "Qwen/Qwen3-0.6B"]
+          ports:
+            - containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+          resources:
+            limits:
+              nvidia.com/gpu: "1"

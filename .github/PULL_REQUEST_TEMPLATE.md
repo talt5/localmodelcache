@@ -1,11 +1,10 @@
 <!--  Thanks for sending a pull request! Read the comments in this template, then delete every one. CI fails while the description contains HTML comment markers.
 
 Before you open it:
-- If this is your first time, read our contributor guidelines https://www.kubeflow.org/docs/about/contributing/ and developer guide https://github.com/kserve/kserve/blob/master/docs/DEVELOPER_GUIDE.md
+- If this is your first time, read the Development section of README.md.
 - Run `make precommit`. Open unfinished work as a draft.
-- Re-running failed tests: `/rerun-failed` reruns only failed jobs, `/rerun-all` reruns all jobs, `/rerun-workflow <name>` reruns a specific workflow.
 
-Writing the description (examples: https://github.com/kserve/kserve/blob/master/.github/PR_DESCRIPTION_EXAMPLES.md):
+Writing the description (examples: .github/PR_DESCRIPTION_EXAMPLES.md):
 - A reviewer should get the point in one minute. Length follows risk, not diff size. The whole description, without the checklist, stays under 150 words for a bug fix and under 300 for a new API or behaviour change, including its example and upgrade story. A larger change can say more in <details>: design detail, alternatives, extra evidence.
 - Title: `type(scope): lowercase behaviour`, at most 75 characters.
 - Say what and why. Explain how only where the diff doesn't make it obvious, never as a walkthrough. No file lists, and no story of how you found the bug.
