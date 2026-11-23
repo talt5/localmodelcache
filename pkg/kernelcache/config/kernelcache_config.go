@@ -32,7 +32,7 @@ import (
 const KernelCacheConfigKeyName = "kernelcache"
 
 const (
-	DefaultKernelCacheMCVImage                                = "kserve/kserve-mcv:latest-minimal"
+	DefaultKernelCacheMCVImage                                = "ghcr.io/talt5/kserve-mcv:latest-minimal"
 	DefaultKernelCachePrefetchImage                           = "registry.access.redhat.com/ubi9/ubi-minimal:latest"
 	DefaultKernelCacheMountType                               = "oci"
 	DefaultKernelCacheJobNamespace                            = "kserve-kernelcache-jobs"

@@ -664,7 +664,7 @@ directory to the container and run the following command:
 +  --security-opt apparmor=unconfined \
 +  -v <path-to-cache>/example:/example:Z \
 +  -v /tmp/mcv-storage:/home/appuser/.local/share/containers:Z \
-  kserve/kserve-mcv:latest-minimal bash -lc '
+  ghcr.io/talt5/kserve-mcv:latest-minimal bash -lc '
     /mcv -c -i quay.io/gkm/vector-add-cache:rocm \
         -d /example/vector-add-cache-rocm --no-gpu &&
     buildah push containers-storage:quay.io/gkm/vector-add-cache:rocm \

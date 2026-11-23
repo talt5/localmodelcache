@@ -7,5 +7,5 @@ spec:
   template:
     spec:
       containers:
-      - image: kserve/kserve-kernelcachenode-agent:latest
+      - image: ghcr.io/talt5/kserve-kernelcachenode-agent:latest
         name: manager

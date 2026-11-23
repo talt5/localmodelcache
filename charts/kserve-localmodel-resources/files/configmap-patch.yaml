@@ -63,7 +63,7 @@ data:
       "defaultMountType": "{{ .Values.kserve.kernelcache.defaultMountType }}",
       "defaultNodeGroup": "{{ .Values.kserve.kernelcache.defaultNodeGroup }}",
       "jobNamespace": "{{ .Values.kserve.kernelcache.jobNamespace }}",
-      "mcvImage": "{{ .Values.kserve.kernelcache.mcvImage }}:{{ .Values.kserve.kernelcache.mcvTag | default .Values.kserve.version }}",
+      "mcvImage": "{{ .Values.kserve.kernelcache.mcvImage }}:{{ .Values.kserve.kernelcache.mcvTag | default (printf "%s-minimal" .Values.kserve.version) }}",
       "prefetchImage": "{{ .Values.kserve.kernelcache.prefetchImage }}{{ if .Values.kserve.kernelcache.prefetchTag }}:{{ .Values.kserve.kernelcache.prefetchTag }}{{ end }}",
       "runtimeImagePrefetch": {
         "enabled": {{ .Values.kserve.kernelcache.runtimeImagePrefetch.enabled }},
