@@ -23,14 +23,15 @@ data:
       "reconcilationFrequencyInSecs": 60,
       "disableVolumeManagement": false
     }
-  # Resources and options of the download container.
+  # Resources and options of the download container. caBundleConfigMapName names a ConfigMap
+  # (key cabundle.crt) that must exist in each namespace that runs download Jobs.
   storageInitializer: |-
     {
         "image" : "ghcr.io/talt5/storage-initializer:latest",
         "memoryRequest": "100Mi",
-        "memoryLimit": "1Gi",
+        "memoryLimit": "4Gi",
         "cpuRequest": "100m",
-        "cpuLimit": "1",
+        "cpuLimit": "2",
         "caBundleConfigMapName": "",
         "caBundleVolumeMountPath": "/etc/ssl/custom-certs"
     }

@@ -96,13 +96,13 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/talt5/charts/kserve-loc
 | kserve.localmodelnode.controller.resources.requests.memory | string | `"200Mi"` |  |
 | kserve.localmodelnode.controller.tag | string | `""` |  |
 | kserve.localmodelnode.controller.tolerations | list | `[]` |  |
-| kserve.storage.caBundleConfigMapName | string | `""` |  |
+| kserve.storage.caBundleConfigMapName | string | `""` | ConfigMap with the CA certificates (key cabundle.crt) that downloads trust. Create it in every namespace that runs download Jobs: kserve.localmodel.jobNamespace, and the namespace of each shared-PVC cache. A ConfigMap named by the storage credentials takes precedence. |
 | kserve.storage.caBundleVolumeMountPath | string | `"/etc/ssl/custom-certs"` |  |
 | kserve.storage.enableOciModelSupport | bool | `false` |  |
 | kserve.storage.image | string | `"ghcr.io/talt5/storage-initializer"` |  |
 | kserve.storage.ociModelMode | string | `""` |  |
-| kserve.storage.resources.limits.cpu | string | `"1"` |  |
-| kserve.storage.resources.limits.memory | string | `"1Gi"` |  |
+| kserve.storage.resources.limits.cpu | string | `"2"` |  |
+| kserve.storage.resources.limits.memory | string | `"4Gi"` |  |
 | kserve.storage.resources.requests.cpu | string | `"100m"` |  |
 | kserve.storage.resources.requests.memory | string | `"100Mi"` |  |
 | kserve.storage.s3.CABundle | string | `""` |  |

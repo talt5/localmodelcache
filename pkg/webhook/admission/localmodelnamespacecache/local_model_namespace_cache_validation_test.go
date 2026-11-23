@@ -376,3 +376,34 @@ func TestValidateUpdate_SharedPVCSkipsDestinationConflict(t *testing.T) {
 	g.Expect(warnings).To(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 }
+
+func TestLocalModelNamespaceCacheValidatorEnforcesStorageLimit(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	s := runtime.NewScheme()
+	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+	nodeGroup := v1alpha1.LocalModelNodeGroup{
+		ObjectMeta: metav1.ObjectMeta{Name: "gpu1"},
+		Spec:       v1alpha1.LocalModelNodeGroupSpec{StorageLimit: resource.MustParse("10Gi")},
+	}
+	stored := makeTestLocalModelNamespaceCache()
+	stored.UID = "stored"
+	reader := fake.NewClientBuilder().WithObjects(&nodeGroup, &stored).WithScheme(s).Build()
+	validator := LocalModelNamespaceCacheValidator{Client: reader}
+
+	added := makeTestLocalModelNamespaceCache()
+	added.Name = "added"
+	added.Spec.SourceModelUri = "gs://testbucket/other"
+	added.Spec.ModelSize = resource.MustParse("9Gi")
+	_, err := validator.ValidateCreate(t.Context(), &added)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	added.Spec.ModelSize = resource.MustParse("10Gi")
+	_, err = validator.ValidateCreate(t.Context(), &added)
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("storageLimit 10Gi")))
+
+	grown := stored.DeepCopy()
+	grown.Spec.ModelSize = resource.MustParse("11Gi")
+	_, err = validator.ValidateUpdate(t.Context(), &stored, grown)
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("storageLimit 10Gi")))
+	_, err = validator.ValidateUpdate(t.Context(), grown, grown)
+	g.Expect(err).NotTo(gomega.HaveOccurred(), "a cache that already exceeds the limit can be updated")
+}

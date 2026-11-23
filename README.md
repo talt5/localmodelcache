@@ -53,7 +53,7 @@ namespace:
 | Key | Configures |
 | --- | --- |
 | `localModel` | The download Job namespace and image, `fsGroup`, and whether the controller creates the PVCs workloads mount (`disableVolumeManagement`). |
-| `storageInitializer` | Resources and CA bundle of the download container. |
+| `storageInitializer` | Resources and CA bundle of the download container. The CA bundle is a ConfigMap with the key `cabundle.crt`, in the job namespace and in the namespace of each shared-PVC cache. |
 | `credentials` | Where download Jobs find storage credentials. |
 | `kernelcache` | Kernel capture, prefetch, registry and artifact signing. |
 
@@ -90,6 +90,10 @@ spec:
         storage: 200Gi
     storageClassName: local-storage
 ```
+
+`storageLimit` caps the group. A cache is refused when the `modelSize` of all its caches, counting
+each `sourceModelUri` once, would exceed it. The check trusts `modelSize` and counts each group on
+its own, so also give the models their own disk: PV and PVC sizes do not limit a `local` volume.
 
 Then cache the model in the namespace your workload runs in:
 

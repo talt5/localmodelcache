@@ -26,6 +26,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -55,7 +56,7 @@ func ResolveDownloadContainer(ctx context.Context, cl client.Client, config *pkg
 }
 
 // ContainerFromConfig returns the fallback download container built from the
-// StorageInitializerConfig image, or the default image when unset.
+// StorageInitializerConfig image and resources, or the default image when unset.
 func ContainerFromConfig(config *pkgtypes.StorageInitializerConfig) *corev1.Container {
 	image := DefaultJobImage
 	if config != nil && config.Image != "" {
@@ -65,6 +66,31 @@ func ContainerFromConfig(config *pkgtypes.StorageInitializerConfig) *corev1.Cont
 		Name:                     DownloadContainerName,
 		Image:                    image,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+		Resources:                resourcesFromConfig(config),
+	}
+}
+
+// resourcesFromConfig leaves out values that are unset or not valid quantities, so that a bad
+// setting never stops downloads. GetStorageInitializerConfigs reports invalid values.
+func resourcesFromConfig(config *pkgtypes.StorageInitializerConfig) corev1.ResourceRequirements {
+	if config == nil {
+		return corev1.ResourceRequirements{}
+	}
+	list := func(cpu, memory string) corev1.ResourceList {
+		out := corev1.ResourceList{}
+		for name, value := range map[corev1.ResourceName]string{corev1.ResourceCPU: cpu, corev1.ResourceMemory: memory} {
+			if quantity, err := resource.ParseQuantity(value); err == nil {
+				out[name] = quantity
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	}
+	return corev1.ResourceRequirements{
+		Requests: list(config.CpuRequest, config.MemoryRequest),
+		Limits:   list(config.CpuLimit, config.MemoryLimit),
 	}
 }
 

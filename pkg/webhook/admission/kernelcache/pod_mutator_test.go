@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -167,4 +168,32 @@ func TestPodMutatorWarnsWhenTheRuntimeContainerIsAmbiguous(t *testing.T) {
 	response = fixture.mutator(t, enabledKernelCache).Handle(t.Context(), podCreateRequest(t, fixture.pod))
 	require.True(t, response.Allowed, response.Result)
 	require.Equal(t, "vllm", patchedLabel(response))
+}
+
+func TestPodMutatorAdmitsPodsItCannotCapture(t *testing.T) {
+	probe := &corev1.Probe{ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{Path: "/health", Port: intstr.FromInt32(8000)}}}
+	tests := map[string]struct {
+		probe   *corev1.Probe
+		warning string
+	}{
+		"no readiness probe": {warning: "readinessProbe"},
+		"no registry":        {probe: probe, warning: "kernelcache.registry.endpoint"},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			fixture := newPodMutatorFixture()
+			fixture.pod.Annotations[constants.KernelCacheSidecarInjectionAnnotationKey] = "true"
+			fixture.pod.Spec.Containers[0].ReadinessProbe = tc.probe
+
+			response := fixture.mutator(t, enabledKernelCache).Handle(t.Context(), podCreateRequest(t, fixture.pod))
+
+			require.True(t, response.Allowed, response.Result)
+			require.Len(t, response.Warnings, 1)
+			require.Contains(t, response.Warnings[0], tc.warning)
+			require.Equal(t, "vllm", patchedLabel(response))
+			for _, op := range response.Patches {
+				require.NotContains(t, op.Path, "/spec", "the Pod spec must not be changed")
+			}
+		})
+	}
 }

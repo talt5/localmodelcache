@@ -233,7 +233,7 @@ func main() {
 	// Setup webhook
 	setupLog.Info("setting up webhook server")
 	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha1.LocalModelCache{}).
-		WithValidator(&localmodelwebhook.LocalModelCacheValidator{Client: mgr.GetClient()}).
+		WithValidator(&localmodelwebhook.LocalModelCacheValidator{Client: mgr.GetClient(), Reader: mgr.GetAPIReader()}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "LocalModelCache")
 		os.Exit(1)

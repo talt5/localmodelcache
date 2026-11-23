@@ -554,8 +554,8 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 		if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
 			credentials.SetOciInsecureRegistryEnv(container)
 		}
-		credentials.MountOciCaBundle(storageInitializerConfig, localModel.Namespace, container, &volumes)
 	}
+	credentials.MountCaBundle(storageInitializerConfig, container, &volumes)
 
 	// Only the shared-PVC specific key is honored here. The global localModel.fsGroup is
 	// sized for the admin-controlled job namespace; the import Job runs in the user's
