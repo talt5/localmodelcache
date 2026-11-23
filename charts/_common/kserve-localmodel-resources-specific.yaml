@@ -1,7 +1,7 @@
 kserve:
   localmodel:
     controller:
-      image: kserve/kserve-localmodel-controller
+      image: ghcr.io/talt5/kserve-localmodel-controller
       # -- Additional container arguments. Example: ["--log-format=otel-json"].
       extraArgs: []
       tag: ''
@@ -15,7 +15,7 @@ kserve:
           memory: 200Mi
   localmodelnode:
     controller:
-      image: kserve/kserve-localmodelnode-agent
+      image: ghcr.io/talt5/kserve-localmodelnode-agent
       # -- Additional container arguments. Example: ["--log-format=otel-json"].
       extraArgs: []
       tag: ''
@@ -35,7 +35,7 @@ kserve:
       hostPath: /models
   kernelcachenode:
     controller:
-      image: kserve/kserve-kernelcachenode-agent
+      image: ghcr.io/talt5/kserve-kernelcachenode-agent
       # -- Additional container arguments.
       extraArgs: []
       tag: ''

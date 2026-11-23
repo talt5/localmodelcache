@@ -1,6 +1,6 @@
 # kserve-localmodel-resources
 
-![Version: v0.21.0](https://img.shields.io/badge/Version-v0.21.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.21.0](https://img.shields.io/badge/AppVersion-v0.21.0-informational?style=flat-square)
+![Version: v0.1.0](https://img.shields.io/badge/Version-v0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.1.0](https://img.shields.io/badge/AppVersion-v0.1.0-informational?style=flat-square)
 
 KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Deployments
 
@@ -11,7 +11,7 @@ KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Depl
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-localmodel-resources --version v0.21.0
+$ helm install kserve-localmodel-resources oci://ghcr.io/talt5/charts/kserve-localmodel-resources --version v0.1.0
 ```
 
 ## Maintainers
@@ -42,7 +42,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.kernelcache.jobNamespace | string | `"kserve-kernelcache-jobs"` |  |
 | kserve.kernelcache.jobTTLSecondsAfterFinished | int | `600` |  |
 | kserve.kernelcache.mcvCaptureReadinessTimeoutSeconds | int | `600` |  |
-| kserve.kernelcache.mcvImage | string | `"kserve/kserve-mcv"` |  |
+| kserve.kernelcache.mcvImage | string | `"ghcr.io/talt5/kserve-mcv"` |  |
 | kserve.kernelcache.mcvTag | string | `""` |  |
 | kserve.kernelcache.prefetchImage | string | `"registry.access.redhat.com/ubi9/ubi-minimal:latest"` |  |
 | kserve.kernelcache.prefetchTag | string | `""` |  |
@@ -60,7 +60,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.kernelcache.runtimeImagePrefetch.jobTTLSecondsAfterFinished | int | `86400` |  |
 | kserve.kernelcachenode.controller.affinity | object | `{}` |  |
 | kserve.kernelcachenode.controller.extraArgs | list | `[]` | Additional container arguments. |
-| kserve.kernelcachenode.controller.image | string | `"kserve/kserve-kernelcachenode-agent"` |  |
+| kserve.kernelcachenode.controller.image | string | `"ghcr.io/talt5/kserve-kernelcachenode-agent"` |  |
 | kserve.kernelcachenode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.kernelcachenode.controller.resources.limits.cpu | string | `"100m"` |  |
 | kserve.kernelcachenode.controller.resources.limits.memory | string | `"300Mi"` |  |
@@ -70,14 +70,14 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.kernelcachenode.controller.tolerations | list | `[]` |  |
 | kserve.localmodel.agent.reconcilationFrequencyInSecs | int | `60` |  |
 | kserve.localmodel.controller.extraArgs | list | `[]` | Additional container arguments. Example: ["--log-format=otel-json"]. |
-| kserve.localmodel.controller.image | string | `"kserve/kserve-localmodel-controller"` |  |
+| kserve.localmodel.controller.image | string | `"ghcr.io/talt5/kserve-localmodel-controller"` |  |
 | kserve.localmodel.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.localmodel.controller.resources.limits.cpu | string | `"100m"` |  |
 | kserve.localmodel.controller.resources.limits.memory | string | `"300Mi"` |  |
 | kserve.localmodel.controller.resources.requests.cpu | string | `"100m"` |  |
 | kserve.localmodel.controller.resources.requests.memory | string | `"200Mi"` |  |
 | kserve.localmodel.controller.tag | string | `""` |  |
-| kserve.localmodel.defaultJobImage | string | `"kserve/storage-initializer"` |  |
+| kserve.localmodel.defaultJobImage | string | `"ghcr.io/talt5/storage-initializer"` |  |
 | kserve.localmodel.defaultJobTag | string | `""` |  |
 | kserve.localmodel.disableVolumeManagement | bool | `false` |  |
 | kserve.localmodel.jobNamespace | string | `"kserve-localmodel-jobs"` |  |
@@ -87,7 +87,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodelnode.controller.affinity | object | `{}` |  |
 | kserve.localmodelnode.controller.extraArgs | list | `[]` | Additional container arguments. Example: ["--log-format=otel-json"]. |
 | kserve.localmodelnode.controller.hostPath | string | `"/models"` | Node directory that holds the model cache. It must match the path of the PersistentVolume in your LocalModelNodeGroup. On OpenShift (RHCOS) the root filesystem is immutable, so use a path under /var, such as /var/mnt/models. |
-| kserve.localmodelnode.controller.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
+| kserve.localmodelnode.controller.image | string | `"ghcr.io/talt5/kserve-localmodelnode-agent"` |  |
 | kserve.localmodelnode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.localmodelnode.controller.nodeSelector.kserve/localmodel | string | `"worker"` |  |
 | kserve.localmodelnode.controller.resources.limits.cpu | string | `"100m"` |  |
@@ -99,7 +99,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.storage.caBundleConfigMapName | string | `""` |  |
 | kserve.storage.caBundleVolumeMountPath | string | `"/etc/ssl/custom-certs"` |  |
 | kserve.storage.enableOciModelSupport | bool | `false` |  |
-| kserve.storage.image | string | `"kserve/storage-initializer"` |  |
+| kserve.storage.image | string | `"ghcr.io/talt5/storage-initializer"` |  |
 | kserve.storage.ociModelMode | string | `""` |  |
 | kserve.storage.resources.limits.cpu | string | `"1"` |  |
 | kserve.storage.resources.limits.memory | string | `"1Gi"` |  |
@@ -118,7 +118,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.storage.storageSecretNameAnnotation | string | `"serving.kserve.io/secretName"` |  |
 | kserve.storage.storageSpecSecretName | string | `"storage-config"` |  |
 | kserve.storage.tag | string | `""` |  |
-| kserve.version | string | `"v0.21.0"` |  |
+| kserve.version | string | `"v0.1.0"` |  |
 | openshift.downloadJobServiceAccount | string | `"default"` | ServiceAccount in kserve.localmodel.jobNamespace that runs the model download Jobs. It is granted the download Job SCC, which permits the Jobs' fsGroup. |
 | openshift.enabled | bool | `false` | Deploy on OpenShift. Creates SecurityContextConstraints (SCCs), grants them to the chart's ServiceAccounts and the download Job ServiceAccount, and pins each pod to its SCC. |
 | openshift.localmodelnode.prepareHostPath.enabled | bool | `true` | Run an init container that creates the cache directory, gives it to runAsUser:runAsGroup and labels it container_file_t so SELinux lets pods write it. Disable it if you prepare the nodes yourself, for example with a MachineConfig. |

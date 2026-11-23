@@ -36,7 +36,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          image: kserve/${{ matrix.image.name }}
+          image: ghcr.io/${{ github.repository_owner }}/${{ matrix.image.name }}
           args: --severity-threshold=low
             --file=${{ matrix.image.file }}
             --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif

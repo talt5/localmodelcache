@@ -1,7 +1,7 @@
 kserve:
-  version: v0.21.0
+  version: v0.1.0
   storage:
-    image: kserve/storage-initializer
+    image: ghcr.io/talt5/storage-initializer
     tag: ''
     resources:
       requests:
@@ -35,7 +35,7 @@ kserve:
       CABundle: ''
   localmodel:
     controller:
-      image: kserve/kserve-localmodel-controller
+      image: ghcr.io/talt5/kserve-localmodel-controller
       tag: ''
       # -- Additional container arguments. Example: ["--log-format=otel-json"].
       extraArgs: []
@@ -49,7 +49,7 @@ kserve:
           memory: 200Mi
     jobNamespace: kserve-localmodel-jobs
     jobTTLSecondsAfterFinished: 3600
-    defaultJobImage: kserve/storage-initializer
+    defaultJobImage: ghcr.io/talt5/storage-initializer
     defaultJobTag: ''
     securityContext:
       fsGroup: 1000
@@ -64,7 +64,7 @@ kserve:
     defaultMountType: 'oci'
     defaultNodeGroup: ''
     jobNamespace: 'kserve-kernelcache-jobs'
-    mcvImage: 'kserve/kserve-mcv'
+    mcvImage: 'ghcr.io/talt5/kserve-mcv'
     mcvTag: ''
     prefetchImage: 'registry.access.redhat.com/ubi9/ubi-minimal:latest'
     prefetchTag: ''
@@ -99,7 +99,7 @@ kserve:
     reconcileIntervalSeconds: 300
   localmodelnode:
     controller:
-      image: kserve/kserve-localmodelnode-agent
+      image: ghcr.io/talt5/kserve-localmodelnode-agent
       # -- Additional container arguments. Example: ["--log-format=otel-json"].
       extraArgs: []
       tag: ''
@@ -119,7 +119,7 @@ kserve:
       hostPath: /models
   kernelcachenode:
     controller:
-      image: kserve/kserve-kernelcachenode-agent
+      image: ghcr.io/talt5/kserve-kernelcachenode-agent
       # -- Additional container arguments.
       extraArgs: []
       tag: ''

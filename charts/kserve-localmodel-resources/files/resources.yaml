@@ -613,7 +613,7 @@ data:
       "defaultMountType": "oci",
       "defaultNodeGroup": "",
       "jobNamespace": "kserve-kernelcache-jobs",
-      "mcvImage": "kserve/kserve-mcv:latest-minimal",
+      "mcvImage": "ghcr.io/talt5/kserve-mcv:latest-minimal",
       "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
       "runtimeImagePrefetch": {
         "enabled": false,
@@ -641,7 +641,7 @@ data:
   localModel: |-
     {
       "jobNamespace": "kserve-localmodel-jobs",
-      "defaultJobImage": "kserve/storage-initializer:latest",
+      "defaultJobImage": "ghcr.io/talt5/storage-initializer:latest",
       "fsGroup": 1000,
       "sharedPVCImportFSGroup": 1000,
       "jobTTLSecondsAfterFinished": 3600,
@@ -650,7 +650,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "kserve/storage-initializer:latest",
+        "image" : "ghcr.io/talt5/storage-initializer:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -713,7 +713,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: kserve/kserve-localmodel-controller:latest
+        image: ghcr.io/talt5/kserve-localmodel-controller:latest
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 5
@@ -799,7 +799,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: kserve/kserve-kernelcachenode-agent:latest
+        image: ghcr.io/talt5/kserve-kernelcachenode-agent:latest
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -872,7 +872,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: kserve/kserve-localmodelnode-agent:latest
+        image: ghcr.io/talt5/kserve-localmodelnode-agent:latest
         imagePullPolicy: Always
         name: manager
         resources:

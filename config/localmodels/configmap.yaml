@@ -16,7 +16,7 @@ data:
   localModel: |-
     {
       "jobNamespace": "kserve-localmodel-jobs",
-      "defaultJobImage": "kserve/storage-initializer:latest",
+      "defaultJobImage": "ghcr.io/talt5/storage-initializer:latest",
       "fsGroup": 1000,
       "sharedPVCImportFSGroup": 1000,
       "jobTTLSecondsAfterFinished": 3600,
@@ -26,7 +26,7 @@ data:
   # Resources and options of the download container.
   storageInitializer: |-
     {
-        "image" : "kserve/storage-initializer:latest",
+        "image" : "ghcr.io/talt5/storage-initializer:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -64,7 +64,7 @@ data:
       "defaultMountType": "oci",
       "defaultNodeGroup": "",
       "jobNamespace": "kserve-kernelcache-jobs",
-      "mcvImage": "kserve/kserve-mcv:latest-minimal",
+      "mcvImage": "ghcr.io/talt5/kserve-mcv:latest-minimal",
       "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
       "runtimeImagePrefetch": {
         "enabled": false,
