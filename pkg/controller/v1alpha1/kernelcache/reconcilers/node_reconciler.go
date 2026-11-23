@@ -43,7 +43,7 @@ import (
 
 const (
 	kernelCacheNodeAgentDaemonSetName   = "kserve-kernelcachenode-agent"
-	kernelCacheNodeAgentDisabledKey     = "serving.kserve.io/kernelcache-agent"
+	kernelCacheNodeAgentDisabledKey     = "local.cache.ai/kernelcache-agent"
 	kernelCacheNodeAgentDisabledValue   = "disabled"
 	kernelCacheNodeReconcileRequestName = "kernelcache-node-reconcile"
 )

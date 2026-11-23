@@ -50,8 +50,8 @@ var (
 	APIGVStr                    = v1alpha1.SchemeGroupVersion.String()
 	ModelCacheCRName            = "LocalModelCache"
 	ModelNamespaceCacheCRName   = "LocalModelNamespaceCache"
-	FinalizerName               = "localmodel.kserve.io/finalizer"
-	NamespaceCacheFinalizerName = "localmodelnamespacecache.kserve.io/finalizer"
+	FinalizerName               = "local.cache.ai/localmodelcache-finalizer"
+	NamespaceCacheFinalizerName = "local.cache.ai/localmodelnamespacecache-finalizer"
 )
 
 // LocalModelParams holds common parameters extracted from either LocalModelCache or LocalModelNamespaceCache

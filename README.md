@@ -16,7 +16,7 @@ is the product and `LocalModelCache` is one of its resources.
 | `ClusterStorageContainer` | cluster | Replaces the container that downloads models from a given URI scheme. |
 | `KernelCache`, `KernelCacheCapture`, `KernelCacheNodeGroup` | namespace, namespace, cluster | Capture the compiled kernel cache of a running Deployment as an OCI image and mount it into its later Pods. |
 
-The API group stays `serving.kserve.io/v1alpha1`. The chart, ConfigMap and namespace names also
+The API group stays `local.cache.ai/v1alpha1`. The chart, ConfigMap and namespace names also
 keep their `kserve` prefix, so use those names in the commands below.
 
 ## Install
@@ -63,7 +63,7 @@ Start with a node group. Its PersistentVolume spec describes the local volume on
 and its path must match the node agent's host path (`kserve.localmodelnode.controller.hostPath`):
 
 ```yaml
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: local.cache.ai/v1alpha1
 kind: LocalModelNodeGroup
 metadata:
   name: gpu
@@ -98,7 +98,7 @@ its own, so also give the models their own disk: PV and PVC sizes do not limit a
 Then cache the model in the namespace your workload runs in:
 
 ```yaml
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: local.cache.ai/v1alpha1
 kind: LocalModelNamespaceCache
 metadata:
   name: qwen3
@@ -229,10 +229,10 @@ Opt in through the Pod template of a Deployment:
 
 | Annotation | Value |
 | --- | --- |
-| `serving.kserve.io/kernelcache-supported` | `"true"` to opt in. |
-| `serving.kserve.io/kernelcache-model-uri` | The model the Pod serves. It is part of the cache identity. |
-| `serving.kserve.io/kernelcache-container` | The runtime container. Needed only when the Pod has more than one. |
-| `serving.kserve.io/kernelcache-sidecar-injection` | `"true"` or `"false"` to override capture for this workload. |
+| `local.cache.ai/kernelcache-supported` | `"true"` to opt in. |
+| `local.cache.ai/kernelcache-model-uri` | The model the Pod serves. It is part of the cache identity. |
+| `local.cache.ai/kernelcache-container` | The runtime container. Needed only when the Pod has more than one. |
+| `local.cache.ai/kernelcache-sidecar-injection` | `"true"` or `"false"` to override capture for this workload. |
 
 The `kernelcache` key of `kserve-localmodel-config` turns the feature on and sets the registry
 captured images are pushed to. See

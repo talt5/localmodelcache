@@ -188,7 +188,7 @@ func TestKernelCacheReconcilerAggregatesStatusDespiteRuntimePrefetchFailure(t *t
 					mountPath: runtimeImagePrefetchMountPath, node: node,
 				})
 				deletingJob.DeletionTimestamp = &deletionTime
-				deletingJob.Finalizers = []string{"test.kserve.io/prefetch-job"}
+				deletingJob.Finalizers = []string{"test.local.cache.ai/prefetch-job"}
 				apiErr := errors.New("runtime prefetch API unavailable")
 				runtimeJobName := deletingJob.Name
 				builder := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(cache).WithObjects(cache, group, node, kernelCacheNode, configMap, jobNamespace)

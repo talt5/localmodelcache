@@ -19,11 +19,11 @@ spec:
       labels:
         app: qwen3-kernelcache
       annotations:
-        serving.kserve.io/kernelcache-supported: "true"
+        local.cache.ai/kernelcache-supported: "true"
         # Part of the cache identity: Pods serving another model never share a cache.
-        serving.kserve.io/kernelcache-model-uri: hf://Qwen/Qwen3-0.6B
+        local.cache.ai/kernelcache-model-uri: hf://Qwen/Qwen3-0.6B
         # Needed only when the Pod has more than one container.
-        serving.kserve.io/kernelcache-container: vllm
+        local.cache.ai/kernelcache-container: vllm
     spec:
       containers:
         - name: vllm

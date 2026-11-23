@@ -30,7 +30,7 @@ import (
 
 type addToSchemeFunc func(scheme *runtime.Scheme) error
 
-// AddKServeAPIs registers the serving.kserve.io/v1alpha1 API group.
+// AddKServeAPIs registers the local.cache.ai/v1alpha1 API group.
 func AddKServeAPIs(s *runtime.Scheme) error {
 	return addAll(s, v1alpha1.AddToScheme)
 }

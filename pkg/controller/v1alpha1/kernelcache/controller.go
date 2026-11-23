@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachenodegroups,verbs=get;list;watch
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachenodes,verbs=get;list;watch;create;delete
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcaches,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcaches/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachecaptures,verbs=get;list;watch;create;delete
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachecaptures/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcachenodegroups,verbs=get;list;watch
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcachenodes,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcaches,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcaches/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcachecaptures,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcachecaptures/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get

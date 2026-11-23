@@ -3,20 +3,20 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
-  name: localmodelcache.serving.kserve.io
+  name: localmodelcache.local.cache.ai
 webhooks:
   - clientConfig:
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
-        path: /validate-serving-kserve-io-v1alpha1-localmodelcache
+        path: /validate-local-cache-ai-v1alpha1-localmodelcache
     failurePolicy: Fail
     name: localmodelcache.kserve-webhook-server.validator
     sideEffects: None
     admissionReviewVersions: ["v1beta1"]
     rules:
       - apiGroups:
-          - serving.kserve.io
+          - local.cache.ai
         apiVersions:
           - v1alpha1
         operations:
@@ -31,14 +31,14 @@ webhooks:
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
-        path: /validate-serving-kserve-io-v1alpha1-localmodelnamespacecache
+        path: /validate-local-cache-ai-v1alpha1-localmodelnamespacecache
     failurePolicy: Fail
     name: localmodelnamespacecache.kserve-webhook-server.validator
     sideEffects: None
     admissionReviewVersions: ["v1"]
     rules:
       - apiGroups:
-          - serving.kserve.io
+          - local.cache.ai
         apiVersions:
           - v1alpha1
         operations:
@@ -52,7 +52,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   creationTimestamp: null
-  name: kernelcache.serving.kserve.io
+  name: kernelcache.local.cache.ai
   annotations:
     cert-manager.io/inject-ca-from: $(kserveNamespace)/localmodel-serving-cert
 webhooks:
@@ -74,8 +74,8 @@ webhooks:
       - name: kernelcache-opt-in
         expression: >-
           has(object.metadata.annotations) &&
-          'serving.kserve.io/kernelcache-supported' in object.metadata.annotations &&
-          object.metadata.annotations['serving.kserve.io/kernelcache-supported'] == 'true'
+          'local.cache.ai/kernelcache-supported' in object.metadata.annotations &&
+          object.metadata.annotations['local.cache.ai/kernelcache-supported'] == 'true'
     rules:
       - apiGroups:
           - ""
@@ -90,7 +90,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
-  name: kernelcachecapture.serving.kserve.io
+  name: kernelcachecapture.local.cache.ai
   annotations:
     cert-manager.io/inject-ca-from: $(kserveNamespace)/localmodel-serving-cert
 webhooks:
@@ -105,7 +105,7 @@ webhooks:
     admissionReviewVersions: ["v1"]
     rules:
       - apiGroups:
-          - serving.kserve.io
+          - local.cache.ai
         apiVersions:
           - v1alpha1
         operations:

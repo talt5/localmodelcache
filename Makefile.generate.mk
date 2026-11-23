@@ -28,15 +28,15 @@ manifests: controller-gen kustomize yq ## After API type or RBAC marker changes:
 	@$(MAKE) manifests-distro
 
 	# controller-gen writes every CRD to config/crd/full; sort them into their component folders.
-	mv config/crd/full/serving.kserve.io_clusterstoragecontainers.yaml config/crd/full/clusterstoragecontainer/
-	mv config/crd/full/serving.kserve.io_localmodelcaches.yaml config/crd/full/localmodel/
-	mv config/crd/full/serving.kserve.io_localmodelnamespacecaches.yaml config/crd/full/localmodel/
-	mv config/crd/full/serving.kserve.io_localmodelnodegroups.yaml config/crd/full/localmodel/
-	mv config/crd/full/serving.kserve.io_localmodelnodes.yaml config/crd/full/localmodel/
-	mv config/crd/full/serving.kserve.io_kernelcaches.yaml config/crd/full/kernelcache/
-	mv config/crd/full/serving.kserve.io_kernelcachenodes.yaml config/crd/full/kernelcache/
-	mv config/crd/full/serving.kserve.io_kernelcachecaptures.yaml config/crd/full/kernelcache/
-	mv config/crd/full/serving.kserve.io_kernelcachenodegroups.yaml config/crd/full/kernelcache/
+	mv config/crd/full/local.cache.ai_clusterstoragecontainers.yaml config/crd/full/clusterstoragecontainer/
+	mv config/crd/full/local.cache.ai_localmodelcaches.yaml config/crd/full/localmodel/
+	mv config/crd/full/local.cache.ai_localmodelnamespacecaches.yaml config/crd/full/localmodel/
+	mv config/crd/full/local.cache.ai_localmodelnodegroups.yaml config/crd/full/localmodel/
+	mv config/crd/full/local.cache.ai_localmodelnodes.yaml config/crd/full/localmodel/
+	mv config/crd/full/local.cache.ai_kernelcaches.yaml config/crd/full/kernelcache/
+	mv config/crd/full/local.cache.ai_kernelcachenodes.yaml config/crd/full/kernelcache/
+	mv config/crd/full/local.cache.ai_kernelcachecaptures.yaml config/crd/full/kernelcache/
+	mv config/crd/full/local.cache.ai_kernelcachenodegroups.yaml config/crd/full/kernelcache/
 
 	@# An existing deepcopy file keeps its copyright year, a new one gets CURRENT_YEAR.
 	@dir=pkg/apis/serving/v1alpha1; \
@@ -44,16 +44,16 @@ manifests: controller-gen kustomize yq ## After API type or RBAC marker changes:
 	$(CONTROLLER_GEN) object:headerFile=hack/boilerplate.go.txt,year="$${year:-$(CURRENT_YEAR)}" paths="./$$dir"
 
 	# envtest loads every CRD from test/crds.
-	@$(KUSTOMIZE) build config/crd/full > test/crds/serving.kserve.io_all_crds.yaml
+	@$(KUSTOMIZE) build config/crd/full > test/crds/local.cache.ai_all_crds.yaml
 	@for chart in kserve-localmodel-crd; do \
 		for dir in localmodel kernelcache clusterstoragecontainer; do \
-			cp -f config/crd/full/$$dir/serving.kserve.io_*.yaml charts/$$chart/templates/; \
+			cp -f config/crd/full/$$dir/local.cache.ai_*.yaml charts/$$chart/templates/; \
 		done; \
 	done
 
 	./hack/minimal-crdgen.sh
 	@for dir in localmodel kernelcache clusterstoragecontainer; do \
-		cp -f config/crd/minimal/$$dir/serving.kserve.io_*.yaml charts/kserve-localmodel-crd-minimal/templates/; \
+		cp -f config/crd/minimal/$$dir/local.cache.ai_*.yaml charts/kserve-localmodel-crd-minimal/templates/; \
 	done
 
 generate: manifests ## After API type changes: same as manifests (deepcopy is generated there).

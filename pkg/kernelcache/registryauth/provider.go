@@ -34,8 +34,8 @@ import (
 
 const (
 	TokenRequesterRole            = "kserve-kernelcache-token-requester" // #nosec G101 -- this is an RBAC role name, not a credential
-	ManagedLabel                  = "internal.serving.kserve.io/kernelcache-registry"
-	AccessSecretAnnotation        = "internal.serving.kserve.io/kernelcache-access-secret"
+	ManagedLabel                  = "internal.local.cache.ai/kernelcache-registry"
+	AccessSecretAnnotation        = "internal.local.cache.ai/kernelcache-access-secret"
 	AccessNamePrefix              = "mcv-registry-"
 	AccessKey                     = "access.json"
 	ControllerPushRoleBindingName = "kernel-cache-controller-registry-push"

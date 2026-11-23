@@ -353,8 +353,8 @@ func (r *KernelCacheCaptureControllerReconciler) ensureReporterIdentityForCaptur
 	desiredRole := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{Name: roleName, Namespace: namespace, Labels: map[string]string{reporter.ManagedLabel: "true"}, OwnerReferences: []metav1.OwnerReference{*owner}},
 		Rules: []rbacv1.PolicyRule{
-			{APIGroups: []string{"serving.kserve.io"}, Resources: []string{"kernelcachecaptures"}, ResourceNames: []string{capture.Name}, Verbs: []string{"get"}},
-			{APIGroups: []string{"serving.kserve.io"}, Resources: []string{"kernelcachecaptures/status"}, ResourceNames: []string{capture.Name}, Verbs: []string{"get", "update"}},
+			{APIGroups: []string{"local.cache.ai"}, Resources: []string{"kernelcachecaptures"}, ResourceNames: []string{capture.Name}, Verbs: []string{"get"}},
+			{APIGroups: []string{"local.cache.ai"}, Resources: []string{"kernelcachecaptures/status"}, ResourceNames: []string{capture.Name}, Verbs: []string{"get", "update"}},
 		},
 	}
 	currentRole := &rbacv1.Role{}

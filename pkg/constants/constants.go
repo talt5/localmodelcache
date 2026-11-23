@@ -25,7 +25,7 @@ import (
 
 // KServe Constants
 const (
-	KServeAPIGroupName = "serving.kserve.io"
+	APIGroupName = "local.cache.ai"
 )
 
 var KServeNamespace = GetEnvOrDefault("POD_NAMESPACE", "kserve")
@@ -39,18 +39,18 @@ var (
 
 // InferenceService Annotations
 var (
-	KernelCacheSupportedAnnotationKey        = KServeAPIGroupName + "/kernelcache-supported"
-	KernelCacheSidecarInjectionAnnotationKey = KServeAPIGroupName + "/kernelcache-sidecar-injection"
-	KernelCacheNodeGroupAnnotationKey        = KServeAPIGroupName + "/kernelcache-nodegroup"
+	KernelCacheSupportedAnnotationKey        = APIGroupName + "/kernelcache-supported"
+	KernelCacheSidecarInjectionAnnotationKey = APIGroupName + "/kernelcache-sidecar-injection"
+	KernelCacheNodeGroupAnnotationKey        = APIGroupName + "/kernelcache-nodegroup"
 	// KernelCacheModelURIAnnotationKey names the model a kernel-cache Pod serves. It is part of
 	// the cache identity, so Pods that serve another model never share a cache.
-	KernelCacheModelURIAnnotationKey = KServeAPIGroupName + "/kernelcache-model-uri"
+	KernelCacheModelURIAnnotationKey = APIGroupName + "/kernelcache-model-uri"
 	// KernelCacheContainerAnnotationKey names the runtime container of a kernel-cache Pod. It is
 	// required when the Pod has more than one container.
-	KernelCacheContainerAnnotationKey = KServeAPIGroupName + "/kernelcache-container"
+	KernelCacheContainerAnnotationKey = APIGroupName + "/kernelcache-container"
 	// KernelCacheWorkloadLabelKey is set by the kernel cache webhook to the name of the
 	// Deployment that owns an opted-in Pod. Controllers map Pods to their workload through it.
-	KernelCacheWorkloadLabelKey = KServeAPIGroupName + "/kernelcache-workload"
+	KernelCacheWorkloadLabelKey = APIGroupName + "/kernelcache-workload"
 )
 
 // KernelCacheWorkloadKind is the kind of workload kernel caches are captured from and mounted
@@ -59,7 +59,7 @@ const KernelCacheWorkloadKind = "Deployment"
 
 // InferenceService Internal Annotations
 var (
-	InferenceServiceInternalAnnotationsPrefix        = "internal." + KServeAPIGroupName
+	InferenceServiceInternalAnnotationsPrefix        = "internal." + APIGroupName
 	LocalModelLabel                                  = InferenceServiceInternalAnnotationsPrefix + "/localmodel"
 	LocalModelNamespaceLabel                         = InferenceServiceInternalAnnotationsPrefix + "/localmodel-namespace"
 	KernelCacheUsageAnnotationKey                    = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-usage"
@@ -92,7 +92,7 @@ const (
 	GaudiGPUResourceType           = "habana.ai/gaudi"
 )
 
-var CustomGPUResourceTypesAnnotationKey = KServeAPIGroupName + "/gpu-resource-types"
+var CustomGPUResourceTypesAnnotationKey = APIGroupName + "/gpu-resource-types"
 
 var DefaultGPUResourceTypeList = []string{
 	NvidiaGPUResourceType,

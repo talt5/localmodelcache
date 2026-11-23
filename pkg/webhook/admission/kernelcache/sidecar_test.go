@@ -157,7 +157,7 @@ func TestInjectSidecar(t *testing.T) {
 			originalConfig := cfg.DeepCopy()
 			originalEnv := append([]corev1.EnvVar(nil), pod.Spec.Containers[0].Env...)
 			require.NoError(t, mutator.injectMCVSidecar(context.Background(), pod, cfg))
-			require.NotContains(t, pod.Annotations, "internal.serving.kserve.io/mcv-injected")
+			require.NotContains(t, pod.Annotations, "internal.local.cache.ai/mcv-injected")
 			require.Equal(t, originalConfig, cfg)
 			require.Equal(t, originalEnv, pod.Spec.Containers[0].Env)
 			require.Equal(t, "runtime", pod.Spec.ServiceAccountName)

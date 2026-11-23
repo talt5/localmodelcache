@@ -48,9 +48,9 @@ import (
 
 const (
 	importJobNameSuffix        = "-import"
-	importPVCUIDAnnotation     = "serving.kserve.io/import-pvc-uid"
-	importStorageKeyAnnotation = "serving.kserve.io/import-storage-key"
-	importSpecHashAnnotation   = "serving.kserve.io/import-spec-hash"
+	importPVCUIDAnnotation     = "local.cache.ai/import-pvc-uid"
+	importStorageKeyAnnotation = "local.cache.ai/import-storage-key"
+	importSpecHashAnnotation   = "local.cache.ai/import-spec-hash"
 
 	// reimportBlockedRequeueInterval is the poll while a re-import is blocked by Pods that
 	// mount the claim. Nothing enqueues the cache when the last of them exits.

@@ -27,13 +27,13 @@ import (
 )
 
 const (
-	KernelCacheNameLabel      = "serving.kserve.io/kernel-cache-name"
-	KernelCacheNamespaceLabel = "serving.kserve.io/kernel-cache-namespace"
-	KernelCacheNodeLabel      = "serving.kserve.io/kernel-cache-node"
+	KernelCacheNameLabel      = "local.cache.ai/kernel-cache-name"
+	KernelCacheNamespaceLabel = "local.cache.ai/kernel-cache-namespace"
+	KernelCacheNodeLabel      = "local.cache.ai/kernel-cache-node"
 
-	KernelCacheNameAnnotation      = "internal.serving.kserve.io/kernel-cache-name"
-	KernelCacheNamespaceAnnotation = "internal.serving.kserve.io/kernel-cache-namespace"
-	KernelCacheNodeAnnotation      = "internal.serving.kserve.io/kernel-cache-node"
+	KernelCacheNameAnnotation      = "internal.local.cache.ai/kernel-cache-name"
+	KernelCacheNamespaceAnnotation = "internal.local.cache.ai/kernel-cache-namespace"
+	KernelCacheNodeAnnotation      = "internal.local.cache.ai/kernel-cache-node"
 
 	hashedLabelPrefix = "h-"
 )

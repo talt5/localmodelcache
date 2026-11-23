@@ -151,6 +151,43 @@ rules:
   - list
   - watch
 - apiGroups:
+  - local.cache.ai
+  resources:
+  - kernelcachecaptures
+  - kernelcachenodes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - local.cache.ai
+  resources:
+  - kernelcachecaptures/status
+  - kernelcaches/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - local.cache.ai
+  resources:
+  - kernelcachenodegroups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - local.cache.ai
+  resources:
+  - kernelcaches
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
   - rbac.authorization.k8s.io
   resourceNames:
   - kserve-kernelcache-token-requester
@@ -179,43 +216,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - kernelcachecaptures
-  - kernelcachenodes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - kernelcachecaptures/status
-  - kernelcaches/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - kernelcachenodegroups
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - kernelcaches
-  verbs:
-  - create
-  - get
-  - list
-  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -259,7 +259,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - kernelcachenodegroups
   - kernelcachenodes
@@ -269,7 +269,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - kernelcachenodes/status
   verbs:
@@ -359,7 +359,7 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - clusterstoragecontainers
   - localmodelnodegroups
@@ -368,7 +368,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - localmodelcaches
   - localmodelnamespacecaches
@@ -382,14 +382,14 @@ rules:
   - update
   - watch
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - localmodelcaches/finalizers
   - localmodelnamespacecaches/finalizers
   verbs:
   - update
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - localmodelcaches/status
   - localmodelnamespacecaches/status
@@ -398,7 +398,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - localmodelnodes/status
   verbs:
@@ -467,7 +467,7 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - clusterstoragecontainers
   - localmodelnodegroups
@@ -476,7 +476,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - localmodelnodes
   verbs:
@@ -488,13 +488,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - localmodelnodes/finalizers
   verbs:
   - update
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - localmodelnodes/status
   verbs:
@@ -588,7 +588,7 @@ data:
   credentials: |-
     {
        "storageSpecSecretName": "storage-config",
-       "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
+       "storageSecretNameAnnotation": "local.cache.ai/storageSecretName",
        "gcs": {
            "gcsCredentialFileName": "gcloud-application-credentials.json"
        },
@@ -994,7 +994,7 @@ metadata:
   labels:
     app.kubernetes.io/component: localmodel
     app.kubernetes.io/name: kserve
-  name: kernelcache.serving.kserve.io
+  name: kernelcache.local.cache.ai
 webhooks:
 - admissionReviewVersions:
   - v1
@@ -1005,8 +1005,8 @@ webhooks:
       path: /mutate-kernelcache-pods
   failurePolicy: Fail
   matchConditions:
-  - expression: has(object.metadata.annotations) && 'serving.kserve.io/kernelcache-supported'
-      in object.metadata.annotations && object.metadata.annotations['serving.kserve.io/kernelcache-supported']
+  - expression: has(object.metadata.annotations) && 'local.cache.ai/kernelcache-supported'
+      in object.metadata.annotations && object.metadata.annotations['local.cache.ai/kernelcache-supported']
       == 'true'
     name: kernelcache-opt-in
   name: kernelcache.kserve-webhook-server.pod-mutator
@@ -1035,7 +1035,7 @@ metadata:
   labels:
     app.kubernetes.io/component: localmodel
     app.kubernetes.io/name: kserve
-  name: kernelcachecapture.serving.kserve.io
+  name: kernelcachecapture.local.cache.ai
 webhooks:
 - admissionReviewVersions:
   - v1
@@ -1048,7 +1048,7 @@ webhooks:
   name: kernelcachecapture.kserve-webhook-server.status-validator
   rules:
   - apiGroups:
-    - serving.kserve.io
+    - local.cache.ai
     apiVersions:
     - v1alpha1
     operations:
@@ -1066,7 +1066,7 @@ metadata:
   labels:
     app.kubernetes.io/component: localmodel
     app.kubernetes.io/name: kserve
-  name: localmodelcache.serving.kserve.io
+  name: localmodelcache.local.cache.ai
 webhooks:
 - admissionReviewVersions:
   - v1beta1
@@ -1074,12 +1074,12 @@ webhooks:
     service:
       name: localmodel-webhook-server-service
       namespace: kserve
-      path: /validate-serving-kserve-io-v1alpha1-localmodelcache
+      path: /validate-local-cache-ai-v1alpha1-localmodelcache
   failurePolicy: Fail
   name: localmodelcache.kserve-webhook-server.validator
   rules:
   - apiGroups:
-    - serving.kserve.io
+    - local.cache.ai
     apiVersions:
     - v1alpha1
     operations:
@@ -1095,12 +1095,12 @@ webhooks:
     service:
       name: localmodel-webhook-server-service
       namespace: kserve
-      path: /validate-serving-kserve-io-v1alpha1-localmodelnamespacecache
+      path: /validate-local-cache-ai-v1alpha1-localmodelnamespacecache
   failurePolicy: Fail
   name: localmodelnamespacecache.kserve-webhook-server.validator
   rules:
   - apiGroups:
-    - serving.kserve.io
+    - local.cache.ai
     apiVersions:
     - v1alpha1
     operations:

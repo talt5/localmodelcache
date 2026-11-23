@@ -9,7 +9,7 @@ build: fmt vet ## Build bin/localmodel, bin/localmodelnode and bin/kernelcacheno
 
 deploy: manifests ## Install config/default (CRDs, controller, node agents) with kustomize. Needs cert-manager.
 	kubectl apply --server-side=true --force-conflicts -k config/crd
-	kubectl wait --for=condition=established --timeout=60s crd/localmodelcaches.serving.kserve.io
+	kubectl wait --for=condition=established --timeout=60s crd/localmodelcaches.local.cache.ai
 	kubectl apply --server-side=true -k config/default
 	kubectl wait --for=condition=available deployment/kserve-localmodel-controller-manager -n kserve --timeout=300s
 

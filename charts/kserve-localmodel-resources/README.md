@@ -115,7 +115,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/talt5/charts/kserve-loc
 | kserve.storage.s3.useHttps | string | `""` |  |
 | kserve.storage.s3.useVirtualBucket | string | `""` |  |
 | kserve.storage.s3.verifySSL | string | `""` |  |
-| kserve.storage.storageSecretNameAnnotation | string | `"serving.kserve.io/secretName"` |  |
+| kserve.storage.storageSecretNameAnnotation | string | `"local.cache.ai/secretName"` |  |
 | kserve.storage.storageSpecSecretName | string | `"storage-config"` |  |
 | kserve.storage.tag | string | `""` |  |
 | kserve.version | string | `"v0.1.1"` |  |

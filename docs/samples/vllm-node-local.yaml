@@ -7,7 +7,7 @@
 #
 #   kubectl get localmodelnamespacecache qwen3 -n inference -o jsonpath='{.status.copies}'
 ---
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: local.cache.ai/v1alpha1
 kind: LocalModelNodeGroup
 metadata:
   name: gpu
@@ -36,7 +36,7 @@ spec:
         storage: 200Gi
     storageClassName: local-storage
 ---
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: local.cache.ai/v1alpha1
 kind: LocalModelNamespaceCache
 metadata:
   name: qwen3

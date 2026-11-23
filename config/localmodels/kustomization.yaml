@@ -35,17 +35,17 @@ replacements:
     - webhooks.*.clientConfig.service.namespace
     select:
       kind: ValidatingWebhookConfiguration
-      name: localmodelcache.serving.kserve.io
+      name: localmodelcache.local.cache.ai
   - fieldPaths:
     - webhooks.*.clientConfig.service.namespace
     select:
       kind: ValidatingWebhookConfiguration
-      name: kernelcachecapture.serving.kserve.io
+      name: kernelcachecapture.local.cache.ai
   - fieldPaths:
     - webhooks.*.clientConfig.service.namespace
     select:
       kind: MutatingWebhookConfiguration
-      name: kernelcache.serving.kserve.io
+      name: kernelcache.local.cache.ai
   - fieldPaths:
     - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
@@ -53,7 +53,7 @@ replacements:
       index: 0
     select:
       kind: ValidatingWebhookConfiguration
-      name: localmodelcache.serving.kserve.io
+      name: localmodelcache.local.cache.ai
   - fieldPaths:
     - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
@@ -61,7 +61,7 @@ replacements:
       index: 0
     select:
       kind: ValidatingWebhookConfiguration
-      name: kernelcachecapture.serving.kserve.io
+      name: kernelcachecapture.local.cache.ai
   - fieldPaths:
     - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
@@ -69,7 +69,7 @@ replacements:
       index: 0
     select:
       kind: MutatingWebhookConfiguration
-      name: kernelcache.serving.kserve.io
+      name: kernelcache.local.cache.ai
   - fieldPaths:
     - spec.commonName
     - spec.dnsNames.0
@@ -91,17 +91,17 @@ replacements:
     - webhooks.*.clientConfig.service.name
     select:
       kind: ValidatingWebhookConfiguration
-      name: localmodelcache.serving.kserve.io
+      name: localmodelcache.local.cache.ai
   - fieldPaths:
     - webhooks.*.clientConfig.service.name
     select:
       kind: ValidatingWebhookConfiguration
-      name: kernelcachecapture.serving.kserve.io
+      name: kernelcachecapture.local.cache.ai
   - fieldPaths:
     - webhooks.*.clientConfig.service.name
     select:
       kind: MutatingWebhookConfiguration
-      name: kernelcache.serving.kserve.io
+      name: kernelcache.local.cache.ai
   - fieldPaths:
     - spec.commonName
     - spec.dnsNames.0

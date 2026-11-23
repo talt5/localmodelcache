@@ -4,7 +4,7 @@
 # cache downloads. Without a match, download Jobs use defaultJobImage from the localModel key
 # of the kserve-localmodel-config ConfigMap. The container receives the source URI and the
 # destination directory as its two arguments.
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: local.cache.ai/v1alpha1
 kind: ClusterStorageContainer
 metadata:
   name: internal-registry-downloader

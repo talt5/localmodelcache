@@ -265,7 +265,7 @@ func reporterTestPodAndOwner() (*corev1.Pod, *metav1.OwnerReference) {
 		},
 	}}
 	owner := &metav1.OwnerReference{
-		APIVersion: "serving.kserve.io/v1alpha1",
+		APIVersion: "local.cache.ai/v1alpha1",
 		Kind:       "KernelCacheCapture",
 		Name:       captureName,
 		UID:        "capture-uid",

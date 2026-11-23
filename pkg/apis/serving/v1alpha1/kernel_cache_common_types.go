@@ -101,7 +101,7 @@ type KernelCacheIdentity struct {
 // +k8s:openapi-gen=true
 type KernelCacheSourceRef struct {
 	// Kind is the kind of the source workload. Captures come from Deployments whose Pod
-	// template sets the serving.kserve.io/kernelcache-supported annotation.
+	// template sets the local.cache.ai/kernelcache-supported annotation.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=Deployment
 	Kind string `json:"kind"`

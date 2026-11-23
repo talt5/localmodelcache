@@ -73,7 +73,7 @@ func TestLocalModelNamespaceCacheWebhookIsRegistered(t *testing.T) {
 					continue
 				}
 				found = true
-				require.Equal(t, "/validate-serving-kserve-io-v1alpha1-localmodelnamespacecache", webhook.ClientConfig.Service.Path)
+				require.Equal(t, "/validate-local-cache-ai-v1alpha1-localmodelnamespacecache", webhook.ClientConfig.Service.Path)
 				require.ElementsMatch(t, []string{"CREATE", "UPDATE", "DELETE"}, rule.Operations)
 			}
 		}

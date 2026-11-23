@@ -105,7 +105,7 @@ func podCreateRequest(t *testing.T, pod *corev1.Pod) admission.Request {
 // patchedLabel returns the value the response's JSON patch sets for the workload label, or "".
 func patchedLabel(response admission.Response) string {
 	for _, op := range response.Patches {
-		if op.Path == "/metadata/labels/serving.kserve.io~1kernelcache-workload" {
+		if op.Path == "/metadata/labels/local.cache.ai~1kernelcache-workload" {
 			value, _ := op.Value.(string)
 			return value
 		}

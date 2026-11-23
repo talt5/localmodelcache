@@ -871,7 +871,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 					return false
 				}
 				for _, f := range cachedModel.ObjectMeta.Finalizers {
-					if f == "localmodelnamespacecache.kserve.io/finalizer" {
+					if f == "local.cache.ai/localmodelnamespacecache-finalizer" {
 						return true
 					}
 				}
@@ -1024,7 +1024,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 					return false
 				}
 				for _, f := range cachedModel.ObjectMeta.Finalizers {
-					if f == "localmodelnamespacecache.kserve.io/finalizer" {
+					if f == "local.cache.ai/localmodelnamespacecache-finalizer" {
 						return true
 					}
 				}
@@ -1066,7 +1066,7 @@ func createTestPV(ctx context.Context, pvName string, cachedModel *v1alpha1.Loca
 			Name: pvName,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "serving.kserve.io/v1alpha1",
+					APIVersion: "local.cache.ai/v1alpha1",
 					Kind:       "LocalModelCache",
 					Name:       cachedModel.Name,
 					UID:        cachedModel.UID,
@@ -1098,7 +1098,7 @@ func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cache
 			Namespace: namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "serving.kserve.io/v1alpha1",
+					APIVersion: "local.cache.ai/v1alpha1",
 					Kind:       "LocalModelCache",
 					Name:       cachedModel.Name,
 					UID:        cachedModel.UID,

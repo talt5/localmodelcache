@@ -35,7 +35,7 @@ import (
 var configMap = &corev1.ConfigMap{
 	Data: map[string]string{
 		"credentials": `{
-            "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
+            "storageSecretNameAnnotation": "local.cache.ai/storageSecretName",
             "storageSpecSecretName": "storage-secret",
 			"gcs" : {"gcsCredentialFileName": "gcloud-application-credentials.json"},
 			"s3" : {
@@ -674,7 +674,7 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 		g.Expect(c.Create(t.Context(), scenario.serviceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
 		annotations := map[string]string{
-			"serving.kserve.io/storageSecretName": scenario.secret.Name,
+			"local.cache.ai/storageSecretName": scenario.secret.Name,
 		}
 		err := builder.CreateSecretVolumeAndEnv(
 			t.Context(),
@@ -881,7 +881,7 @@ func TestS3CredentialBuilderWithStorageSecretData(t *testing.T) {
 		g.Expect(c.Create(t.Context(), scenario.serviceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
 		annotations := map[string]string{
-			"serving.kserve.io/storageSecretName": scenario.secret.Name,
+			"local.cache.ai/storageSecretName": scenario.secret.Name,
 		}
 		err := builder.CreateSecretVolumeAndEnv(
 			t.Context(),

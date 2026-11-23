@@ -309,7 +309,7 @@ def reporter_request(status):
     if not session_id or not source_pod_name:
         raise RuntimeError("capture session ID and source Pod name are required")
 
-    path = "/apis/serving.kserve.io/v1alpha1/namespaces/{}/kernelcachecaptures/{}/status".format(
+    path = "/apis/local.cache.ai/v1alpha1/namespaces/{}/kernelcachecaptures/{}/status".format(
         urllib.parse.quote(namespace, safe=""), urllib.parse.quote(name, safe="")
     )
     api_url = "https://kubernetes.default.svc" + path

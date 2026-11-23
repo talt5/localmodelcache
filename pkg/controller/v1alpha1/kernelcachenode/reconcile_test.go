@@ -372,7 +372,7 @@ func (w *conflictStatusWriter) Update(ctx context.Context, obj client.Object, op
 	if w.client.conflicts > 0 {
 		w.client.conflicts--
 		return apierrors.NewConflict(
-			schema.GroupResource{Group: "serving.kserve.io", Resource: "kernelcachenodes"},
+			schema.GroupResource{Group: "local.cache.ai", Resource: "kernelcachenodes"},
 			obj.GetName(),
 			errors.New("injected conflict"),
 		)

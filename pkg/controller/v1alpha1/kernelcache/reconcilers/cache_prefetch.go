@@ -43,9 +43,9 @@ import (
 const (
 	kernelCachePrefetchServiceAccount   = "kernel-cache-prefetcher-sa"
 	kernelCachePrefetchRoleBinding      = "kernel-cache-prefetcher-rb"
-	kernelCachePrefetchManagedLabel     = "internal.serving.kserve.io/kernelcache-prefetcher"
-	runtimeImagePrefetchJobLabel        = "internal.serving.kserve.io/runtime-image-prefetch"
-	runtimeImagePrefetchImageAnnotation = "internal.serving.kserve.io/runtime-image"
+	kernelCachePrefetchManagedLabel     = "internal.local.cache.ai/kernelcache-prefetcher"
+	runtimeImagePrefetchJobLabel        = "internal.local.cache.ai/runtime-image-prefetch"
+	runtimeImagePrefetchImageAnnotation = "internal.local.cache.ai/runtime-image"
 	kernelCachePrefetchVolumeName       = "kernel-cache"
 	kernelCachePrefetchMountPath        = "/mnt/kernel-cache"
 	runtimeImagePrefetchVolumeName      = "runtime-image"

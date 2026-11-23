@@ -19,7 +19,7 @@ limitations under the License.
 // +k8s:openapi-gen=true
 // +kubebuilder:object:generate=true
 // +k8s:defaulter-gen=TypeMeta
-// +groupName=serving.kserve.io
+// +groupName=local.cache.ai
 package v1alpha1
 
 import (
@@ -35,7 +35,7 @@ var (
 	APIVersion = "v1alpha1"
 
 	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = schema.GroupVersion{Group: constants.KServeAPIGroupName, Version: APIVersion}
+	SchemeGroupVersion = schema.GroupVersion{Group: constants.APIGroupName, Version: APIVersion}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)

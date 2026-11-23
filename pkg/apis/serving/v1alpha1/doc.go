@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +groupName=serving.kserve.io
+// +groupName=local.cache.ai
 // +kubebuilder:object:generate=true
 
 // Package v1alpha1 contains API Schema definitions for the serving v1alpha1 API group
