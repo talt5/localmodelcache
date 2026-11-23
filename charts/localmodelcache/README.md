@@ -87,7 +87,7 @@ $ helm install localmodelcache oci://ghcr.io/talt5/charts/localmodelcache --vers
 | localmodelcache.localmodel.sharedPVCImportFSGroup | int | `1000` | fsGroup for shared-PVC import Jobs, which run in the cache's namespace. Independent of securityContext.fsGroup (per-node download Jobs). Set to null to omit it and let namespace admission (e.g. an OpenShift SCC) assign the group. |
 | localmodelcache.localmodelnode.controller.affinity | object | `{}` |  |
 | localmodelcache.localmodelnode.controller.extraArgs | list | `[]` | Additional container arguments. Example: ["--log-format=otel-json"]. |
-| localmodelcache.localmodelnode.controller.hostPath | string | `"/models"` | Node directory that holds the model cache. It must match the path of the PersistentVolume in your LocalModelNodeGroup. On OpenShift (RHCOS) the root filesystem is immutable, so use a path under /var, such as /var/mnt/models. |
+| localmodelcache.localmodelnode.controller.hostPath | string | `"/mnt/models"` | Node directory that holds the model cache. It must match the path of the PersistentVolume in your LocalModelNodeGroup. On OpenShift (RHCOS) the root filesystem is immutable, so use a path under /var, such as /var/mnt/models. |
 | localmodelcache.localmodelnode.controller.image | string | `"ghcr.io/talt5/localmodelcache-node-agent"` |  |
 | localmodelcache.localmodelnode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
 | localmodelcache.localmodelnode.controller.nodeSelector."local.cache.ai/node" | string | `"worker"` |  |
@@ -96,7 +96,7 @@ $ helm install localmodelcache oci://ghcr.io/talt5/charts/localmodelcache --vers
 | localmodelcache.localmodelnode.controller.resources.requests.cpu | string | `"100m"` |  |
 | localmodelcache.localmodelnode.controller.resources.requests.memory | string | `"200Mi"` |  |
 | localmodelcache.localmodelnode.controller.tag | string | `""` |  |
-| localmodelcache.localmodelnode.controller.tolerations | list | `[]` |  |
+| localmodelcache.localmodelnode.controller.tolerations | list | `[]` | Tolerations of the node agent, and of the download Jobs it creates on its node. Example: [{key: nvidia.com/gpu, operator: Exists, effect: NoSchedule}]. |
 | localmodelcache.storage.caBundleConfigMapName | string | `""` | ConfigMap with the CA certificates (key cabundle.crt) that downloads trust. Create it in every namespace that runs download Jobs: localmodelcache.localmodel.jobNamespace, and the namespace of each shared-PVC cache. A ConfigMap named by the storage credentials takes precedence. |
 | localmodelcache.storage.caBundleVolumeMountPath | string | `"/etc/ssl/custom-certs"` |  |
 | localmodelcache.storage.enableOciModelSupport | bool | `false` |  |

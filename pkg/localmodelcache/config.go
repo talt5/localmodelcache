@@ -50,6 +50,9 @@ type LocalModelConfig struct {
 	JobTTLSecondsAfterFinished   *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
 	ReconcilationFrequencyInSecs *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
 	DisableVolumeManagement      bool   `json:"disableVolumeManagement,omitempty"`
+	// Tolerations of the per-node download Jobs. A Job can only download to a tainted node that
+	// it tolerates.
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 // GetConfigMap returns the local model ConfigMap (constants.LocalModelConfigMapName) from

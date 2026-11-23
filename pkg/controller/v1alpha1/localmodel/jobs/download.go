@@ -22,11 +22,14 @@ package jobs
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
@@ -40,6 +43,17 @@ const (
 	// DefaultJobImage is used when no StorageInitializerConfig image is set.
 	DefaultJobImage = "ghcr.io/talt5/localmodelcache-storage-initializer:latest"
 )
+
+// LabelValue returns the name of an object as a label value. A name can have 253 characters and a
+// label value only 63, so a longer name is cut and gets a hash to keep it unique.
+func LabelValue(name string) string {
+	if len(name) <= validation.LabelValueMaxLength {
+		return name
+	}
+	sum := sha256.Sum256([]byte(name))
+	hash := hex.EncodeToString(sum[:])[:16]
+	return name[:validation.LabelValueMaxLength-len(hash)-1] + "-" + hash
+}
 
 // ResolveDownloadContainer returns the download container for a source URI. It prefers a matching
 // enabled ClusterStorageContainer (workload type LocalModelDownloadJob) for backward

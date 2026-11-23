@@ -902,7 +902,7 @@ spec:
       terminationGracePeriodSeconds: 10
       volumes:
       - hostPath:
-          path: /models
+          path: /mnt/models
           type: DirectoryOrCreate
         name: models
 ---

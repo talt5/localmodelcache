@@ -117,9 +117,10 @@ localmodelcache:
       nodeSelector:
         local.cache.ai/node: worker
       affinity: {}
+      # -- Tolerations of the node agent, and of the download Jobs it creates on its node. Example: [{key: nvidia.com/gpu, operator: Exists, effect: NoSchedule}].
       tolerations: []
       # -- Node directory that holds the model cache. It must match the path of the PersistentVolume in your LocalModelNodeGroup. On OpenShift (RHCOS) the root filesystem is immutable, so use a path under /var, such as /var/mnt/models.
-      hostPath: /models
+      hostPath: /mnt/models
   kernelcachenode:
     controller:
       image: ghcr.io/talt5/localmodelcache-kernelcache-agent

@@ -17,11 +17,13 @@ limitations under the License.
 package jobs
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	pkgtypes "github.com/talt5/localmodelcache/pkg/types"
 )
@@ -55,5 +57,20 @@ func TestContainerFromConfig(t *testing.T) {
 			require.Equal(t, tc.image, container.Image)
 			require.Equal(t, tc.resources, container.Resources)
 		})
+	}
+}
+
+func TestLabelValue(t *testing.T) {
+	short := strings.Repeat("a", 63)
+	if got := LabelValue(short); got != short {
+		t.Fatalf("LabelValue() = %q, want it unchanged", got)
+	}
+	long := strings.Repeat("a", 45) + "." + strings.Repeat("b", 207)
+	got := LabelValue(long)
+	if errs := validation.IsValidLabelValue(got); len(errs) > 0 {
+		t.Fatalf("LabelValue() = %q is not a label value: %v", got, errs)
+	}
+	if other := LabelValue(long + "c"); other == got {
+		t.Fatalf("LabelValue() = %q for two names", got)
 	}
 }
