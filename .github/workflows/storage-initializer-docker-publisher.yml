@@ -28,7 +28,7 @@ on:
   #   types: [ checks_requested ]
 
 env:
-  IMAGE_NAME: storage-initializer
+  IMAGE_NAME: localmodelcache-storage-initializer
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
