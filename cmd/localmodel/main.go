@@ -147,6 +147,7 @@ func main() {
 
 	mgr, err := manager.New(cfg, manager.Options{
 		Cache:   cacheOpts,
+		Client:  clientOptions(),
 		Metrics: metricsServerOptions,
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    options.webhookPort,

@@ -60,8 +60,8 @@ func TestGetStorageKey(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			key1 := GetStorageKey(tc.uri1)
-			key2 := GetStorageKey(tc.uri2)
+			key1 := GetStorageKey(tc.uri1, nil)
+			key2 := GetStorageKey(tc.uri2, nil)
 			g.Expect(key1).To(gomega.HaveLen(16)) // Should be 16 chars
 			g.Expect(key2).To(gomega.HaveLen(16))
 			if tc.shouldMatch {
@@ -77,11 +77,44 @@ func TestGetStorageKeyConsistency(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	uri := "hf://meta-llama/meta-llama-3-8b-instruct"
 	// Ensure calling GetStorageKey multiple times returns the same result
-	key1 := GetStorageKey(uri)
-	key2 := GetStorageKey(uri)
-	key3 := GetStorageKey(uri)
+	key1 := GetStorageKey(uri, nil)
+	key2 := GetStorageKey(uri, nil)
+	key3 := GetStorageKey(uri, nil)
 	g.Expect(key1).To(gomega.Equal(key2))
 	g.Expect(key2).To(gomega.Equal(key3))
+}
+
+func TestGetStorageKeyDependsOnTheSourceOnly(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	uri := "s3://bucket/model"
+	storage := func(key string, parameters map[string]string) *LocalModelStorageSpec {
+		spec := &LocalModelStorageSpec{}
+		if key != "" {
+			spec.StorageKey = &key
+		}
+		if parameters != nil {
+			spec.Parameters = &parameters
+		}
+		return spec
+	}
+	plain := GetStorageKey(uri, nil)
+	for name, same := range map[string]*LocalModelStorageSpec{
+		"empty spec":        {},
+		"empty parameters":  storage("", map[string]string{}),
+		"other credentials": storage("my-secret", nil),
+	} {
+		g.Expect(GetStorageKey(uri, same)).To(gomega.Equal(plain), name)
+	}
+
+	// The parameters can point the same URI at another server.
+	endpoint := GetStorageKey(uri, storage("", map[string]string{"endpoint_url": "https://a", "region": "x"}))
+	g.Expect(endpoint).To(gomega.HaveLen(16))
+	g.Expect(endpoint).NotTo(gomega.Equal(plain))
+	g.Expect(GetStorageKey(uri, storage("my-secret", map[string]string{"region": "x", "endpoint_url": "https://a"}))).To(gomega.Equal(endpoint))
+	g.Expect(GetStorageKey(uri, storage("", map[string]string{"endpoint_url": "https://b", "region": "x"}))).NotTo(gomega.Equal(endpoint))
+	// A URI cannot imitate them.
+	g.Expect(GetStorageKey(uri+`{"endpoint_url":"https://a","region":"x"}`, nil)).NotTo(gomega.Equal(endpoint))
+	g.Expect(GetStorageSubPath(uri, nil)).To(gomega.Equal("models/" + plain))
 }
 
 func TestLocalModelCache_MatchStorageURI(t *testing.T) {

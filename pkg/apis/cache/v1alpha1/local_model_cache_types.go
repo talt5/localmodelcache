@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"path"
 
 	corev1 "k8s.io/api/core/v1"
@@ -26,17 +27,30 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// GetStorageKey returns a deterministic hash of the sourceModelUri for folder naming.
-// This enables storage deduplication - all models with the same URI share the same folder.
-func GetStorageKey(sourceModelUri string) string {
+// GetStorageKey returns the name of the folder that holds a model, which caches with the same
+// source share. It is a hash of the URI and, if there are any, the storage parameters, since those
+// can point the URI at another server.
+func GetStorageKey(sourceModelUri string, storage *LocalModelStorageSpec) string {
 	hash := sha256.Sum256([]byte(sourceModelUri))
+	if storage != nil && storage.Parameters != nil && len(*storage.Parameters) > 0 {
+		// Marshalling a map of strings cannot fail, and sorts its keys.
+		parameters, _ := json.Marshal(*storage.Parameters)
+		parametersHash := sha256.Sum256(parameters)
+		// Hashing the hashes keeps any text in the URI from imitating parameters.
+		hash = sha256.Sum256(append(hash[:], parametersHash[:]...))
+	}
 	return hex.EncodeToString(hash[:])[:16] // Use first 16 chars of hash
 }
 
 // GetStorageSubPath returns the directory, relative to the root of a cache volume, that holds
-// the files downloaded from sourceModelUri: models/<storage key>.
-func GetStorageSubPath(sourceModelUri string) string {
-	return path.Join("models", GetStorageKey(sourceModelUri))
+// the model: models/<storage key>.
+func GetStorageSubPath(sourceModelUri string, storage *LocalModelStorageSpec) string {
+	return path.Join("models", GetStorageKey(sourceModelUri, storage))
+}
+
+// StorageKey returns the name of the folder that holds the model.
+func (spec *LocalModelCacheSpec) StorageKey() string {
+	return GetStorageKey(spec.SourceModelUri, spec.Storage)
 }
 
 // LocalModelStorageSpec defines credential and storage configuration for model download
@@ -45,7 +59,8 @@ type LocalModelStorageSpec struct {
 	// The Storage Key in the secret for this object.
 	// +optional
 	StorageKey *string `json:"key,omitempty"`
-	// Parameters to override the default storage credentials and config.
+	// Parameters to override the default storage credentials and config. They are part of the
+	// model's source and cannot change: caches that differ in them do not share a folder.
 	// +optional
 	Parameters *map[string]string `json:"parameters,omitempty"`
 }

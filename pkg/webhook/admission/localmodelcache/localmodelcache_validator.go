@@ -73,6 +73,9 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldCache,
 	if err := localmodelcache.ValidateModelSize(&oldCache.Spec.ModelSize, localModelCache.Spec.ModelSize); err != nil {
 		return nil, err
 	}
+	if err := localmodelcache.ValidateStorageParameters(oldCache.Spec.Storage, localModelCache.Spec.Storage); err != nil {
+		return nil, err
+	}
 	localModelCacheWithSameStorageURI, err := v.validateUniqueStorageURI(ctx, localModelCache)
 	if err != nil {
 		localModelCacheValidatorLogger.Error(err, "Unable to check LocalModelCache with the same storage URI")
@@ -94,7 +97,7 @@ func (v *LocalModelCacheValidator) ValidateDelete(_ context.Context, localModelC
 	return nil, nil
 }
 
-// Checks if there are other LocalModelCache with the same storage URI
+// Checks if there are other LocalModelCache with the same storage URI and parameters
 func (v *LocalModelCacheValidator) validateUniqueStorageURI(ctx context.Context, currentLocalModelCache *v1alpha1.LocalModelCache) (*v1alpha1.LocalModelCache, error) {
 	// Get all LocalModelCache CR
 	localModelCacheList := &v1alpha1.LocalModelCacheList{}
@@ -108,7 +111,7 @@ func (v *LocalModelCacheValidator) validateUniqueStorageURI(ctx context.Context,
 		if localModelCache.Name == currentLocalModelCache.Name {
 			continue
 		}
-		if localModelCache.Spec.SourceModelUri == currentLocalModelCache.Spec.SourceModelUri {
+		if localModelCache.Spec.StorageKey() == currentLocalModelCache.Spec.StorageKey() {
 			return &localModelCache, nil
 		}
 	}

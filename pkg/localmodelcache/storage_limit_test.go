@@ -34,7 +34,7 @@ func TestCheckStorageLimit(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 	usage := func(uri, size string, groups ...string) CacheUsage {
-		return CacheUsage{SourceModelUri: uri, ModelSize: resource.MustParse(size), NodeGroups: groups}
+		return CacheUsage{SourceModelUri: uri, StorageKey: v1alpha1.GetStorageKey(uri, nil), ModelSize: resource.MustParse(size), NodeGroups: groups}
 	}
 	// gpu holds a (4Gi, cached twice) and b (3Gi) of 10Gi. full already exceeds its 5Gi.
 	reader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
@@ -66,6 +66,8 @@ func TestCheckStorageLimit(t *testing.T) {
 	require.ErrorContains(t, CheckStorageLimit(t.Context(), negative, "", nil, usage("hf://c", "11Gi", "gpu")), "in use: 0",
 		"a negative modelSize must not make room for other models")
 
+	otherServer := usage("hf://a", "4Gi", "gpu")
+	otherServer.StorageKey = "another-folder"
 	tests := map[string]struct {
 		uid     types.UID
 		old     *CacheUsage
@@ -75,6 +77,7 @@ func TestCheckStorageLimit(t *testing.T) {
 		"fits exactly":                         {usage: usage("hf://c", "3Gi", "gpu")},
 		"too large":                            {usage: usage("hf://c", "3073Mi", "gpu"), wantErr: "storageLimit 10Gi (in use: 7Gi)"},
 		"same URI counts once":                 {usage: usage("hf://a", "4Gi", "gpu")},
+		"same URI on another server does not":  {usage: otherServer, wantErr: "needs 11Gi"},
 		"same URI with a larger size":          {usage: usage("hf://a", "8Gi", "gpu"), wantErr: "needs 11Gi"},
 		"every group is checked":               {usage: usage("hf://c", "1Gi", "gpu", "full"), wantErr: "LocalModelNodeGroup full"},
 		"same URI in a full group":             {usage: usage("hf://f", "8Gi", "full")},

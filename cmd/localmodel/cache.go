@@ -47,3 +47,9 @@ func cacheOptions() (cache.Options, error) {
 		},
 	}, nil
 }
+
+// clientOptions makes the client of the manager read Secrets from the API server. The cache would
+// list and watch every Secret of the cluster, and the controller may only get them.
+func clientOptions() client.Options {
+	return client.Options{Cache: &client.CacheOptions{DisableFor: []client.Object{&corev1.Secret{}}}}
+}

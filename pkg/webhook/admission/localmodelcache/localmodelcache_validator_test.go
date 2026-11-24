@@ -203,3 +203,29 @@ func TestLocalModelCacheValidatorRejectsNegativeModelSize(t *testing.T) {
 	_, err = validator.ValidateUpdate(t.Context(), negative, negative)
 	g.Expect(err).NotTo(gomega.HaveOccurred(), "a cache that already has one can be updated")
 }
+
+func TestLocalModelCacheValidatorSource(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	s := runtime.NewScheme()
+	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+	with := func(name, endpoint string) *v1alpha1.LocalModelCache {
+		cache := makeTestLocalModelCache()
+		cache.Name = name
+		cache.Spec.Storage = &v1alpha1.LocalModelStorageSpec{Parameters: &map[string]string{"endpoint_url": endpoint}}
+		return &cache
+	}
+	stored := with("stored", "https://a")
+	validator := LocalModelCacheValidator{Client: fake.NewClientBuilder().WithScheme(s).WithObjects(stored).Build()}
+
+	_, err := validator.ValidateCreate(t.Context(), with("same", "https://a"))
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("has the same StorageURI")))
+	_, err = validator.ValidateCreate(t.Context(), with("other", "https://b"))
+	g.Expect(err).NotTo(gomega.HaveOccurred(), "the same URI on another server is another model")
+
+	_, err = validator.ValidateUpdate(t.Context(), stored, with("stored", "https://b"))
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("storage.parameters are part of the model's source")))
+	relabeled := stored.DeepCopy()
+	relabeled.Labels = map[string]string{"a": "b"}
+	_, err = validator.ValidateUpdate(t.Context(), stored, relabeled)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+}

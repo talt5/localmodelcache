@@ -162,7 +162,7 @@ var _ = Describe("CachedModel controller", func() {
 				return err == nil && cachedModel.Status.ModelCopies != nil
 			}, timeout, interval).Should(BeTrue())
 			// A cluster-scoped cache reports where the files are, but exposes no claims.
-			Expect(cachedModel.Status.SubPath).To(Equal(v1alpha1.GetStorageSubPath(sourceModelUri)))
+			Expect(cachedModel.Status.SubPath).To(Equal(v1alpha1.GetStorageSubPath(sourceModelUri, nil)))
 			Expect(cachedModel.Status.PersistentVolumeClaims).To(BeEmpty())
 
 			persistentVolume1 := &corev1.PersistentVolume{}
@@ -705,7 +705,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: servingPVName}, servingPV)
 			}, timeout, interval).Should(Succeed(), "serving PV should be created without any consumer")
 			Expect(servingPV.Spec.NodeAffinity).To(Equal(localModelNodeGroupSpec1.PersistentVolumeSpec.NodeAffinity))
-			Expect(servingPV.Spec.HostPath.Path).To(Equal("/models/"+v1alpha1.GetStorageSubPath(sourceModelUri)),
+			Expect(servingPV.Spec.HostPath.Path).To(Equal("/models/"+v1alpha1.GetStorageSubPath(sourceModelUri, nil)),
 				"the serving PV should expose only this model's folder")
 
 			// The download Job mounts models/<storage key> itself, so its PV keeps the root.
@@ -787,7 +787,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 			}, time.Second*2, interval).Should(BeTrue(), "no serving PVC when volume management is disabled")
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: modelName, Namespace: testNamespace}, cachedModel)).Should(Succeed())
 			Expect(cachedModel.Status.PersistentVolumeClaims).To(BeEmpty())
-			Expect(cachedModel.Status.SubPath).To(Equal(v1alpha1.GetStorageSubPath(sourceModelUri)),
+			Expect(cachedModel.Status.SubPath).To(Equal(v1alpha1.GetStorageSubPath(sourceModelUri, nil)),
 				"users who manage the volume need the model's path in it")
 		})
 

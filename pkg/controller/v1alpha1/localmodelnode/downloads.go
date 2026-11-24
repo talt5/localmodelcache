@@ -52,7 +52,7 @@ func downloadJobLabels(model *v1alpha1.LocalModelInfo, node string) map[string]s
 	labels := map[string]string{
 		modelLabel:      jobs.LabelValue(model.ModelName),
 		nodeLabel:       jobs.LabelValue(node),
-		storageKeyLabel: v1alpha1.GetStorageKey(model.SourceModelUri),
+		storageKeyLabel: model.StorageKey(),
 	}
 	if model.Namespace != "" {
 		labels[modelNamespaceLabel] = model.Namespace
@@ -79,12 +79,12 @@ func listDownloadJobs(ctx context.Context, reader client.Reader, labels client.M
 	return list.Items, nil
 }
 
-// groupByFolder groups the models that share a folder, which are those with the same source URI.
+// groupByFolder groups the models that share a folder, which are those with the same source.
 func groupByFolder(models []v1alpha1.LocalModelInfo) [][]v1alpha1.LocalModelInfo {
 	var groups [][]v1alpha1.LocalModelInfo
 	index := map[string]int{}
 	for _, model := range models {
-		storageKey := v1alpha1.GetStorageKey(model.SourceModelUri)
+		storageKey := model.StorageKey()
 		i, ok := index[storageKey]
 		if !ok {
 			i = len(groups)
@@ -207,7 +207,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 // downloadFolder starts the download of the folder that models share if it needs one, and
 // returns the status of each model.
 func (c *LocalModelNodeReconciler) downloadFolder(ctx context.Context, localModelNode *v1alpha1.LocalModelNode, models []v1alpha1.LocalModelInfo, nodeJobs []batchv1.Job) (map[string]v1alpha1.ModelStatus, error) {
-	storageKey := v1alpha1.GetStorageKey(models[0].SourceModelUri)
+	storageKey := models[0].StorageKey()
 	previous := localModelNode.Status.ModelStatus
 	unchanged := sameStatus(models, v1alpha1.ModelDownloadPending)
 	for key := range unchanged {

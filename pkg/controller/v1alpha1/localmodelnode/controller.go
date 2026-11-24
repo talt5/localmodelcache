@@ -16,18 +16,16 @@ limitations under the License.
 
 // +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnodegroups,verbs=get;list;watch
 // +kubebuilder:rbac:groups=local.cache.ai,resources=clusterstoragecontainers,verbs=get;list;watch
-// +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnodes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnodes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnodes/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get
+// +kubebuilder:rbac:groups=core,resources=configmaps,resourceNames=localmodelcache-config,verbs=get,namespace=localmodelcache
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;watch
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
-// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
 // +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
+//
+// The permissions in the job namespace, which is a setting, are in config/rbac/localmodelnode-jobs
+// and in the chart's files/node-agent-jobs-patch.yaml.
 package localmodelnode
 
 import (
@@ -76,7 +74,9 @@ type ensureModelRootFolderResult struct {
 
 type LocalModelNodeReconciler struct {
 	client.Client
-	APIReader         client.Reader
+	APIReader client.Reader
+	// JobNamespace is the only namespace whose Jobs the Client can read. Empty means any.
+	JobNamespace      string
 	Clientset         *kubernetes.Clientset
 	Log               logr.Logger
 	Scheme            *runtime.Scheme
@@ -149,7 +149,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	}
 
 	// Use hash-based folder path for storage deduplication
-	storageKey := v1alpha1.GetStorageKey(modelInfo.SourceModelUri)
+	storageKey := modelInfo.StorageKey()
 	storageUri := modelInfo.SourceModelUri
 	if _, normalized, isOci := lmcutils.ParseOciScheme(storageUri); isOci {
 		storageUri = normalized
@@ -286,7 +286,7 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1.LocalMod
 	// 2. Compare with list of models from LocalModelNode CR using storage keys (URI hashes)
 	for _, localModelInfo := range localModelNode.Spec.LocalModels {
 		// Remove expected models from local model set using storage key
-		storageKey := v1alpha1.GetStorageKey(localModelInfo.SourceModelUri)
+		storageKey := localModelInfo.StorageKey()
 		delete(foldersToRemove, storageKey)
 	}
 	// 3. Models not in LocalModelNode CR spec should be deleted
@@ -345,6 +345,10 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		c.Log.Error(err, "Failed to get local model config")
 		return reconcile.Result{}, err
+	}
+	if c.JobNamespace != "" && c.JobNamespace != localModelConfig.JobNamespace {
+		return reconcile.Result{}, fmt.Errorf("localModel.jobNamespace changed from %q to %q: restart the node agent",
+			c.JobNamespace, localModelConfig.JobNamespace)
 	}
 	jobNamespace = localModelConfig.JobNamespace
 	FSGroup = localModelConfig.FSGroup

@@ -112,7 +112,7 @@ If the nodes are tainted, set `localmodelcache.localmodelnode.controller.tolerat
 the node agent and to the download Jobs.
 
 `storageLimit` caps the group. A cache is refused when the `modelSize` of all its caches, counting
-each `sourceModelUri` once, would exceed it. The check trusts `modelSize` and counts each group on
+each source once, would exceed it. The check trusts `modelSize` and counts each group on
 its own, so also give the models their own disk: PV and PVC sizes do not limit a `local` volume.
 
 Then cache the model in the namespace your workload runs in:
@@ -186,7 +186,8 @@ A PVC belongs to one namespace, so the cluster-scoped `LocalModelCache` only dow
 
 If a few namespaces use a model, create a `LocalModelNamespaceCache` in each. To pre-load a model
 centrally as well, create a `LocalModelCache` with the same `sourceModelUri`. Caches with the
-same URI share one folder on each node, and the files stay until the last of them is deleted.
+same source, which is `sourceModelUri` and `storage.parameters`, share one folder on each node. The
+files stay until the last of them is deleted.
 
 To use a `LocalModelCache` alone, create the PV and PVC yourself in each namespace. Take
 `<status.subPath>` from `kubectl get localmodelcache <name> -o jsonpath='{.status.subPath}'`:
@@ -240,6 +241,16 @@ with `pvcRef` instead of `nodeGroups`. The controller imports the model into `mo
 key>` on the claim with a Job in the same namespace, and `status.subPath` reports that path. The
 data is yours: deleting the cache is allowed at any time and leaves the files on the PVC.
 See [docs/samples/vllm-shared-pvc.yaml](docs/samples/vllm-shared-pvc.yaml).
+
+### Teams that share a cluster
+
+Node-local caches do not separate teams. A cache exposes the folder of its source, even if another
+cache downloaded the model with credentials that this one lacks. Download Jobs run in one namespace,
+and any cache can name the credentials there. Use shared PVCs, whose import runs in the namespace of
+the cache, or let RBAC decide who creates node-local caches.
+
+Caches whose `storage.parameters` differ, such as `endpoint_url`, never share a folder, so one cannot
+replace the model of another. The parameters of a cache cannot change.
 
 ### Custom download container
 

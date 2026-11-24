@@ -18,6 +18,7 @@ package localmodelcache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,14 +32,17 @@ import (
 // CacheUsage is the disk space a node-local cache claims on each node of its node groups.
 type CacheUsage struct {
 	SourceModelUri string
-	ModelSize      resource.Quantity
-	NodeGroups     []string
+	// StorageKey is the folder that holds the model.
+	StorageKey string
+	ModelSize  resource.Quantity
+	NodeGroups []string
 }
 
 // CacheUsageOf returns the usage of a cluster-scoped cache.
 func CacheUsageOf(cache *v1alpha1.LocalModelCache) CacheUsage {
 	return CacheUsage{
 		SourceModelUri: cache.Spec.SourceModelUri,
+		StorageKey:     cache.Spec.StorageKey(),
 		ModelSize:      cache.Spec.ModelSize,
 		NodeGroups:     cache.Spec.NodeGroups,
 	}
@@ -49,6 +53,7 @@ func CacheUsageOf(cache *v1alpha1.LocalModelCache) CacheUsage {
 func NamespaceCacheUsageOf(cache *v1alpha1.LocalModelNamespaceCache) CacheUsage {
 	return CacheUsage{
 		SourceModelUri: cache.Spec.SourceModelUri,
+		StorageKey:     cache.Spec.StorageKey(),
 		ModelSize:      cache.Spec.ModelSize,
 		NodeGroups:     cache.Spec.NodeGroups,
 	}
@@ -58,7 +63,7 @@ func NamespaceCacheUsageOf(cache *v1alpha1.LocalModelNamespaceCache) CacheUsage 
 // storageLimit. oldUsage is nil on create. uid identifies the stored copy of the cache, which
 // is left out of the count.
 //
-// Caches with the same source URI share one folder on each node, so they count once, at the
+// Caches with the same source share one folder on each node, so they count once, at the
 // largest modelSize among them. A write that does not raise a group's total is always allowed,
 // so caches that already exceed a limit can still be updated.
 func CheckStorageLimit(ctx context.Context, reader client.Reader, uid types.UID, oldUsage *CacheUsage, usage CacheUsage) error {
@@ -91,6 +96,16 @@ func CheckStorageLimit(ctx context.Context, reader client.Reader, uid types.UID,
 			return fmt.Errorf("LocalModelNodeGroup %s: caching %s needs %s in total, which exceeds its storageLimit %s (in use: %s)",
 				name, usage.SourceModelUri, total.String(), limit.String(), current.String())
 		}
+	}
+	return nil
+}
+
+// ValidateStorageParameters rejects an update that changes the storage parameters. Like the URI,
+// they are part of the source, and the folder and volumes belong to the source a cache was created
+// with.
+func ValidateStorageParameters(oldStorage, storage *v1alpha1.LocalModelStorageSpec) error {
+	if v1alpha1.GetStorageKey("", oldStorage) != v1alpha1.GetStorageKey("", storage) {
+		return errors.New("storage.parameters are part of the model's source and cannot change: delete and recreate the cache")
 	}
 	return nil
 }
@@ -128,7 +143,7 @@ func otherUsages(ctx context.Context, reader client.Reader, uid types.UID) ([]Ca
 	return usages, nil
 }
 
-// groupTotal sums the model sizes cached on a node group, counting each source URI once.
+// groupTotal sums the model sizes cached on a node group, counting each folder once.
 func groupTotal(usages []CacheUsage, nodeGroup string) resource.Quantity {
 	sizes := map[string]resource.Quantity{}
 	for _, usage := range usages {
@@ -136,8 +151,8 @@ func groupTotal(usages []CacheUsage, nodeGroup string) resource.Quantity {
 			if name != nodeGroup {
 				continue
 			}
-			if size, ok := sizes[usage.SourceModelUri]; !ok || usage.ModelSize.Cmp(size) > 0 {
-				sizes[usage.SourceModelUri] = usage.ModelSize
+			if size, ok := sizes[usage.StorageKey]; !ok || usage.ModelSize.Cmp(size) > 0 {
+				sizes[usage.StorageKey] = usage.ModelSize
 			}
 		}
 	}

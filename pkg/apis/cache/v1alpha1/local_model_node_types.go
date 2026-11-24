@@ -51,6 +51,11 @@ type LocalModelInfo struct {
 	Storage *LocalModelStorageSpec `json:"storage,omitempty"`
 }
 
+// StorageKey returns the name of the folder that holds the model.
+func (info *LocalModelInfo) StorageKey() string {
+	return GetStorageKey(info.SourceModelUri, info.Storage)
+}
+
 // GetStatusKey returns a unique key for the model in LocalModelNode status.
 // For cluster-scoped LocalModelCache, returns just the model name.
 // For namespace-scoped LocalModelNamespaceCache, returns "namespace/modelName".

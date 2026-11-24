@@ -125,7 +125,7 @@ var _ = Describe("Download Jobs", func() {
 			return localModelNode.Status.ModelStatus
 		}
 	}
-	addFolder := func(uri string) { fsMock.mockModel(&MockFileInfo{name: v1alpha1.GetStorageKey(uri), isDir: true}) }
+	addFolder := func(uri string) { fsMock.mockModel(&MockFileInfo{name: v1alpha1.GetStorageKey(uri, nil), isDir: true}) }
 
 	It("Should run on the node by name, with the configured tolerations", func(ctx SpecContext) {
 		model := v1alpha1.LocalModelInfo{ModelName: "model", SourceModelUri: "hf://org/placed"}
@@ -187,6 +187,30 @@ var _ = Describe("Download Jobs", func() {
 			"first": v1alpha1.ModelDownloaded, "team/second": v1alpha1.ModelDownloaded, "team/third": v1alpha1.ModelDownloaded,
 		}))
 		Consistently(jobsOf(ctx, third), time.Second, interval).Should(BeEmpty())
+	})
+
+	It("Should keep the same URI on two servers apart", func(ctx SpecContext) {
+		const uri = "s3://bucket/model"
+		model := func(name, endpoint string) v1alpha1.LocalModelInfo {
+			return v1alpha1.LocalModelInfo{ModelName: name, SourceModelUri: uri, Storage: &v1alpha1.LocalModelStorageSpec{
+				Parameters: &map[string]string{"endpoint_url": endpoint},
+			}}
+		}
+		plain := v1alpha1.LocalModelInfo{ModelName: "plain", SourceModelUri: uri}
+		first, second := model("first", "https://a"), model("second", "https://b")
+		hold(ctx, plain, first, second)
+		folders := map[string]bool{}
+		for _, model := range []v1alpha1.LocalModelInfo{plain, first, second} {
+			job := onlyJobOf(ctx, model)
+			folders[job.Spec.Template.Spec.Containers[0].VolumeMounts[0].SubPath] = true
+		}
+		Expect(folders).To(HaveLen(3))
+
+		fsMock.mockModel(&MockFileInfo{name: plain.StorageKey(), isDir: true})
+		finish(ctx, onlyJobOf(ctx, plain), true)
+		Eventually(status(ctx), timeout, interval).Should(Equal(map[string]v1alpha1.ModelStatus{
+			"plain": v1alpha1.ModelDownloaded, "first": v1alpha1.ModelDownloadPending, "second": v1alpha1.ModelDownloadPending,
+		}))
 	})
 
 	It("Should keep caches of the same name apart", func(ctx SpecContext) {

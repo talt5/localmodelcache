@@ -90,7 +90,7 @@ func TestReconcileCacheStatusRecordsMountReferencesWithoutNodeGroups(t *testing.
 	}
 	cl := newLocalModelCacheClient(t, cache)
 
-	err := ReconcileCacheStatus(t.Context(), cl, logr.Discard(), cache, nil, nil, []string{"cache-gpu"}, v1alpha1.GetStorageSubPath(testSourceModelUri))
+	err := ReconcileCacheStatus(t.Context(), cl, logr.Discard(), cache, nil, nil, []string{"cache-gpu"}, v1alpha1.GetStorageSubPath(testSourceModelUri, nil))
 	if err != nil {
 		t.Fatalf("ReconcileCacheStatus() error = %v", err)
 	}
@@ -99,7 +99,7 @@ func TestReconcileCacheStatusRecordsMountReferencesWithoutNodeGroups(t *testing.
 	if err := cl.Get(t.Context(), types.NamespacedName{Name: "cache"}, persisted); err != nil {
 		t.Fatalf("get cache: %v", err)
 	}
-	if want := v1alpha1.GetStorageSubPath(testSourceModelUri); persisted.Status.SubPath != want {
+	if want := v1alpha1.GetStorageSubPath(testSourceModelUri, nil); persisted.Status.SubPath != want {
 		t.Fatalf("Status.SubPath = %q, want %q", persisted.Status.SubPath, want)
 	}
 	if !reflect.DeepEqual(persisted.Status.PersistentVolumeClaims, []string{"cache-gpu"}) {
@@ -118,7 +118,7 @@ func TestReconcileCacheStatusKeepsNodesAndRecordsMountReferencesOnError(t *testi
 	cl := &nodeListErrorClient{Client: newLocalModelCacheClient(t, cache), err: listErr}
 
 	err := ReconcileCacheStatus(t.Context(), cl, logr.Discard(), cache, nil,
-		[]v1alpha1.LocalModelNodeGroup{*testNodeGroup("gpu")}, nil, v1alpha1.GetStorageSubPath(testSourceModelUri))
+		[]v1alpha1.LocalModelNodeGroup{*testNodeGroup("gpu")}, nil, v1alpha1.GetStorageSubPath(testSourceModelUri, nil))
 	if !errors.Is(err, listErr) {
 		t.Fatalf("ReconcileCacheStatus() error = %v, want %v", err, listErr)
 	}
@@ -127,7 +127,7 @@ func TestReconcileCacheStatusKeepsNodesAndRecordsMountReferencesOnError(t *testi
 	if err := cl.Get(t.Context(), types.NamespacedName{Name: "cache"}, persisted); err != nil {
 		t.Fatalf("get cache: %v", err)
 	}
-	if want := v1alpha1.GetStorageSubPath(testSourceModelUri); persisted.Status.SubPath != want {
+	if want := v1alpha1.GetStorageSubPath(testSourceModelUri, nil); persisted.Status.SubPath != want {
 		t.Fatalf("Status.SubPath = %q, want %q recorded despite the node error", persisted.Status.SubPath, want)
 	}
 	if !reflect.DeepEqual(persisted.Status.NodeStatus, known) {
@@ -139,7 +139,7 @@ func TestReconcileCacheStatusClearsStaleSubPath(t *testing.T) {
 	cache := &v1alpha1.LocalModelCache{
 		ObjectMeta: metav1.ObjectMeta{Name: "cache"},
 		Spec:       v1alpha1.LocalModelCacheSpec{SourceModelUri: testSourceModelUri},
-		Status:     v1alpha1.LocalModelCacheStatus{SubPath: v1alpha1.GetStorageSubPath(testSourceModelUri)},
+		Status:     v1alpha1.LocalModelCacheStatus{SubPath: v1alpha1.GetStorageSubPath(testSourceModelUri, nil)},
 	}
 	cl := newLocalModelCacheClient(t, cache)
 
@@ -213,7 +213,7 @@ func TestReconcileCacheStatusCountsOnlyNodesInItsGroups(t *testing.T) {
 }
 
 func TestServingVolumeSpec(t *testing.T) {
-	subPath := v1alpha1.GetStorageSubPath(testSourceModelUri)
+	subPath := v1alpha1.GetStorageSubPath(testSourceModelUri, nil)
 	hostPath := corev1.PersistentVolumeSource{HostPath: &corev1.HostPathVolumeSource{
 		Path: "/mnt/models/" + subPath, Type: ptr.To(corev1.HostPathDirectory),
 	}}
@@ -251,7 +251,7 @@ func TestServingVolumeSpec(t *testing.T) {
 			nodeGroup.Spec.PersistentVolumeSpec.MountOptions = []string{"noatime"}
 			before := nodeGroup.DeepCopy()
 
-			got, err := servingVolumeSpec(nodeGroup, testSourceModelUri)
+			got, err := servingVolumeSpec(nodeGroup, subPath)
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("servingVolumeSpec() error = %v, wantErr %v", err, tc.wantErr)
 			}

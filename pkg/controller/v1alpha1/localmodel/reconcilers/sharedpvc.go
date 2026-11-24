@@ -102,7 +102,7 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 	}
 
 	pvcName := *localModel.Spec.PVCRef
-	storageKey := v1alpha1.GetStorageKey(localModel.Spec.SourceModelUri)
+	storageKey := localModel.Spec.StorageKey()
 
 	// Fetch the referenced PVC from the cache namespace.
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -342,7 +342,7 @@ func (c *LocalModelNamespaceCacheReconciler) destinationConflict(ctx context.Con
 		if *other.Spec.PVCRef != *localModel.Spec.PVCRef {
 			continue
 		}
-		if v1alpha1.GetStorageKey(other.Spec.SourceModelUri) == storageKey && cachePrecedes(other, localModel) {
+		if other.Spec.StorageKey() == storageKey && cachePrecedes(other, localModel) {
 			return fmt.Sprintf("destination pvc %q already holds this model via cache %s/%s",
 				*localModel.Spec.PVCRef, other.Namespace, other.Name), nil
 		}
@@ -648,7 +648,7 @@ func (c *LocalModelNamespaceCacheReconciler) applySharedStatus(ctx context.Conte
 	if localModel.Spec.SharedPVCMode() {
 		claims = []string{*localModel.Spec.PVCRef}
 	}
-	setMountReferences(&desired.Status, claims, v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri))
+	setMountReferences(&desired.Status, claims, v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri, localModel.Spec.Storage))
 	switch {
 	case state.imported != nil:
 		desired.Status.SharedPVCImport = state.imported

@@ -923,7 +923,7 @@ func TestReconcileSharedPVCReimportsWhenNoPodMountsClaim(t *testing.T) {
 	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &localmodelcache.LocalModelConfig{}); err != nil {
 		t.Fatalf("reconcile error = %v", err)
 	}
-	if want := v1alpha1.GetStorageSubPath(cache.Spec.SourceModelUri); cache.Status.SubPath != want {
+	if want := v1alpha1.GetStorageSubPath(cache.Spec.SourceModelUri, nil); cache.Status.SubPath != want {
 		t.Fatalf("Status.SubPath = %q, want %q", cache.Status.SubPath, want)
 	}
 	if !reflect.DeepEqual(cache.Status.PersistentVolumeClaims, []string{"pvc"}) {
@@ -1204,7 +1204,7 @@ func TestReconcileSharedPVCReportsTerminatingPVCAndKeepsRecord(t *testing.T) {
 				completed.Namespace = cache.Namespace
 				completed.Annotations = map[string]string{
 					importPVCUIDAnnotation:     string(pvc.UID),
-					importStorageKeyAnnotation: v1alpha1.GetStorageKey(cache.Spec.SourceModelUri),
+					importStorageKeyAnnotation: v1alpha1.GetStorageKey(cache.Spec.SourceModelUri, nil),
 					importSpecHashAnnotation:   importSpecHash(cache),
 				}
 				extra = append(extra, completed)
@@ -1270,7 +1270,7 @@ func TestReconcileSharedPVCRetriesInitialImportWithoutRecord(t *testing.T) {
 	failed.UID = "failed-job-uid"
 	failed.Annotations = map[string]string{
 		importPVCUIDAnnotation:     string(pvc.UID),
-		importStorageKeyAnnotation: v1alpha1.GetStorageKey(cache.Spec.SourceModelUri),
+		importStorageKeyAnnotation: v1alpha1.GetStorageKey(cache.Spec.SourceModelUri, nil),
 		importSpecHashAnnotation:   importSpecHash(cache),
 	}
 	cl, scheme := sharedPVCFixture(t, cache, pvc, failed)
@@ -1317,7 +1317,7 @@ func TestReconcileSharedPVCRecordsImportWhenJobCompletes(t *testing.T) {
 	completed.Status.CompletionTime = ptrTo(metav1.Now())
 	completed.Annotations = map[string]string{
 		importPVCUIDAnnotation:     string(pvc.UID),
-		importStorageKeyAnnotation: v1alpha1.GetStorageKey(cache.Spec.SourceModelUri),
+		importStorageKeyAnnotation: v1alpha1.GetStorageKey(cache.Spec.SourceModelUri, nil),
 		importSpecHashAnnotation:   importSpecHash(cache),
 	}
 	cl, scheme := sharedPVCFixture(t, cache, pvc, completed)
@@ -1350,7 +1350,7 @@ func TestReconcileSharedPVCBlocksAfterTerminatingCompletedJobIsGone(t *testing.T
 	terminating.Finalizers = []string{"test.local.cache.ai/hold"}
 	terminating.Annotations = map[string]string{
 		importPVCUIDAnnotation:     string(pvc.UID),
-		importStorageKeyAnnotation: v1alpha1.GetStorageKey(cache.Spec.SourceModelUri),
+		importStorageKeyAnnotation: v1alpha1.GetStorageKey(cache.Spec.SourceModelUri, nil),
 		importSpecHashAnnotation:   importSpecHash(cache),
 	}
 	cl, scheme := sharedPVCFixture(t, cache, pvc, terminating, claimPod("reader", "pvc", corev1.PodRunning))

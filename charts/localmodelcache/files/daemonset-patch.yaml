@@ -75,7 +75,11 @@ spec:
         - name: models
           mountPath: /mnt/models
       {{- end }}
+      {{- end }}
     metadata:
       annotations:
+        # The agent reads Jobs in this namespace only, and restarts when it changes.
+        local.cache.ai/job-namespace: {{ .Values.localmodelcache.localmodel.jobNamespace }}
+        {{- if .Values.openshift.enabled }}
         openshift.io/required-scc: localmodelcache-node-agent
-      {{- end }}
+        {{- end }}

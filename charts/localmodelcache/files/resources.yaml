@@ -75,6 +75,24 @@ rules:
   - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: localmodelcache
+  name: localmodelcache-node-agent-role
+  namespace: localmodelcache
+rules:
+- apiGroups:
+  - ""
+  resourceNames:
+  - localmodelcache-config
+  resources:
+  - configmaps
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
@@ -289,24 +307,17 @@ rules:
   - ""
   resources:
   - configmaps
+  - secrets
+  - serviceaccounts
   verbs:
   - get
 - apiGroups:
   - ""
   resources:
   - nodes
-  - secrets
-  - serviceaccounts
   verbs:
   - get
   - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - nodes/status
-  verbs:
-  - get
   - watch
 - apiGroups:
   - ""
@@ -353,12 +364,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - batch
-  resources:
-  - jobs/status
-  verbs:
-  - get
-- apiGroups:
   - local.cache.ai
   resources:
   - clusterstoragecontainers
@@ -372,14 +377,10 @@ rules:
   resources:
   - localmodelcaches
   - localmodelnamespacecaches
-  - localmodelnodes
   verbs:
-  - create
-  - delete
   - get
   - list
   - patch
-  - update
   - watch
 - apiGroups:
   - local.cache.ai
@@ -400,9 +401,13 @@ rules:
 - apiGroups:
   - local.cache.ai
   resources:
-  - localmodelnodes/status
+  - localmodelnodes
   verbs:
+  - create
+  - delete
   - get
+  - list
+  - patch
   - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -416,25 +421,10 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - configmaps
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
   - nodes
-  - secrets
-  - serviceaccounts
   verbs:
   - get
   - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - nodes/status
-  verbs:
-  - get
   - watch
 - apiGroups:
   - authentication.k8s.io
@@ -449,43 +439,14 @@ rules:
   verbs:
   - create
 - apiGroups:
-  - batch
-  resources:
-  - jobs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - batch
-  resources:
-  - jobs/status
-  verbs:
-  - get
-- apiGroups:
   - local.cache.ai
   resources:
   - clusterstoragecontainers
   - localmodelnodegroups
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - local.cache.ai
-  resources:
   - localmodelnodes
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - local.cache.ai
@@ -517,6 +478,23 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: localmodelcache-controller-manager
+  namespace: localmodelcache
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: localmodelcache
+  name: localmodelcache-node-agent-rolebinding
+  namespace: localmodelcache
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: localmodelcache-node-agent-role
+subjects:
+- kind: ServiceAccount
+  name: localmodelcache-node-agent
   namespace: localmodelcache
 ---
 apiVersion: rbac.authorization.k8s.io/v1
