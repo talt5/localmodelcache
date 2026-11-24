@@ -63,3 +63,8 @@ docker-push-mcv-unified: docker-build-mcv-unified
 docker-build-mcv: docker-build-mcv-minimal docker-build-mcv-rocm docker-build-mcv-gaudi docker-build-mcv-cuda docker-build-mcv-unified ## Build every MCV kernel capture image variant.
 
 docker-push-mcv: docker-push-mcv-minimal docker-push-mcv-rocm docker-push-mcv-gaudi docker-push-mcv-cuda docker-push-mcv-unified
+
+# The bundle holds linux/amd64 images, so it takes much longer on other architectures.
+.PHONY: airgapped-bundle
+airgapped-bundle: ## Build the air-gapped bundle of this version in OUT (default dist). Needs Docker, Helm and network.
+	hack/airgapped/build.sh $(or $(OUT),dist)

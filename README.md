@@ -312,3 +312,12 @@ fast. To remove one, delete its `KernelCache` and, in the registry, its image an
 | `make manifests` | Regenerates CRDs, RBAC and deepcopy after API or RBAC marker changes. |
 | `make docker-build docker-push` | Builds and pushes the controller and node agent images (`KO_DOCKER_REPO`, `TAG`). |
 | `make deploy-helm` | Installs the charts from this checkout. |
+| `make airgapped-bundle` | Builds the air-gapped bundle of this version. |
+
+### Release
+
+1. Set the version in `deps.env`, `charts/_common/common-sections.yaml` and the `Chart.yaml` files,
+   run `make precommit`, and merge it to `master`.
+2. Push the tag, such as `v0.2.0`, on that merge commit. The workflows publish the images and attach
+   the air-gapped bundle to a draft release.
+3. Complete the notes and publish the release, which also publishes the charts.
