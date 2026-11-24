@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.26.8 AS deps
+FROM golang:1.26.11 AS deps
 
 WORKDIR /go/src/github.com/talt5/localmodelcache
 COPY go.mod  go.mod
