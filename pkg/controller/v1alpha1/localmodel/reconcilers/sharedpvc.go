@@ -538,10 +538,16 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 	}
 
 	if localModel.Spec.ServiceAccountName != "" || localModel.Spec.Storage != nil {
-		if c.CredentialBuilder == nil {
-			c.CredentialBuilder = credentials.NewCredentialBuilder(c.Client, c.Clientset, configMap)
+		builder := c.CredentialBuilder
+		if builder == nil {
+			// Built every time, so that changes to the settings apply without a restart.
+			config, err := credentials.GetCredentialConfig(configMap)
+			if err != nil {
+				return nil, fmt.Errorf("%w: %w", errImportCredentials, err)
+			}
+			builder = credentials.NewCredentialBuilderFromConfig(c.Client, c.Clientset, config)
 		}
-		if err := jobs.InjectCredentials(ctx, c.CredentialBuilder, c.Log, container, &volumes,
+		if err := jobs.InjectCredentials(ctx, builder, c.Log, container, &volumes,
 			localModel.Spec.ServiceAccountName, localModel.Spec.Storage, localModel.Namespace); err != nil {
 			// Do not create a credential-less Job: it would fail with an auth error, and since
 			// the spec hash is unchanged validateExistingImportJob would keep it, hiding the
@@ -580,7 +586,7 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 				importSpecHashAnnotation:   importSpecHash(localModel),
 			},
 			Labels: map[string]string{
-				"model":          localModel.Name,
+				"model":          jobs.LabelValue(localModel.Name),
 				"modelNamespace": localModel.Namespace,
 			},
 		},

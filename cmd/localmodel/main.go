@@ -188,6 +188,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Setup the controller that writes the LocalModelNodes.
+	setupLog.Info("Setting up v1alpha1 LocalModelNode controller")
+	if err = (&localmodelcontroller.NodeModelsReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("v1alpha1Controllers").WithName("NodeModels"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "LocalModelNode")
+		os.Exit(1)
+	}
+
 	// Setup KernelCache capture identity and status controllers.
 	setupLog.Info("Setting up v1alpha1 KernelCache capture controller")
 	if err = (&kernelcachecontroller.KernelCacheCaptureControllerReconciler{

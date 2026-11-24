@@ -34,15 +34,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -94,6 +93,7 @@ var (
 	modelsRootFolder                         = filepath.Join(MountPath, "models")
 	fsHelper                   FileSystemInterface
 	storageInitializerConfig   *pkgtypes.StorageInitializerConfig
+	jobTolerations             []corev1.Toleration
 )
 
 // Returns the first matching nodegroup for a node.
@@ -204,27 +204,26 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 
 	credentials.MountCaBundle(storageInitializerConfig, container, &volumes)
 
-	// Note: statusKey (namespace/modelName) cannot be used as a label value since labels
-	// cannot contain '/'. We store namespace separately and reconstruct statusKey when needed.
-	jobLabels := map[string]string{
-		"model": modelInfo.ModelName,
-		"node":  localModelNode.Name,
-	}
-	if modelInfo.Namespace != "" {
-		jobLabels["modelNamespace"] = modelInfo.Namespace
-	}
-
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: jobName,
 			Namespace:    jobNs,
-			Labels:       jobLabels,
+			Labels:       downloadJobLabels(&modelInfo, localModelNode.Name),
 		},
 		Spec: batchv1.JobSpec{
 			TTLSecondsAfterFinished: &jobTTLSecondsAfterFinished,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					NodeSelector:  map[string]string{"kubernetes.io/hostname": nodeName},
+					// By name, since the hostname label can differ from it. The scheduler places the
+					// Pod, rather than spec.nodeName, so that it binds the claim.
+					Affinity: &corev1.Affinity{NodeAffinity: &corev1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+							MatchFields: []corev1.NodeSelectorRequirement{{
+								Key: metav1.ObjectNameField, Operator: corev1.NodeSelectorOpIn, Values: []string{nodeName},
+							}},
+						}}},
+					}},
+					Tolerations:   jobTolerations,
 					Containers:    []corev1.Container{*container},
 					RestartPolicy: corev1.RestartPolicyNever,
 					Volumes:       volumes,
@@ -254,61 +253,6 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	return createdJob, err
 }
 
-// Fetches container spec for model download container, use the default LocalModelCache image if not found
-// This function is kept for backward compatibility with ClusterStorageContainer
-func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Context, storageUri string) (*corev1.Container, error) {
-	storageContainers := &v1alpha1.ClusterStorageContainerList{}
-	if err := c.List(ctx, storageContainers); err != nil {
-		return nil, err
-	}
-
-	for _, sc := range storageContainers.Items {
-		if sc.IsDisabled() {
-			continue
-		}
-		if sc.Spec.WorkloadType != v1alpha1.LocalModelDownloadJob {
-			continue
-		}
-		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
-		if err != nil {
-			return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
-		}
-		if supported {
-			return &sc.Spec.Container, nil
-		}
-	}
-
-	return nil, nil
-}
-
-func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelInfo v1alpha1.LocalModelInfo, nodeName string) (*batchv1.Job, int, error) {
-	jobList := &batchv1.JobList{}
-	labelSelector := map[string]string{
-		"model": modelInfo.ModelName,
-		"node":  nodeName,
-	}
-	// For namespace-scoped models, also filter by namespace label
-	if modelInfo.Namespace != "" {
-		labelSelector["modelNamespace"] = modelInfo.Namespace
-	}
-
-	if err := c.List(ctx, jobList, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
-		if apierrors.IsNotFound(err) {
-			c.Log.Info("Job not found", "model", modelInfo.ModelName, "namespace", modelInfo.Namespace)
-			return nil, 0, nil
-		}
-		return nil, 0, err
-	}
-	c.Log.Info("Found jobs", "model", modelInfo.ModelName, "namespace", modelInfo.Namespace, "num of jobs", len(jobList.Items))
-	var latestJob *batchv1.Job
-	for i, job := range jobList.Items {
-		if latestJob == nil || job.CreationTimestamp.After(latestJob.CreationTimestamp.Time) {
-			latestJob = &jobList.Items[i]
-		}
-	}
-	return latestJob, len(jobList.Items), nil
-}
-
 func getModelStatusFromJobStatus(jobStatus batchv1.JobStatus) v1alpha1.ModelStatus {
 	switch {
 	case jobStatus.Succeeded > 0:
@@ -320,120 +264,6 @@ func getModelStatusFromJobStatus(jobStatus batchv1.JobStatus) v1alpha1.ModelStat
 	default:
 		return v1alpha1.ModelDownloadPending
 	}
-}
-
-// Create jobs to download models if the model is not present locally
-// Update the status of the LocalModelNode CR
-// Uses hash-based folders for storage deduplication while tracking each CR individually in status
-func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1.LocalModelNode) error {
-	c.Log.Info("Downloading models to", "node", localModelNode.Name)
-
-	newStatus := map[string]v1alpha1.ModelStatus{}
-	// Track which storage keys (URI hashes) have been processed for download deduplication
-	processedStorageKeys := map[string]v1alpha1.ModelStatus{}
-
-	for _, modelInfo := range localModelNode.Spec.LocalModels {
-		statusKey := modelInfo.GetStatusKey()
-		storageKey := v1alpha1.GetStorageKey(modelInfo.SourceModelUri)
-		c.Log.Info("checking model from spec", "model", modelInfo.ModelName, "namespace", modelInfo.Namespace, "statusKey", statusKey, "storageKey", storageKey)
-
-		// Check if another CR with the same URI has already been processed
-		// If so, reuse its status (storage deduplication - same folder on disk)
-		if status, exists := processedStorageKeys[storageKey]; exists {
-			c.Log.Info("Reusing status from another CR with same URI", "statusKey", statusKey, "storageKey", storageKey, "status", status)
-			newStatus[statusKey] = status
-			continue
-		}
-
-		var job *batchv1.Job
-		folderExists, err := fsHelper.hasModelFolder(storageKey)
-		if err != nil {
-			c.Log.Error(err, "Failed to check model folder", "model", modelInfo.ModelName, "storageKey", storageKey)
-			return err
-		}
-		if folderExists {
-			c.Log.Info("Model folder found", "model", modelInfo.ModelName, "storageKey", storageKey)
-			// If folder exists and the job has been successfully completed, do nothing
-			// If the job is cleaned up, no new job is created because the status is already set to ModelDownloaded
-			if status, ok := localModelNode.Status.ModelStatus[statusKey]; ok {
-				if status == v1alpha1.ModelDownloaded {
-					newStatus[statusKey] = v1alpha1.ModelDownloaded
-					processedStorageKeys[storageKey] = v1alpha1.ModelDownloaded
-					continue
-				}
-			}
-			job, _, err = c.getLatestJob(ctx, modelInfo, nodeName)
-			if err != nil {
-				c.Log.Error(err, "Failed to getLatestJob", "model", modelInfo.ModelName, "node", nodeName)
-				return err
-			}
-			// If job is not found, create a new one. Because download could be incomplete.
-			if job == nil {
-				c.Log.Info("Model folder exists, creating download job", "model", modelInfo.ModelName, "storageKey", storageKey)
-				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
-				if err != nil {
-					c.Log.Error(err, "Failed to create Job", "model", modelInfo.ModelName, "node", nodeName)
-					if errors.Is(err, errInvalidImagePullSecret) {
-						newStatus[statusKey] = v1alpha1.ModelDownloadError
-						processedStorageKeys[storageKey] = v1alpha1.ModelDownloadError
-						continue
-					}
-					return err
-				}
-			}
-			status := getModelStatusFromJobStatus(job.Status)
-			newStatus[statusKey] = status
-			processedStorageKeys[storageKey] = status
-			c.Log.Info("model downloading status:", "model", modelInfo.ModelName, "statusKey", statusKey,
-				"node", localModelNode.Name, "status", status)
-		} else {
-			// Folder does not exist
-			c.Log.Info("Model folder not found", "model", modelInfo.ModelName, "storageKey", storageKey)
-			job, jobCount, err := c.getLatestJob(ctx, modelInfo, nodeName)
-			if err != nil {
-				c.Log.Error(err, "Failed to getLatestJob", "model", modelInfo.ModelName, "node", nodeName)
-				return err
-			}
-			if job != nil {
-				c.Log.Info("model status from latest job", "model", modelInfo.ModelName, "status", getModelStatusFromJobStatus(job.Status))
-			}
-			// Recreate job if it has been terminated because the model is missing locally
-			// If the job has failed, we do not retry here because there are retries on the job.
-			// To retry the download, users can manually fix the issue and delete the failed job.
-			// Add the job count check for protection to ensure not creating more than 2 jobs including the previous one.
-			if job == nil || (job.Status.Succeeded > 0 && jobCount < 2) {
-				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
-				if err != nil {
-					c.Log.Error(err, "Failed to create job", "model", modelInfo.ModelName, "node", nodeName)
-					if errors.Is(err, errInvalidImagePullSecret) {
-						newStatus[statusKey] = v1alpha1.ModelDownloadError
-						processedStorageKeys[storageKey] = v1alpha1.ModelDownloadError
-						continue
-					}
-					return err
-				}
-			}
-			status := getModelStatusFromJobStatus(job.Status)
-			newStatus[statusKey] = status
-			processedStorageKeys[storageKey] = status
-			c.Log.Info("model downloading status:", "model", modelInfo.ModelName, "statusKey", statusKey,
-				"node", localModelNode.Name, "status", status)
-		}
-	}
-
-	// Skip update if no changes to status
-	if maps.Equal(localModelNode.Status.ModelStatus, newStatus) {
-		return nil
-	}
-
-	localModelNode.Status.ModelStatus = newStatus
-	if err := c.Status().Update(ctx, localModelNode); err != nil {
-		c.Log.Error(err, "Update local model cache status error", "name", localModelNode.Name)
-		return err
-	}
-	c.Log.Info("status updated", "name", localModelNode.Name, "num of models in status", len(localModelNode.Status.ModelStatus))
-
-	return nil
 }
 
 // Delete models that are not in the spec
@@ -460,56 +290,37 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1.LocalMod
 		delete(foldersToRemove, storageKey)
 	}
 	// 3. Models not in LocalModelNode CR spec should be deleted
+	var errs []error
 	if len(foldersToRemove) != 0 {
 		c.Log.Info("Found model(s) to remove", "num of models", len(foldersToRemove))
 		for storageKey := range foldersToRemove {
 			c.Log.Info("Removing model folder", "storageKey", storageKey)
 			if err := fsHelper.removeModel(storageKey); err != nil {
 				c.Log.Error(err, "Failed to remove model directory", "storageKey", storageKey)
-				return err
+				errs = append(errs, err)
 			}
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
+// cleanupJobs deletes the download Jobs of models that are not in the spec.
 func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNode v1alpha1.LocalModelNode) error {
-	// Build a set of status keys that are in the spec
-	statusKeysInSpec := map[string]struct{}{}
-	for _, modelInfo := range localModelNode.Spec.LocalModels {
-		statusKeysInSpec[modelInfo.GetStatusKey()] = struct{}{}
+	nodeJobs, err := listDownloadJobs(ctx, c.Client, client.MatchingLabels{nodeLabel: jobs.LabelValue(localModelNode.Name)})
+	if err != nil {
+		c.Log.Error(err, "Failed to list jobs", "node", localModelNode.Name, "namespace", jobNamespace)
+		return err
 	}
-
-	for _, ns := range []string{jobNamespace} {
-		jobs := &batchv1.JobList{}
-		labelSelector := map[string]string{"node": localModelNode.Name}
-		if err := c.List(ctx, jobs, client.InNamespace(ns), client.MatchingLabels(labelSelector)); err != nil {
-			c.Log.Error(err, "Failed to list jobs", "node", localModelNode.Name, "namespace", ns)
-			return err
+	for i := range nodeJobs {
+		job := &nodeJobs[i]
+		inSpec := slices.ContainsFunc(localModelNode.Spec.LocalModels, func(model v1alpha1.LocalModelInfo) bool { return isJobOf(job, &model) })
+		if inSpec || job.Labels[modelLabel] == "" {
+			continue
 		}
-
-		// Delete jobs that are not in the spec
-		for i := range jobs.Items {
-			job := jobs.Items[i]
-			// Reconstruct statusKey from labels
-			// statusKey format: "modelName" for cluster-scoped, "namespace/modelName" for namespace-scoped
-			modelName := job.Labels["model"]
-			if modelName == "" {
-				c.Log.Info("Job does not have model label", "job", job.Name)
-				continue
-			}
-			statusKey := modelName
-			if modelNamespace, ok := job.Labels["modelNamespace"]; ok && modelNamespace != "" {
-				statusKey = modelNamespace + "/" + modelName
-			}
-			if _, ok := statusKeysInSpec[statusKey]; !ok {
-				c.Log.Info("Deleting job", "job", job.Name, "statusKey", statusKey, "namespace", ns)
-				propagationPolicy := metav1.DeletePropagationBackground
-				if err := c.Delete(ctx, &job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
-					c.Log.Error(err, "Failed to delete job", "job", job.Name)
-					return err
-				}
-			}
+		c.Log.Info("Deleting job", "job", job.Name, "model", job.Labels[modelLabel], "namespace", job.Namespace)
+		if err := c.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
+			c.Log.Error(err, "Failed to delete job", "job", job.Name)
+			return err
 		}
 	}
 	return nil
@@ -544,15 +355,21 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		jobTTLSecondsAfterFinished = *localModelConfig.JobTTLSecondsAfterFinished
 	}
 
+	jobTolerations = localModelConfig.Tolerations
+
 	storageInitializerConfig, err = localmodelcache.GetStorageInitializerConfigs(configMap)
 	if err != nil {
 		c.Log.Error(err, "Failed to get storage initializer config, using defaults")
 		// Don't fail, just use defaults
 	}
 
-	if c.CredentialBuilder == nil {
-		c.CredentialBuilder = credentials.NewCredentialBuilder(c.Client, c.Clientset, configMap)
+	// Built every time, so that changes to the settings apply without a restart.
+	credentialConfig, err := credentials.GetCredentialConfig(configMap)
+	if err != nil {
+		c.Log.Error(err, "Failed to get credentials config")
+		return reconcile.Result{}, err
 	}
+	c.CredentialBuilder = credentials.NewCredentialBuilderFromConfig(c.Client, c.Clientset, credentialConfig)
 
 	// 2. Init fsHelper and ensure model root folder exists and is writable
 	if fsHelper == nil {
@@ -581,14 +398,17 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// 5. Download models not present locally
-	if err := c.downloadModels(ctx, &localModelNode); err != nil {
-		c.Log.Error(err, "Model download err")
-		return reconcile.Result{}, err
+	downloadErr := c.downloadModels(ctx, &localModelNode)
+	if downloadErr != nil {
+		c.Log.Error(downloadErr, "Model download err")
 	}
 
 	// 6. Delete models that are not in the spec
-	if err := c.deleteModels(localModelNode); err != nil {
-		c.Log.Error(err, "Model deletion err")
+	deleteErr := c.deleteModels(localModelNode)
+	if deleteErr != nil {
+		c.Log.Error(deleteErr, "Model deletion err")
+	}
+	if err := errors.Join(downloadErr, deleteErr); err != nil {
 		return reconcile.Result{}, err
 	}
 

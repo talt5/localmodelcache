@@ -51,7 +51,7 @@ namespace:
 
 | Key | Configures |
 | --- | --- |
-| `localModel` | The download Job namespace and image, `fsGroup`, and whether the controller creates the PVCs workloads mount (`disableVolumeManagement`). |
+| `localModel` | The download Job namespace, image and tolerations, `fsGroup`, and whether the controller creates the PVCs workloads mount (`disableVolumeManagement`). |
 | `storageInitializer` | Resources and CA bundle of the download container. The CA bundle is a ConfigMap with the key `cabundle.crt`, in the job namespace and in the namespace of each shared-PVC cache. |
 | `credentials` | Where download Jobs find storage credentials. |
 | `kernelcache` | Kernel capture, prefetch, registry and artifact signing. |
@@ -108,6 +108,9 @@ spec:
     storageClassName: local-storage
 ```
 
+If the nodes are tainted, set `localmodelcache.localmodelnode.controller.tolerations`. It applies to
+the node agent and to the download Jobs.
+
 `storageLimit` caps the group. A cache is refused when the `modelSize` of all its caches, counting
 each `sourceModelUri` once, would exceed it. The check trusts `modelSize` and counts each group on
 its own, so also give the models their own disk: PV and PVC sizes do not limit a `local` volume.
@@ -144,13 +147,17 @@ spec:
     - name: model
       persistentVolumeClaim:
         claimName: qwen3-gpu
-        readOnly: true   # keep it: otherwise OpenShift relabels the files for this Pod only
+        readOnly: true   # the Pod cannot change the model
 ```
 
 The volume is pinned to the node group, so the Pod runs on one of its nodes. On a node where the
 download has not started, the Pod waits in `ContainerCreating` until the folder exists. It does
 not wait for the download to finish, so check that `status.copies.available` equals
-`status.copies.total` before you deploy. The node group's volume must be `local` or `hostPath`.
+`status.copies.total`, the number of nodes in the group, before you deploy.
+
+The node group's volume must be `local` or `hostPath`. The volume behind the claim is always
+`hostPath`: Kubernetes would change the group and the SELinux labels of a `local` volume for the
+first Pod that mounts it, and lock out the others.
 
 A claim always exposes the model it was created for. If a PersistentVolume of the same name
 exposes another path, for example one created by a version that used `subPath`, the controller
@@ -160,7 +167,9 @@ logs an error and leaves the claim out of the status. Delete and recreate that c
 With `disableVolumeManagement` the controller creates no claims, and `status.subPath` gives the
 model's path inside the node group's volume.
 
-Deleting the cache is refused while a running Pod mounts its claim. The whole example is in
+Deleting the cache, or removing a node group from it, is refused while a running Pod mounts the
+claim. A node that leaves the group, for example because it lost its label, is no longer counted
+but keeps its files until the cache is deleted. The whole example is in
 [docs/samples/vllm-node-local.yaml](docs/samples/vllm-node-local.yaml).
 
 ### `LocalModelCache` or `LocalModelNamespaceCache`
@@ -196,8 +205,9 @@ spec:
   claimRef:
     namespace: team-a
     name: qwen3
-  local:
+  hostPath:
     path: /mnt/models/<status.subPath>   # /var/mnt/models/<status.subPath> on OpenShift
+    type: Directory
   nodeAffinity:
     required:
       nodeSelectorTerms:

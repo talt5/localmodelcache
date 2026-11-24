@@ -28,9 +28,11 @@ type LocalModelNodeGroupSpec struct {
 	// Max storage size per node in this node group. A cache is refused when the modelSize of all
 	// caches in the group, counting each source URI once, would exceed it.
 	StorageLimit resource.Quantity `json:"storageLimit"`
-	// Used to create PersistentVolumes for downloading models and in inference service namespaces
+	// Used to create PersistentVolumes for download Jobs and for workloads. It must be a local or
+	// hostPath volume. Workloads get a hostPath volume of the model's folder. The nodes that match
+	// nodeAffinity are the nodes of the group.
 	PersistentVolumeSpec corev1.PersistentVolumeSpec `json:"persistentVolumeSpec"`
-	// Used to create PersistentVolumeClaims for download and in inference service namespaces
+	// Used to create PersistentVolumeClaims for download Jobs and for workloads.
 	PersistentVolumeClaimSpec corev1.PersistentVolumeClaimSpec `json:"persistentVolumeClaimSpec"`
 }
 

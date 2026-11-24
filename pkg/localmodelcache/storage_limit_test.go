@@ -57,6 +57,15 @@ func TestCheckStorageLimit(t *testing.T) {
 		}},
 	).Build()
 
+	negative := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&v1alpha1.LocalModelNodeGroup{ObjectMeta: metav1.ObjectMeta{Name: "gpu"}, Spec: v1alpha1.LocalModelNodeGroupSpec{StorageLimit: resource.MustParse("10Gi")}},
+		&v1alpha1.LocalModelCache{ObjectMeta: metav1.ObjectMeta{Name: "n", UID: "uid-n"}, Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: "hf://n", ModelSize: resource.MustParse("-100Gi"), NodeGroups: []string{"gpu"},
+		}},
+	).Build()
+	require.ErrorContains(t, CheckStorageLimit(t.Context(), negative, "", nil, usage("hf://c", "11Gi", "gpu")), "in use: 0",
+		"a negative modelSize must not make room for other models")
+
 	tests := map[string]struct {
 		uid     types.UID
 		old     *CacheUsage

@@ -570,64 +570,85 @@ func ptrTo[T any](value T) *T {
 }
 
 func TestReconcileSharedPVCSurfacesCredentialErrorWithoutCreatingJob(t *testing.T) {
-	cache := &v1alpha1.LocalModelNamespaceCache{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       "cache",
-			Namespace:  "ns",
-			Finalizers: []string{NamespaceCacheFinalizerName},
-		},
-		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
-			SourceModelUri: "s3://bucket/model",
-			ModelSize:      resource.MustParse("1Gi"),
-			PVCRef:         ptrTo("pvc"),
-			Storage:        &v1alpha1.LocalModelStorageSpec{StorageKey: ptrTo("missing-key")},
-		},
-	}
-	pvc := pvcWith(fsMode(), []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, "2Gi", corev1.ClaimPending, "")
-	pvc.Name = "pvc"
-	pvc.Namespace = "ns"
-
-	scheme := runtime.NewScheme()
-	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add LocalModelCache scheme: %v", err)
-	}
-	if err := corev1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add core scheme: %v", err)
-	}
-	if err := batchv1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add batch scheme: %v", err)
-	}
-	cl := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithStatusSubresource(&v1alpha1.LocalModelNamespaceCache{}).
-		WithObjects(cache, pvc).
-		Build()
-	reconciler := &LocalModelNamespaceCacheReconciler{
-		Client: cl,
-		Scheme: scheme,
+	tests := map[string]struct {
+		// credentialBuilder is nil to build it from the settings.
+		credentialBuilder func(client.Client) *credentials.CredentialBuilder
+		settings          *corev1.ConfigMap
+		wantMessage       string
+	}{
 		// The storage secret exists but lacks the requested key, so credential injection fails.
-		CredentialBuilder: credentials.NewCredentialBuilderFromConfig(cl, k8sfake.NewSimpleClientset(&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{Name: constants.DefaultStorageSpecSecret, Namespace: "ns"},
-		}), credentials.CredentialConfig{}),
+		"missing storage key": {
+			credentialBuilder: func(cl client.Client) *credentials.CredentialBuilder {
+				return credentials.NewCredentialBuilderFromConfig(cl, k8sfake.NewSimpleClientset(&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: constants.DefaultStorageSpecSecret, Namespace: "ns"},
+				}), credentials.CredentialConfig{})
+			},
+			settings:    &corev1.ConfigMap{},
+			wantMessage: "missing-key",
+		},
+		"invalid credential settings": {
+			settings:    &corev1.ConfigMap{Data: map[string]string{credentials.CredentialConfigKeyName: "{"}},
+			wantMessage: "credential config",
+		},
 	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			cache := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "cache",
+					Namespace:  "ns",
+					Finalizers: []string{NamespaceCacheFinalizerName},
+				},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: "s3://bucket/model",
+					ModelSize:      resource.MustParse("1Gi"),
+					PVCRef:         ptrTo("pvc"),
+					Storage:        &v1alpha1.LocalModelStorageSpec{StorageKey: ptrTo("missing-key")},
+				},
+			}
+			pvc := pvcWith(fsMode(), []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, "2Gi", corev1.ClaimPending, "")
+			pvc.Name = "pvc"
+			pvc.Namespace = "ns"
 
-	_, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &localmodelcache.LocalModelConfig{})
-	if !errors.Is(err, errImportCredentials) {
-		t.Fatalf("reconcileSharedPVC() error = %v, want errImportCredentials", err)
-	}
-	condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
-	if condition == nil || condition.Reason != v1alpha1.ReasonImportCredentialError {
-		t.Fatalf("cache Ready condition = %#v, want %s", condition, v1alpha1.ReasonImportCredentialError)
-	}
-	if !strings.Contains(condition.Message, "missing-key") {
-		t.Fatalf("condition message %q should name the unresolved storage key", condition.Message)
-	}
-	jobs := &batchv1.JobList{}
-	if err := cl.List(context.Background(), jobs, client.InNamespace("ns")); err != nil {
-		t.Fatalf("list jobs: %v", err)
-	}
-	if len(jobs.Items) != 0 {
-		t.Fatalf("expected no import Job to be created on credential error, got %d", len(jobs.Items))
+			scheme := runtime.NewScheme()
+			if err := v1alpha1.AddToScheme(scheme); err != nil {
+				t.Fatalf("add LocalModelCache scheme: %v", err)
+			}
+			if err := corev1.AddToScheme(scheme); err != nil {
+				t.Fatalf("add core scheme: %v", err)
+			}
+			if err := batchv1.AddToScheme(scheme); err != nil {
+				t.Fatalf("add batch scheme: %v", err)
+			}
+			cl := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithStatusSubresource(&v1alpha1.LocalModelNamespaceCache{}).
+				WithObjects(cache, pvc).
+				Build()
+			reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, Scheme: scheme}
+			if tc.credentialBuilder != nil {
+				reconciler.CredentialBuilder = tc.credentialBuilder(cl)
+			}
+
+			_, err := reconciler.reconcileSharedPVC(context.Background(), cache, tc.settings, &localmodelcache.LocalModelConfig{})
+			if !errors.Is(err, errImportCredentials) {
+				t.Fatalf("reconcileSharedPVC() error = %v, want errImportCredentials", err)
+			}
+			condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+			if condition == nil || condition.Reason != v1alpha1.ReasonImportCredentialError {
+				t.Fatalf("cache Ready condition = %#v, want %s", condition, v1alpha1.ReasonImportCredentialError)
+			}
+			if !strings.Contains(condition.Message, tc.wantMessage) {
+				t.Fatalf("condition message %q should contain %q", condition.Message, tc.wantMessage)
+			}
+			jobs := &batchv1.JobList{}
+			if err := cl.List(context.Background(), jobs, client.InNamespace("ns")); err != nil {
+				t.Fatalf("list jobs: %v", err)
+			}
+			if len(jobs.Items) != 0 {
+				t.Fatalf("expected no import Job to be created on credential error, got %d", len(jobs.Items))
+			}
+		})
 	}
 }
 

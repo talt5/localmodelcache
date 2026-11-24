@@ -75,5 +75,4 @@ spec:
         - name: model
           persistentVolumeClaim:
             claimName: qwen3-gpu
-            # Without this, OpenShift relabels the files so that only this Pod can read them.
             readOnly: true

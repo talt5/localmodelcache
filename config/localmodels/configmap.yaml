@@ -11,6 +11,8 @@ data:
   #   fsGroup: fsGroup of the per-node download Jobs.
   #   sharedPVCImportFSGroup: fsGroup of shared-PVC import Jobs, which run in the
   #     cache's namespace. Omit it to let namespace admission assign the group.
+  #   tolerations: tolerations of the per-node download Jobs. Give them those of the node agent,
+  #     or downloads never start on tainted nodes.
   #   disableVolumeManagement: true stops the controller from creating the
   #     <cache>-<node group> claims that workloads mount.
   localModel: |-

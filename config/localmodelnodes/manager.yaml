@@ -65,6 +65,6 @@ spec:
       volumes:
         - name: models
           hostPath:
-            path: /models
+            path: /mnt/models
             type: DirectoryOrCreate
       terminationGracePeriodSeconds: 10

@@ -18,6 +18,9 @@ data:
       "sharedPVCImportFSGroup": {{ $importFSGroup }},
       {{- end }}
       "reconcilationFrequencyInSecs": {{ .Values.localmodelcache.localmodel.agent.reconcilationFrequencyInSecs }},
+      {{- with .Values.localmodelcache.localmodelnode.controller.tolerations }}
+      "tolerations": {{ toJson . }},
+      {{- end }}
       "disableVolumeManagement": {{ .Values.localmodelcache.localmodel.disableVolumeManagement }}
     }
   storageInitializer: |-

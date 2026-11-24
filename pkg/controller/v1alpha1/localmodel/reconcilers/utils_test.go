@@ -34,7 +34,7 @@ import (
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
 
-// nodeListErrorClient fails every Node list so GetNodesFromNodeGroup returns an error.
+// nodeListErrorClient fails every Node list.
 type nodeListErrorClient struct {
 	client.Client
 	err error
@@ -58,28 +58,45 @@ func newLocalModelCacheClient(t *testing.T, objs ...client.Object) client.Client
 	}
 	return fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithStatusSubresource(&v1alpha1.LocalModelCache{}).
+		WithStatusSubresource(&v1alpha1.LocalModelCache{}, &v1alpha1.LocalModelNode{}).
 		WithObjects(objs...).
 		Build()
 }
 
 const testSourceModelUri = "hf://org/model"
 
-func TestReconcileLocalModelNodeRecordsMountReferencesWithoutNodeGroups(t *testing.T) {
+func testNodeGroup(name string) *v1alpha1.LocalModelNodeGroup {
+	return &v1alpha1.LocalModelNodeGroup{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: v1alpha1.LocalModelNodeGroupSpec{PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+			NodeAffinity: &corev1.VolumeNodeAffinity{Required: &corev1.NodeSelector{NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+				MatchExpressions: []corev1.NodeSelectorRequirement{{Key: "group", Operator: corev1.NodeSelectorOpIn, Values: []string{name}}},
+			}}}},
+		}},
+	}
+}
+
+func testNode(name, group string, ready corev1.ConditionStatus) *corev1.Node {
+	return &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{"group": group}},
+		Status:     corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: ready}}},
+	}
+}
+
+func TestReconcileCacheStatusRecordsMountReferencesWithoutNodeGroups(t *testing.T) {
 	cache := &v1alpha1.LocalModelCache{
 		ObjectMeta: metav1.ObjectMeta{Name: "cache"},
 		Spec:       v1alpha1.LocalModelCacheSpec{SourceModelUri: testSourceModelUri},
 	}
 	cl := newLocalModelCacheClient(t, cache)
 
-	err := ReconcileLocalModelNode(context.Background(), cl, logr.Discard(), cache, nil,
-		map[string]*v1alpha1.LocalModelNodeGroup{}, []string{"cache-gpu"}, v1alpha1.GetStorageSubPath(testSourceModelUri))
+	err := ReconcileCacheStatus(t.Context(), cl, logr.Discard(), cache, nil, nil, []string{"cache-gpu"}, v1alpha1.GetStorageSubPath(testSourceModelUri))
 	if err != nil {
-		t.Fatalf("ReconcileLocalModelNode() error = %v", err)
+		t.Fatalf("ReconcileCacheStatus() error = %v", err)
 	}
 
 	persisted := &v1alpha1.LocalModelCache{}
-	if err := cl.Get(context.Background(), types.NamespacedName{Name: "cache"}, persisted); err != nil {
+	if err := cl.Get(t.Context(), types.NamespacedName{Name: "cache"}, persisted); err != nil {
 		t.Fatalf("get cache: %v", err)
 	}
 	if want := v1alpha1.GetStorageSubPath(testSourceModelUri); persisted.Status.SubPath != want {
@@ -90,35 +107,35 @@ func TestReconcileLocalModelNodeRecordsMountReferencesWithoutNodeGroups(t *testi
 	}
 }
 
-func TestReconcileLocalModelNodeRecordsMountReferencesOnNodeGroupError(t *testing.T) {
+func TestReconcileCacheStatusKeepsNodesAndRecordsMountReferencesOnError(t *testing.T) {
+	known := map[string]v1alpha1.NodeStatus{"worker": v1alpha1.NodeDownloaded}
 	cache := &v1alpha1.LocalModelCache{
 		ObjectMeta: metav1.ObjectMeta{Name: "cache"},
 		Spec:       v1alpha1.LocalModelCacheSpec{SourceModelUri: testSourceModelUri},
+		Status:     v1alpha1.LocalModelCacheStatus{NodeStatus: known},
 	}
 	listErr := errors.New("node list failed")
 	cl := &nodeListErrorClient{Client: newLocalModelCacheClient(t, cache), err: listErr}
-	nodeGroups := map[string]*v1alpha1.LocalModelNodeGroup{
-		"gpu": {ObjectMeta: metav1.ObjectMeta{Name: "gpu"}},
-	}
 
-	err := ReconcileLocalModelNode(context.Background(), cl, logr.Discard(), cache, nil, nodeGroups, nil, v1alpha1.GetStorageSubPath(testSourceModelUri))
+	err := ReconcileCacheStatus(t.Context(), cl, logr.Discard(), cache, nil,
+		[]v1alpha1.LocalModelNodeGroup{*testNodeGroup("gpu")}, nil, v1alpha1.GetStorageSubPath(testSourceModelUri))
 	if !errors.Is(err, listErr) {
-		t.Fatalf("ReconcileLocalModelNode() error = %v, want %v", err, listErr)
+		t.Fatalf("ReconcileCacheStatus() error = %v, want %v", err, listErr)
 	}
 
 	persisted := &v1alpha1.LocalModelCache{}
-	if err := cl.Get(context.Background(), types.NamespacedName{Name: "cache"}, persisted); err != nil {
+	if err := cl.Get(t.Context(), types.NamespacedName{Name: "cache"}, persisted); err != nil {
 		t.Fatalf("get cache: %v", err)
 	}
 	if want := v1alpha1.GetStorageSubPath(testSourceModelUri); persisted.Status.SubPath != want {
-		t.Fatalf("Status.SubPath = %q, want %q recorded despite the node-group error", persisted.Status.SubPath, want)
+		t.Fatalf("Status.SubPath = %q, want %q recorded despite the node error", persisted.Status.SubPath, want)
 	}
-	if persisted.Status.PersistentVolumeClaims != nil {
-		t.Fatalf("Status.PersistentVolumeClaims = %#v, want none for a cluster-scoped cache", persisted.Status.PersistentVolumeClaims)
+	if !reflect.DeepEqual(persisted.Status.NodeStatus, known) {
+		t.Fatalf("Status.NodeStatus = %#v, want the last known state", persisted.Status.NodeStatus)
 	}
 }
 
-func TestReconcileLocalModelNodeClearsStaleSubPath(t *testing.T) {
+func TestReconcileCacheStatusClearsStaleSubPath(t *testing.T) {
 	cache := &v1alpha1.LocalModelCache{
 		ObjectMeta: metav1.ObjectMeta{Name: "cache"},
 		Spec:       v1alpha1.LocalModelCacheSpec{SourceModelUri: testSourceModelUri},
@@ -126,9 +143,8 @@ func TestReconcileLocalModelNodeClearsStaleSubPath(t *testing.T) {
 	}
 	cl := newLocalModelCacheClient(t, cache)
 
-	if err := ReconcileLocalModelNode(t.Context(), cl, logr.Discard(), cache, nil,
-		map[string]*v1alpha1.LocalModelNodeGroup{}, []string{"cache-gpu"}, ""); err != nil {
-		t.Fatalf("ReconcileLocalModelNode() error = %v", err)
+	if err := ReconcileCacheStatus(t.Context(), cl, logr.Discard(), cache, nil, nil, []string{"cache-gpu"}, ""); err != nil {
+		t.Fatalf("ReconcileCacheStatus() error = %v", err)
 	}
 
 	persisted := &v1alpha1.LocalModelCache{}
@@ -140,28 +156,86 @@ func TestReconcileLocalModelNodeClearsStaleSubPath(t *testing.T) {
 	}
 }
 
-func TestServingPersistentVolumeSpec(t *testing.T) {
+func TestReconcileCacheStatusCountsOnlyNodesInItsGroups(t *testing.T) {
+	cache := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache"},
+		Spec:       v1alpha1.LocalModelCacheSpec{SourceModelUri: testSourceModelUri, NodeGroups: []string{"a", "b"}},
+		Status: v1alpha1.LocalModelCacheStatus{NodeStatus: map[string]v1alpha1.NodeStatus{
+			"deleted":   v1alpha1.NodeDownloaded,
+			"unlabeled": v1alpha1.NodeDownloaded,
+		}},
+	}
+	params := ExtractLocalModelParams(cache, nil)
+	holds := func(node string, status v1alpha1.ModelStatus) *v1alpha1.LocalModelNode {
+		return &v1alpha1.LocalModelNode{
+			ObjectMeta: metav1.ObjectMeta{Name: node},
+			Spec:       v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{params.modelInfo("a")}},
+			Status:     v1alpha1.LocalModelNodeStatus{ModelStatus: map[string]v1alpha1.ModelStatus{"cache": status}},
+		}
+	}
+	// The status of an earlier cache of the same name, which had another URI.
+	stale := holds("stale", v1alpha1.ModelDownloaded)
+	stale.Spec.LocalModels[0].SourceModelUri = "hf://org/other"
+
+	cl := newLocalModelCacheClient(t, cache,
+		testNode("done-a", "a", corev1.ConditionTrue), holds("done-a", v1alpha1.ModelDownloaded),
+		testNode("failed-b", "b", corev1.ConditionTrue), holds("failed-b", v1alpha1.ModelDownloadError),
+		testNode("down-done", "a", corev1.ConditionUnknown), holds("down-done", v1alpha1.ModelDownloaded),
+		testNode("down-busy", "a", corev1.ConditionUnknown), holds("down-busy", v1alpha1.ModelDownloading),
+		testNode("new", "b", corev1.ConditionTrue),
+		testNode("stale", "a", corev1.ConditionTrue), stale,
+		testNode("unlabeled", "", corev1.ConditionTrue), holds("unlabeled", v1alpha1.ModelDownloaded),
+		holds("deleted", v1alpha1.ModelDownloaded),
+	)
+
+	if err := ReconcileCacheStatus(t.Context(), cl, logr.Discard(), cache, nil,
+		[]v1alpha1.LocalModelNodeGroup{*testNodeGroup("a"), *testNodeGroup("b")}, nil, ""); err != nil {
+		t.Fatalf("ReconcileCacheStatus() error = %v", err)
+	}
+	persisted := &v1alpha1.LocalModelCache{}
+	if err := cl.Get(t.Context(), types.NamespacedName{Name: "cache"}, persisted); err != nil {
+		t.Fatalf("get cache: %v", err)
+	}
+	want := map[string]v1alpha1.NodeStatus{
+		"done-a":    v1alpha1.NodeDownloaded,
+		"failed-b":  v1alpha1.NodeDownloadError,
+		"down-done": v1alpha1.NodeDownloaded,
+		"down-busy": v1alpha1.NodeNotReady,
+		"new":       v1alpha1.NodeDownloadPending,
+		"stale":     v1alpha1.NodeDownloadPending,
+	}
+	if !reflect.DeepEqual(persisted.Status.NodeStatus, want) {
+		t.Fatalf("Status.NodeStatus = %#v, want %#v", persisted.Status.NodeStatus, want)
+	}
+	if got, want := *persisted.Status.ModelCopies, (v1alpha1.ModelCopies{Total: 6, Available: 2, Failed: 1}); got != want {
+		t.Fatalf("Status.ModelCopies = %+v, want %+v", got, want)
+	}
+}
+
+func TestServingVolumeSpec(t *testing.T) {
 	subPath := v1alpha1.GetStorageSubPath(testSourceModelUri)
+	hostPath := corev1.PersistentVolumeSource{HostPath: &corev1.HostPathVolumeSource{
+		Path: "/mnt/models/" + subPath, Type: ptr.To(corev1.HostPathDirectory),
+	}}
 	tests := map[string]struct {
 		source  corev1.PersistentVolumeSource
 		want    corev1.PersistentVolumeSource
 		wantErr bool
 	}{
-		"local": {
-			source: corev1.PersistentVolumeSource{Local: &corev1.LocalVolumeSource{Path: "/mnt/models"}},
-			want:   corev1.PersistentVolumeSource{Local: &corev1.LocalVolumeSource{Path: "/mnt/models/" + subPath}},
+		// The kubelet would relabel and chown a local volume for the first Pod that mounts it.
+		"local becomes hostPath": {
+			source: corev1.PersistentVolumeSource{Local: &corev1.LocalVolumeSource{Path: "/mnt/models", FSType: ptr.To("xfs")}},
+			want:   hostPath,
 		},
 		"trailing slash": {
 			source: corev1.PersistentVolumeSource{Local: &corev1.LocalVolumeSource{Path: "/mnt/models/"}},
-			want:   corev1.PersistentVolumeSource{Local: &corev1.LocalVolumeSource{Path: "/mnt/models/" + subPath}},
+			want:   hostPath,
 		},
 		"hostPath never creates the folder": {
 			source: corev1.PersistentVolumeSource{HostPath: &corev1.HostPathVolumeSource{
 				Path: "/mnt/models", Type: ptr.To(corev1.HostPathDirectoryOrCreate),
 			}},
-			want: corev1.PersistentVolumeSource{HostPath: &corev1.HostPathVolumeSource{
-				Path: "/mnt/models/" + subPath, Type: ptr.To(corev1.HostPathDirectory),
-			}},
+			want: hostPath,
 		},
 		"other volume types are rejected": {
 			source:  corev1.PersistentVolumeSource{NFS: &corev1.NFSVolumeSource{Server: "nfs", Path: "/models"}},
@@ -170,63 +244,30 @@ func TestServingPersistentVolumeSpec(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			nodeGroup := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{Name: "gpu"},
-				Spec: v1alpha1.LocalModelNodeGroupSpec{PersistentVolumeSpec: corev1.PersistentVolumeSpec{
-					StorageClassName:       "local-storage",
-					PersistentVolumeSource: tc.source,
-				}},
-			}
+			nodeGroup := testNodeGroup("gpu")
+			nodeGroup.Spec.PersistentVolumeSpec.StorageClassName = "local-storage"
+			nodeGroup.Spec.PersistentVolumeSpec.PersistentVolumeSource = tc.source
+			nodeGroup.Spec.PersistentVolumeSpec.PersistentVolumeReclaimPolicy = corev1.PersistentVolumeReclaimDelete
+			nodeGroup.Spec.PersistentVolumeSpec.MountOptions = []string{"noatime"}
 			before := nodeGroup.DeepCopy()
 
-			got, err := servingPersistentVolumeSpec(nodeGroup, testSourceModelUri)
+			got, err := servingVolumeSpec(nodeGroup, testSourceModelUri)
 			if (err != nil) != tc.wantErr {
-				t.Fatalf("servingPersistentVolumeSpec() error = %v, wantErr %v", err, tc.wantErr)
+				t.Fatalf("servingVolumeSpec() error = %v, wantErr %v", err, tc.wantErr)
 			}
 			if !reflect.DeepEqual(nodeGroup, before) {
-				t.Fatal("servingPersistentVolumeSpec() modified the node group")
+				t.Fatal("servingVolumeSpec() modified the node group")
 			}
 			if tc.wantErr {
 				return
 			}
-			if !reflect.DeepEqual(got.PersistentVolumeSource, tc.want) {
-				t.Fatalf("source = %#v, want %#v", got.PersistentVolumeSource, tc.want)
-			}
-			if got.StorageClassName != "local-storage" {
-				t.Fatalf("StorageClassName = %q, want the node group's", got.StorageClassName)
+			want := before.Spec.PersistentVolumeSpec.DeepCopy()
+			want.PersistentVolumeSource = tc.want
+			want.PersistentVolumeReclaimPolicy = corev1.PersistentVolumeReclaimRetain
+			want.MountOptions = nil // The kubelet rejects them on a hostPath volume.
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("servingVolumeSpec() = %#v, want %#v", got, want)
 			}
 		})
-	}
-}
-
-func TestUpdateLocalModelNodeReplacesImagePullSecrets(t *testing.T) {
-	node := &v1alpha1.LocalModelNode{
-		ObjectMeta: metav1.ObjectMeta{Name: "worker"},
-		Spec: v1alpha1.LocalModelNodeSpec{
-			LocalModels: []v1alpha1.LocalModelInfo{{
-				ModelName:        "cache",
-				SourceModelUri:   "oci://registry.example/model:v1",
-				ImagePullSecrets: []corev1.LocalObjectReference{{Name: "reg-cred-a"}},
-			}},
-		},
-	}
-	cache := &v1alpha1.LocalModelCache{
-		ObjectMeta: metav1.ObjectMeta{Name: "cache"},
-		Spec: v1alpha1.LocalModelCacheSpec{
-			SourceModelUri:   "oci://registry.example/model:v1",
-			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "reg-cred-b"}},
-		},
-	}
-	cl := newLocalModelCacheClient(t, node, cache)
-	if err := UpdateLocalModelNode(context.Background(), cl, logr.Discard(), node, cache, nil, "gpu"); err != nil {
-		t.Fatalf("UpdateLocalModelNode() error = %v", err)
-	}
-	got := &v1alpha1.LocalModelNode{}
-	if err := cl.Get(context.Background(), types.NamespacedName{Name: "worker"}, got); err != nil {
-		t.Fatalf("get node: %v", err)
-	}
-	if len(got.Spec.LocalModels) != 1 || len(got.Spec.LocalModels[0].ImagePullSecrets) != 1 ||
-		got.Spec.LocalModels[0].ImagePullSecrets[0].Name != "reg-cred-b" {
-		t.Fatalf("LocalModels = %#v, want imagePullSecrets [reg-cred-b]", got.Spec.LocalModels)
 	}
 }

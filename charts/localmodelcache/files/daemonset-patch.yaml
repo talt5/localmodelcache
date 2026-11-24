@@ -27,7 +27,7 @@ spec:
       volumes:
       - name: models
         hostPath:
-          path: {{ .Values.localmodelcache.localmodelnode.controller.hostPath | default "/models" | quote }}
+          path: {{ .Values.localmodelcache.localmodelnode.controller.hostPath | default "/mnt/models" | quote }}
           type: DirectoryOrCreate
       {{- if .Values.openshift.enabled }}
       {{- $os := .Values.openshift.localmodelnode }}

@@ -186,3 +186,20 @@ func TestLocalModelCacheValidatorEnforcesStorageLimit(t *testing.T) {
 	_, err = validator.ValidateUpdate(t.Context(), grown, grown)
 	g.Expect(err).NotTo(gomega.HaveOccurred(), "a cache that already exceeds the limit can be updated")
 }
+
+func TestLocalModelCacheValidatorRejectsNegativeModelSize(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	s := runtime.NewScheme()
+	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+	validator := LocalModelCacheValidator{Client: fake.NewClientBuilder().WithScheme(s).Build()}
+	cache := makeTestLocalModelCache()
+	negative := cache.DeepCopy()
+	negative.Spec.ModelSize = resource.MustParse("-1Gi")
+
+	_, err := validator.ValidateCreate(t.Context(), negative)
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("modelSize -1Gi must not be negative")))
+	_, err = validator.ValidateUpdate(t.Context(), &cache, negative)
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("modelSize -1Gi must not be negative")))
+	_, err = validator.ValidateUpdate(t.Context(), negative, negative)
+	g.Expect(err).NotTo(gomega.HaveOccurred(), "a cache that already has one can be updated")
+}

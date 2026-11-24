@@ -46,4 +46,5 @@ import (
 type (
 	LocalModelReconciler               = reconcilers.LocalModelReconciler
 	LocalModelNamespaceCacheReconciler = reconcilers.LocalModelNamespaceCacheReconciler
+	NodeModelsReconciler               = reconcilers.NodeModelsReconciler
 )
