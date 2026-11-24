@@ -24,15 +24,6 @@ helm upgrade -i localmodelcache charts/localmodelcache -n localmodelcache
 The charts are also published as `oci://ghcr.io/talt5/charts/localmodelcache-crd` and
 `oci://ghcr.io/talt5/charts/localmodelcache`.
 
-> [!IMPORTANT]
-> The download image of v0.2.0 was published under its old name. To install v0.2.0 from GHCR, add these
-> flags to the second command:
->
-> ```sh
-> --set localmodelcache.storage.image=ghcr.io/talt5/storage-initializer
-> --set localmodelcache.localmodel.defaultJobImage=ghcr.io/talt5/storage-initializer
-> ```
-
 ## OpenShift
 
 Set `openshift.enabled=true` and keep the model cache under `/var`, since
