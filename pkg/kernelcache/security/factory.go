@@ -28,7 +28,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 // NewVerifier builds the Verifier for the configured mode. The config is

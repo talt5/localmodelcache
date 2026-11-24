@@ -26,8 +26,8 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/utils"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/constants"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/utils"
 )
 
 type Fetcher interface {

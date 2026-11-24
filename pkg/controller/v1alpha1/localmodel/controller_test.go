@@ -30,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
 var _ = Describe("CachedModel controller", func() {
@@ -39,7 +39,7 @@ var _ = Describe("CachedModel controller", func() {
 		timeout             = time.Second * 10
 		duration            = time.Second * 10
 		interval            = time.Millisecond * 250
-		modelCacheNamespace = "kserve-localmodel-jobs"
+		modelCacheNamespace = "localmodelcache-jobs"
 		sourceModelUri      = "s3://mybucket/mymodel"
 	)
 	var (
@@ -342,11 +342,11 @@ var _ = Describe("CachedModel controller", func() {
 
 			// Update configmap to enable DisableVolumeManagement
 			configMap := &corev1.ConfigMap{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, configMap)).Should(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace}, configMap)).Should(Succeed())
 			originalData := configMap.Data["localModel"]
 			configMap.Data["localModel"] = `{
-				"jobNamespace": "kserve-localmodel-jobs",
-				"defaultJobImage": "kserve/storage-initializer:latest",
+				"jobNamespace": "localmodelcache-jobs",
+				"defaultJobImage": "localmodelcache/storage-initializer:latest",
 				"disableVolumeManagement": true
 			}`
 			Expect(k8sClient.Update(ctx, configMap)).Should(Succeed())
@@ -520,7 +520,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 		timeout             = time.Second * 10
 		interval            = time.Millisecond * 250
 		sourceModelUri      = "s3://mybucket/mymodel"
-		modelCacheNamespace = "kserve-localmodel-jobs"
+		modelCacheNamespace = "localmodelcache-jobs"
 	)
 	var (
 		localModelNamespaceSpec = v1alpha1.LocalModelNamespaceCacheSpec{
@@ -744,16 +744,16 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 			DeferCleanup(cancel)
 
 			configMap := &corev1.ConfigMap{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, configMap)).Should(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace}, configMap)).Should(Succeed())
 			originalData := configMap.Data["localModel"]
 			configMap.Data["localModel"] = `{
-				"jobNamespace": "kserve-localmodel-jobs",
-				"defaultJobImage": "kserve/storage-initializer:latest",
+				"jobNamespace": "localmodelcache-jobs",
+				"defaultJobImage": "localmodelcache/storage-initializer:latest",
 				"disableVolumeManagement": true
 			}`
 			Expect(k8sClient.Update(ctx, configMap)).Should(Succeed())
 			defer func() {
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace}, configMap)).Should(Succeed())
+				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace}, configMap)).Should(Succeed())
 				configMap.Data["localModel"] = originalData
 				Expect(k8sClient.Update(ctx, configMap)).Should(Succeed())
 			}()
@@ -871,7 +871,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 					return false
 				}
 				for _, f := range cachedModel.ObjectMeta.Finalizers {
-					if f == "localmodelnamespacecache.kserve.io/finalizer" {
+					if f == "local.cache.ai/localmodelnamespacecache-finalizer" {
 						return true
 					}
 				}
@@ -1024,7 +1024,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 					return false
 				}
 				for _, f := range cachedModel.ObjectMeta.Finalizers {
-					if f == "localmodelnamespacecache.kserve.io/finalizer" {
+					if f == "local.cache.ai/localmodelnamespacecache-finalizer" {
 						return true
 					}
 				}
@@ -1066,7 +1066,7 @@ func createTestPV(ctx context.Context, pvName string, cachedModel *v1alpha1.Loca
 			Name: pvName,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "serving.kserve.io/v1alpha1",
+					APIVersion: "local.cache.ai/v1alpha1",
 					Kind:       "LocalModelCache",
 					Name:       cachedModel.Name,
 					UID:        cachedModel.UID,
@@ -1098,7 +1098,7 @@ func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cache
 			Namespace: namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "serving.kserve.io/v1alpha1",
+					APIVersion: "local.cache.ai/v1alpha1",
 					Kind:       "LocalModelCache",
 					Name:       cachedModel.Name,
 					UID:        cachedModel.UID,

@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from kserve_storage import Storage
+from localmodelcache_storage import Storage
 
 # Real (self-signed, parse-valid) certificate: the combined bundle is
 # validated with ssl before being exported, so the fixture must parse.

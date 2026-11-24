@@ -35,22 +35,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcachecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcache"
-	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
-	kservemetrics "github.com/kserve/kserve/pkg/metrics"
-	"github.com/kserve/kserve/pkg/oteljson"
-	kservescheme "github.com/kserve/kserve/pkg/scheme"
-	kernelcachewebhook "github.com/kserve/kserve/pkg/webhook/admission/kernelcache"
-	localmodelwebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
-	localmodelnamespacecachewebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelnamespacecache"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcachecontroller "github.com/talt5/localmodelcache/pkg/controller/v1alpha1/kernelcache"
+	localmodelcontroller "github.com/talt5/localmodelcache/pkg/controller/v1alpha1/localmodel"
+	lmcmetrics "github.com/talt5/localmodelcache/pkg/metrics"
+	"github.com/talt5/localmodelcache/pkg/oteljson"
+	lmcscheme "github.com/talt5/localmodelcache/pkg/scheme"
+	kernelcachewebhook "github.com/talt5/localmodelcache/pkg/webhook/admission/kernelcache"
+	localmodelwebhook "github.com/talt5/localmodelcache/pkg/webhook/admission/localmodelcache"
+	localmodelnamespacecachewebhook "github.com/talt5/localmodelcache/pkg/webhook/admission/localmodelnamespacecache"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
 
 const (
-	LeaderLockName = "kserve-local-model-manager-leader-lock"
+	LeaderLockName = "localmodelcache-manager-leader-lock"
 )
 
 // Options defines the program configurable options that may be passed on the command line.
@@ -85,8 +85,8 @@ func GetOptions() Options {
 	flag.StringVar(&opts.metricsAddr, "metrics-addr", opts.metricsAddr, "The address the metric endpoint binds to.")
 	flag.IntVar(&opts.webhookPort, "webhook-port", opts.webhookPort, "The port that the webhook server binds to.")
 	flag.BoolVar(&opts.enableLeaderElection, "leader-elect", opts.enableLeaderElection,
-		"Enable leader election for kserve controller manager. "+
-			"Enabling this will ensure there is only one active kserve controller manager.")
+		"Enable leader election for localmodelcache controller manager. "+
+			"Enabling this will ensure there is only one active localmodelcache controller manager.")
 	flag.StringVar(&opts.probeAddr, "health-probe-addr", opts.probeAddr, "The address the probe endpoint binds to.")
 	flag.BoolVar(&opts.metricsSecure, "metrics-secure", opts.metricsSecure, "Serve metrics over HTTPS with Kubernetes authentication and authorization.")
 	flag.StringVar(&opts.metricsCertPath, "metrics-cert-path", opts.metricsCertPath, "Directory containing tls.crt and tls.key for the metrics server. If empty, self-signed certificates are generated.")
@@ -101,7 +101,7 @@ func GetOptions() Options {
 func main() {
 	options := GetOptions()
 	if options.logFormat == oteljson.FormatOTelJSON {
-		oteljson.Apply(&options.zapOpts, "kserve-localmodel-controller", os.Stdout)
+		oteljson.Apply(&options.zapOpts, "localmodelcache-controller", os.Stdout)
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&options.zapOpts)))
 
@@ -128,7 +128,7 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	setupLog.Info("Setting up manager")
-	metricsServerOptions, err := kservemetrics.ConfigureServerOptions(metricsserver.Options{
+	metricsServerOptions, err := lmcmetrics.ConfigureServerOptions(metricsserver.Options{
 		BindAddress:   options.metricsAddr,
 		SecureServing: options.metricsSecure,
 		CertDir:       options.metricsCertPath,
@@ -157,7 +157,7 @@ func main() {
 	setupLog.Info("Registering Components.")
 
 	setupLog.Info("Setting up controller schemes")
-	if err := kservescheme.AddControllerAPIs(mgr.GetScheme()); err != nil {
+	if err := lmcscheme.AddControllerAPIs(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add controller APIs to scheme")
 		os.Exit(1)
 	}
@@ -194,8 +194,8 @@ func main() {
 		Client:                 mgr.GetClient(),
 		Clientset:              clientSet,
 		Reader:                 mgr.GetAPIReader(),
-		OperatorNamespace:      constants.KServeNamespace,
-		OperatorServiceAccount: "kserve-localmodel-controller-manager",
+		OperatorNamespace:      constants.SystemNamespace,
+		OperatorServiceAccount: "localmodelcache-controller-manager",
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCacheCapture")
 		os.Exit(1)

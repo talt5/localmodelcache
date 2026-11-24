@@ -2,7 +2,7 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: kernelcache-root-ca
-  namespace: kserve
+  namespace: localmodelcache
 spec:
   isCA: true
   duration: 8760h
@@ -17,7 +17,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: kernelcache-ca
-  namespace: kserve
+  namespace: localmodelcache
 spec:
   ca:
     secretName: kernelcache-root-ca
@@ -26,12 +26,12 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: kernelcache-signer
-  namespace: kserve
+  namespace: localmodelcache
 spec:
   secretName: kernelcache-signer
   commonName: kernelcache-signer
   uris:
-    - spiffe://kserve/kernelcache-signer
+    - spiffe://localmodelcache/kernelcache-signer
   usages:
     - digital signature
     - code signing

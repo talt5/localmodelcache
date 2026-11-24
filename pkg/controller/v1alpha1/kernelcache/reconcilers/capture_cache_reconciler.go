@@ -34,11 +34,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
-	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/nodegroup"
+	kernelcachetypes "github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 type nodeGroupSelection struct {

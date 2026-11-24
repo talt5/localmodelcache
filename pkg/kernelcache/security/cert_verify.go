@@ -30,7 +30,7 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
 
-	"github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 // secretLoadTimeout bounds the one-time load of key/trust material (CA bundle or

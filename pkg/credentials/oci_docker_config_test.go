@@ -27,9 +27,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/credentials/s3"
-	pkgtypes "github.com/kserve/kserve/pkg/types"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/credentials/s3"
+	pkgtypes "github.com/talt5/localmodelcache/pkg/types"
 )
 
 func TestMountImagePullSecretsAsDockerConfig(t *testing.T) {

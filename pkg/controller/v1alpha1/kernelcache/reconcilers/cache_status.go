@@ -29,11 +29,11 @@ import (
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	"github.com/kserve/kserve/pkg/kernelcache/registry"
-	kernelcachesecurity "github.com/kserve/kserve/pkg/kernelcache/security"
-	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/registry"
+	kernelcachesecurity "github.com/talt5/localmodelcache/pkg/kernelcache/security"
+	kernelcachetypes "github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 func (r *KernelCacheReconciler) reconcileArtifactVerification(

@@ -1,0 +1,81 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: localmodelcache-node-agent
+spec:
+  template:
+    spec:
+      {{- with .Values.localmodelcache.localmodelnode.controller.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      tolerations:
+        {{- toYaml (.Values.localmodelcache.localmodelnode.controller.tolerations | default list) | nindent 8 }}
+      affinity:
+        {{- toYaml (.Values.localmodelcache.localmodelnode.controller.affinity | default dict) | nindent 8 }}
+      containers:
+      - name: manager
+        image: "{{ .Values.localmodelcache.localmodelnode.controller.image }}:{{ .Values.localmodelcache.localmodelnode.controller.tag | default .Values.localmodelcache.version }}"
+        {{- with .Values.localmodelcache.localmodelnode.controller.extraArgs }}
+        args:
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        imagePullPolicy: {{ .Values.localmodelcache.localmodelnode.controller.imagePullPolicy }}
+        resources:
+          {{- toYaml .Values.localmodelcache.localmodelnode.controller.resources | nindent 10 }}
+      volumes:
+      - name: models
+        hostPath:
+          path: {{ .Values.localmodelcache.localmodelnode.controller.hostPath | default "/models" | quote }}
+          type: DirectoryOrCreate
+      {{- if .Values.openshift.enabled }}
+      {{- $os := .Values.openshift.localmodelnode }}
+      securityContext:
+        runAsUser: {{ $os.runAsUser }}
+        runAsGroup: {{ $os.runAsGroup }}
+        {{- with $os.seLinuxType }}
+        seLinuxOptions:
+          type: {{ . }}
+        {{- end }}
+      {{- if $os.prepareHostPath.enabled }}
+      initContainers:
+      - name: prepare-host-path
+        image: {{ $os.prepareHostPath.image | quote }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          mkdir -p /mnt/models/models
+          chown {{ $os.runAsUser }}:{{ $os.runAsGroup }} /mnt/models /mnt/models/models
+          chmod 2775 /mnt/models /mnt/models/models
+          chcon -t container_file_t /mnt/models /mnt/models/models
+        resources:
+          limits:
+            cpu: 100m
+            memory: 64Mi
+          requests:
+            cpu: 10m
+            memory: 16Mi
+        securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
+          allowPrivilegeEscalation: false
+          privileged: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+            - FOWNER
+        volumeMounts:
+        - name: models
+          mountPath: /mnt/models
+      {{- end }}
+    metadata:
+      annotations:
+        openshift.io/required-scc: localmodelcache-node-agent
+      {{- end }}

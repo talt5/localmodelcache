@@ -29,8 +29,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/constants"
-	pkgtest "github.com/kserve/kserve/pkg/testing"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	pkgtest "github.com/talt5/localmodelcache/pkg/testing"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -76,16 +76,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	k8sClient = envTest.Client
 
 	// Creates namespace
-	kserveNamespaceObj := &corev1.Namespace{
+	systemNamespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.KServeNamespace,
+			Name: constants.SystemNamespace,
 		},
 	}
 	jobsNamespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kserve-localmodel-jobs",
+			Name: "localmodelcache-jobs",
 		},
 	}
-	Expect(k8sClient.Create(ctx, kserveNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, systemNamespaceObj)).Should(Succeed())
 	Expect(k8sClient.Create(ctx, jobsNamespaceObj)).Should(Succeed())
 })

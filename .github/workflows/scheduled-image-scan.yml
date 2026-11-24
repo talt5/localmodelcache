@@ -20,9 +20,9 @@ jobs:
         image:
           [
             { name: storage-initializer, file: python/storage-initializer.Dockerfile },
-            { name: kserve-localmodel-controller, file: localmodel.Dockerfile },
-            { name: kserve-localmodelnode-agent, file: localmodel-agent.Dockerfile },
-            { name: kserve-kernelcachenode-agent, file: kernelcache-agent.Dockerfile },
+            { name: localmodelcache-controller, file: localmodel.Dockerfile },
+            { name: localmodelcache-node-agent, file: localmodel-agent.Dockerfile },
+            { name: localmodelcache-kernelcache-agent, file: kernelcache-agent.Dockerfile },
           ]
 
     steps:

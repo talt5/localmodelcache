@@ -23,8 +23,8 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 )
 
 // RunPeriodicImageValidation performs an image check at startup and then at a fixed interval.

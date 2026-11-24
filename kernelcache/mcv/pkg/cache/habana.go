@@ -28,12 +28,12 @@ import (
 
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/cacheplan"
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/cacheplan"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/constants"
 )
 
 // habanaRecipeCacheSizeMB returns the cache size limit to stamp into OCI labels.
-// It reads EnvHabanaRecipeCacheSizeMB (injected by the KServe sidecar injector)
+// It reads EnvHabanaRecipeCacheSizeMB (injected by the LocalModelCache sidecar injector)
 // so the OCI label matches exactly what the predictor's PT_HPU_RECIPE_CACHE_CONFIG
 // was set to at capture time.
 func habanaRecipeCacheSizeMB() int {
@@ -54,10 +54,10 @@ const (
 
 	habanaBackend = constants.BackendHPU
 
-	// habanaCacheRootPath is the directory a KServe serving container mounts the
+	// habanaCacheRootPath is the directory a LocalModelCache serving container mounts the
 	// Habana recipe cache at. It is baked into the cache-root-env label so the
 	// consumer knows both the env var and the mount location.
-	habanaCacheRootPath = constants.KServeHome + "/" + constants.HabanaCache
+	habanaCacheRootPath = constants.DefaultHome + "/" + constants.HabanaCache
 )
 
 // recipeFileRegex matches Habana recipe cache filenames:
@@ -176,7 +176,7 @@ func (h *HabanaCache) Labels() map[string]string {
 	// Build the cache-root-env label from the shared cacheplan helper so the
 	// label MCV stamps here is byte-identical to the env cacheplan derives on the
 	// consume side (PT_HPU_RECIPE_CACHE_CONFIG=<dir>,false,<size>).
-	// The size is read from EnvHabanaRecipeCacheSizeMB, injected by the KServe
+	// The size is read from EnvHabanaRecipeCacheSizeMB, injected by the LocalModelCache
 	// sidecar injector so it matches whatever was set in the predictor container.
 	sizeMB := habanaRecipeCacheSizeMB()
 	rootEnv, err := cacheplan.RootEnvLabel(constants.Habana, habanaCacheRootPath, sizeMB)

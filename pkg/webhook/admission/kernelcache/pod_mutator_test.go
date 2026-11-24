@@ -32,9 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 )
 
 // podMutatorFixture is a vLLM Deployment, its ReplicaSet and a Pod about to be created from it.
@@ -80,7 +80,7 @@ func (f *podMutatorFixture) mutator(t *testing.T, kernelCacheJSON string) *PodMu
 	require.NoError(t, appsv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{kernelcacheconfig.KernelCacheConfigKeyName: kernelCacheJSON},
 	}
 	return &PodMutator{
@@ -105,7 +105,7 @@ func podCreateRequest(t *testing.T, pod *corev1.Pod) admission.Request {
 // patchedLabel returns the value the response's JSON patch sets for the workload label, or "".
 func patchedLabel(response admission.Response) string {
 	for _, op := range response.Patches {
-		if op.Path == "/metadata/labels/serving.kserve.io~1kernelcache-workload" {
+		if op.Path == "/metadata/labels/local.cache.ai~1kernelcache-workload" {
 			value, _ := op.Value.(string)
 			return value
 		}

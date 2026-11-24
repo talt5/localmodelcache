@@ -4,12 +4,12 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: localmodel-serving-cert  # this name should match the one appeared in kustomizeconfig.yaml
-  namespace: kserve
+  namespace: localmodelcache
 spec:
   # $(SERVICE_NAME) and $(SERVICE_NAMESPACE) will be substituted by kustomize
-  commonName: $(webhookServiceName).$(kserveNamespace).svc
+  commonName: $(webhookServiceName).$(systemNamespace).svc
   dnsNames:
-    - $(webhookServiceName).$(kserveNamespace).svc
+    - $(webhookServiceName).$(systemNamespace).svc
   issuerRef:
     kind: Issuer
     name: localmodel-selfsigned-issuer

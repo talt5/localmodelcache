@@ -29,16 +29,16 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/credentials"
-	pkgtypes "github.com/kserve/kserve/pkg/types"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/credentials"
+	pkgtypes "github.com/talt5/localmodelcache/pkg/types"
 )
 
 const (
 	// DownloadContainerName is the name of the model download container.
-	DownloadContainerName = "kserve-localmodel-download"
+	DownloadContainerName = "localmodelcache-download"
 	// DefaultJobImage is used when no StorageInitializerConfig image is set.
-	DefaultJobImage = "ghcr.io/talt5/storage-initializer:latest"
+	DefaultJobImage = "ghcr.io/talt5/localmodelcache-storage-initializer:latest"
 )
 
 // ResolveDownloadContainer returns the download container for a source URI. It prefers a matching

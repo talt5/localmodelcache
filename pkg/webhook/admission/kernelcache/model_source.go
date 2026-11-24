@@ -23,8 +23,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/constants"
-	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	cacheidentity "github.com/talt5/localmodelcache/pkg/kernelcache/identity"
 )
 
 // workloadModelSourceResolver resolves the effective model source for a workload Pod.

@@ -35,10 +35,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/kernelcache/captureconfig"
-	"github.com/kserve/kserve/pkg/kernelcache/reporter"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/captureconfig"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/reporter"
 )
 
 func TestCaptureConfigFromPodReadsGroupedConfiguration(t *testing.T) {
@@ -75,7 +75,7 @@ func newTestCaptureConfig(name, sessionID string) captureconfig.CaptureConfig {
 			SessionID: sessionID,
 		},
 		CachePaths: []v1alpha1.KernelCachePath{{
-			ContainerName: "kserve-container",
+			ContainerName: "localmodelcache-container",
 			ContainerPath: "/tmp/vllm",
 			OCIPath:       "io.vllm.cache",
 		}},
@@ -137,7 +137,7 @@ func TestCaptureControllerCreatesDeterministicCaptureAndReporterIdentity(t *test
 	pod.OwnerReferences[0].APIVersion = appsv1.SchemeGroupVersion.String()
 	pod.OwnerReferences[0].Kind = "ReplicaSet"
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true}`},
 	}
 	namespaceObject := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
@@ -161,7 +161,7 @@ func TestCaptureControllerCreatesDeterministicCaptureAndReporterIdentity(t *test
 		Client:                 k8sClient,
 		Reader:                 k8sClient,
 		Clientset:              clientset,
-		OperatorNamespace:      "kserve",
+		OperatorNamespace:      "localmodelcache",
 		OperatorServiceAccount: "operator",
 	}
 
@@ -174,7 +174,7 @@ func TestCaptureControllerCreatesDeterministicCaptureAndReporterIdentity(t *test
 	require.Empty(t, capture.Annotations)
 	require.Equal(t, v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: deployment.Name}, capture.Spec.SourceRef)
 	require.Equal(t, "registry.example/team/cache:session", capture.Spec.TargetImage)
-	require.Equal(t, []v1alpha1.KernelCachePath{{ContainerName: "kserve-container", ContainerPath: "/tmp/vllm", OCIPath: "io.vllm.cache"}}, capture.Spec.CachePaths)
+	require.Equal(t, []v1alpha1.KernelCachePath{{ContainerName: "localmodelcache-container", ContainerPath: "/tmp/vllm", OCIPath: "io.vllm.cache"}}, capture.Spec.CachePaths)
 	require.Len(t, capture.OwnerReferences, 1)
 	require.Equal(t, replicaSet.UID, capture.OwnerReferences[0].UID)
 	require.Equal(t, "ReplicaSet", capture.OwnerReferences[0].Kind)
@@ -242,7 +242,7 @@ func TestCaptureControllerIgnoresPodWithoutVerifiedDeploymentOwner(t *testing.T)
 		}}},
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true}`},
 	}
 	namespaceObject := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
@@ -262,7 +262,7 @@ func TestCaptureControllerRemovesTokenRequesterBindingWhenDisabled(t *testing.T)
 	require.NoError(t, rbacv1.AddToScheme(scheme))
 	require.NoError(t, appsv1.AddToScheme(scheme))
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":false}`},
 	}
 	namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "team"}}
@@ -274,13 +274,13 @@ func TestCaptureControllerRemovesTokenRequesterBindingWhenDisabled(t *testing.T)
 			Labels:    map[string]string{reporter.TokenRequesterManagedLabel: "true"},
 		},
 		RoleRef:  rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "ClusterRole", Name: reporter.TokenRequesterRole},
-		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: "operator", Namespace: "kserve"}},
+		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: "operator", Namespace: "localmodelcache"}},
 	}
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(configMap, namespace, service, binding).Build()
 	r := &KernelCacheCaptureControllerReconciler{
 		Client:                 c,
 		Reader:                 c,
-		OperatorNamespace:      "kserve",
+		OperatorNamespace:      "localmodelcache",
 		OperatorServiceAccount: "operator",
 	}
 	req := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(service)}

@@ -19,7 +19,7 @@ package security
 import (
 	"context"
 
-	"github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 // Signer attaches a signature to a container image so a matching Verifier can

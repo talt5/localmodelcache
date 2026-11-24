@@ -22,7 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
 const (
@@ -38,7 +38,7 @@ const MCVContainerName = "mcv"
 
 // ResolveRuntimeContainerName resolves the container that owns a cache path. The requested
 // name wins; otherwise the Pod's only container other than the capture sidecar is used. Pods
-// with several containers name theirs with the serving.kserve.io/kernelcache-container
+// with several containers name theirs with the local.cache.ai/kernelcache-container
 // annotation.
 func ResolveRuntimeContainerName(containers []corev1.Container, requested string) (string, error) {
 	if requested != "" {

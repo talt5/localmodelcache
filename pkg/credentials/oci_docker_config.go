@@ -26,9 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/credentials/s3"
-	pkgtypes "github.com/kserve/kserve/pkg/types"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/credentials/s3"
+	pkgtypes "github.com/talt5/localmodelcache/pkg/types"
 )
 
 const (
@@ -36,7 +36,7 @@ const (
 	CaBundleVolumeName = "cabundle-cert"
 	// OciFetchDockerConfigVolumeName is the projected-secret volume that carries the
 	// registry credentials (docker config.json) into the storage-initializer container.
-	OciFetchDockerConfigVolumeName = "kserve-oci-fetch-docker-config"
+	OciFetchDockerConfigVolumeName = "localmodelcache-oci-fetch-docker-config"
 	// OciFetchDockerConfigDir is the directory where the docker config.json is mounted.
 	// It is NOT under /root: the storage-initializer image runs as a non-root user (UID
 	// 1000), which cannot traverse /root (mode 0700). /mnt is chowned to that user in the
@@ -46,20 +46,17 @@ const (
 	OciFetchDockerConfigDir = "/mnt/oci-fetch-auth"
 	// OciFetchDockerConfigPathEnvVar signals to the Python handler where the docker
 	// config.json is mounted, keeping the cross-language path in one place (the Go side).
-	OciFetchDockerConfigPathEnvVar = "KSERVE_OCI_DOCKER_CONFIG"
+	OciFetchDockerConfigPathEnvVar = "LOCALMODELCACHE_OCI_DOCKER_CONFIG"
 	// OciInsecureRegistryEnvVar signals to the Python handler that the target
 	// registry should be treated as plain-HTTP/insecure (no TLS verification).
-	OciInsecureRegistryEnvVar = "KSERVE_OCI_INSECURE_REGISTRY"
+	OciInsecureRegistryEnvVar = "LOCALMODELCACHE_OCI_INSECURE_REGISTRY"
 )
 
-// ociFetchDockerConfigDefaultMode matches the pre-extract InferenceService oci+fetch
-// volume (0400). Changing it here would roll every existing oci+fetch ISVC pod.
+// ociFetchDockerConfigDefaultMode is the mode of the mounted docker config.
 var ociFetchDockerConfigDefaultMode = int32(0o400)
 
 // FirstNamedImagePullSecret returns the first imagePullSecret with a non-empty
-// name. LocalModel cache CRs admit at most one named secret; InferenceService
-// PodSpecs can still list several, and this helper keeps that path selecting
-// a usable name.
+// name. Cache resources admit at most one named secret.
 func FirstNamedImagePullSecret(imagePullSecrets []corev1.LocalObjectReference) (string, bool) {
 	for _, secret := range imagePullSecrets {
 		if secret.Name != "" {
@@ -99,8 +96,7 @@ func FetchAndValidateDockerConfigJSONSecret(ctx context.Context, reader client.R
 // OciFetchDockerConfigPathEnvVar (oras-py ignores DOCKER_CONFIG), so we mount it at
 // a UID-agnostic path under /mnt, not /root (UID 1000 cannot traverse /root).
 //
-// LocalModel cache CRs admit at most one named secret. InferenceService PodSpecs
-// can still list several; extra names are ignored and a warning is logged. Combine
+// Cache resources admit at most one named secret; extra names are ignored and a warning is logged. Combine
 // credentials for multiple registries into one dockerconfigjson secret.
 func MountImagePullSecretsAsDockerConfig(
 	imagePullSecrets []corev1.LocalObjectReference,
@@ -146,7 +142,7 @@ func MountImagePullSecretsAsDockerConfig(
 	})
 }
 
-// SetOciInsecureRegistryEnv sets KSERVE_OCI_INSECURE_REGISTRY=true on the download
+// SetOciInsecureRegistryEnv sets LOCALMODELCACHE_OCI_INSECURE_REGISTRY=true on the download
 // container when storageInitializer.ociInsecureRegistry is enabled. Overwrites an
 // existing value of the same name.
 func SetOciInsecureRegistryEnv(container *corev1.Container) {

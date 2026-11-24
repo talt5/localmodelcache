@@ -33,10 +33,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
-	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	cacheidentity "github.com/talt5/localmodelcache/pkg/kernelcache/identity"
+	kernelcachelabels "github.com/talt5/localmodelcache/pkg/kernelcache/labels"
 )
 
 func TestEnsureRuntimeImagePrefetchJobCreatesExpectedJob(t *testing.T) {
@@ -204,7 +204,7 @@ func TestEnsureRuntimeImagePrefetchJobWaitsForFailedJobDeletion(t *testing.T) {
 		mountPath: runtimeImagePrefetchMountPath, node: node,
 	})
 	failedJob.DeletionTimestamp = &deletionTime
-	failedJob.Finalizers = []string{"test.kserve.io/prefetch-job"}
+	failedJob.Finalizers = []string{"test.local.cache.ai/prefetch-job"}
 	failedJob.Status.Conditions = []batchv1.JobCondition{{Type: batchv1.JobFailed, Status: corev1.ConditionTrue}}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(failedJob).Build()
 	reconciler := &KernelCacheReconciler{Client: k8sClient}
@@ -249,7 +249,7 @@ func TestEnsureRuntimeImagePrefetchJobsContinuesWhileOneJobIsDeleting(t *testing
 		mountPath: runtimeImagePrefetchMountPath, node: &deletingNode,
 	})
 	deletingJob.DeletionTimestamp = &deletionTime
-	deletingJob.Finalizers = []string{"test.kserve.io/prefetch-job"}
+	deletingJob.Finalizers = []string{"test.local.cache.ai/prefetch-job"}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(deletingJob).Build()
 	reconciler := &KernelCacheReconciler{Client: k8sClient}
 	nodes := &corev1.NodeList{Items: []corev1.Node{deletingNode, readyNode}}
@@ -291,7 +291,7 @@ func TestEnsureRuntimeImagePrefetchJobsContinuesAfterAPIErrors(t *testing.T) {
 	now := metav1.Now()
 	deletingJob := &batchv1.Job{ObjectMeta: metav1.ObjectMeta{
 		Name: names["deleting"], Namespace: "jobs", DeletionTimestamp: &now,
-		Finalizers: []string{"test.kserve.io/prefetch-job"},
+		Finalizers: []string{"test.local.cache.ai/prefetch-job"},
 	}}
 	getErr := errors.New("get failed")
 	createErr := errors.New("create failed")

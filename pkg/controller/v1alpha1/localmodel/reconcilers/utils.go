@@ -37,10 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	controllerutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
-	"github.com/kserve/kserve/pkg/localmodelcache"
-	"github.com/kserve/kserve/pkg/utils"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	controllerutils "github.com/talt5/localmodelcache/pkg/controller/v1alpha1/utils"
+	"github.com/talt5/localmodelcache/pkg/localmodelcache"
+	"github.com/talt5/localmodelcache/pkg/utils"
 )
 
 var (
@@ -50,8 +50,8 @@ var (
 	APIGVStr                    = v1alpha1.SchemeGroupVersion.String()
 	ModelCacheCRName            = "LocalModelCache"
 	ModelNamespaceCacheCRName   = "LocalModelNamespaceCache"
-	FinalizerName               = "localmodel.kserve.io/finalizer"
-	NamespaceCacheFinalizerName = "localmodelnamespacecache.kserve.io/finalizer"
+	FinalizerName               = "local.cache.ai/localmodelcache-finalizer"
+	NamespaceCacheFinalizerName = "local.cache.ai/localmodelnamespacecache-finalizer"
 )
 
 // LocalModelParams holds common parameters extracted from either LocalModelCache or LocalModelNamespaceCache

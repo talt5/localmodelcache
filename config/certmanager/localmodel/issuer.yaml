@@ -4,6 +4,6 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: localmodel-selfsigned-issuer
-  namespace: kserve
+  namespace: localmodelcache
 spec:
   selfSigned: {}

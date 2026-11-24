@@ -2,9 +2,9 @@
 #
 # Only ClusterStorageContainers with workloadType localModelDownloadJob are used for model
 # cache downloads. Without a match, download Jobs use defaultJobImage from the localModel key
-# of the kserve-localmodel-config ConfigMap. The container receives the source URI and the
+# of the localmodelcache-config ConfigMap. The container receives the source URI and the
 # destination directory as its two arguments.
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: local.cache.ai/v1alpha1
 kind: ClusterStorageContainer
 metadata:
   name: internal-registry-downloader
@@ -14,7 +14,7 @@ spec:
     - prefix: s3://
   container:
     name: storage-initializer
-    image: registry.example.com/kserve/storage-initializer:v0.21.0
+    image: registry.example.com/localmodelcache/storage-initializer:v0.21.0
     resources:
       requests:
         cpu: 100m

@@ -1,11 +1,11 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: kserve
+namespace: localmodelcache
 
 labels:
 - pairs:
-    app.kubernetes.io/name: kserve
+    app.kubernetes.io/name: localmodelcache
     app.kubernetes.io/component: localmodel
 
 resources:
@@ -28,24 +28,24 @@ replacements:
 - source:
     fieldPath: metadata.namespace
     kind: Deployment
-    name: kserve-localmodel-controller-manager
+    name: localmodelcache-controller-manager
     version: v1
   targets:
   - fieldPaths:
     - webhooks.*.clientConfig.service.namespace
     select:
       kind: ValidatingWebhookConfiguration
-      name: localmodelcache.serving.kserve.io
+      name: localmodelcache.local.cache.ai
   - fieldPaths:
     - webhooks.*.clientConfig.service.namespace
     select:
       kind: ValidatingWebhookConfiguration
-      name: kernelcachecapture.serving.kserve.io
+      name: kernelcachecapture.local.cache.ai
   - fieldPaths:
     - webhooks.*.clientConfig.service.namespace
     select:
       kind: MutatingWebhookConfiguration
-      name: kernelcache.serving.kserve.io
+      name: kernelcache.local.cache.ai
   - fieldPaths:
     - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
@@ -53,7 +53,7 @@ replacements:
       index: 0
     select:
       kind: ValidatingWebhookConfiguration
-      name: localmodelcache.serving.kserve.io
+      name: localmodelcache.local.cache.ai
   - fieldPaths:
     - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
@@ -61,7 +61,7 @@ replacements:
       index: 0
     select:
       kind: ValidatingWebhookConfiguration
-      name: kernelcachecapture.serving.kserve.io
+      name: kernelcachecapture.local.cache.ai
   - fieldPaths:
     - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
@@ -69,7 +69,7 @@ replacements:
       index: 0
     select:
       kind: MutatingWebhookConfiguration
-      name: kernelcache.serving.kserve.io
+      name: kernelcache.local.cache.ai
   - fieldPaths:
     - spec.commonName
     - spec.dnsNames.0
@@ -79,7 +79,7 @@ replacements:
     select:
       kind: Certificate
       name: localmodel-serving-cert
-      namespace: kserve
+      namespace: localmodelcache
 # Replace localmodel webhook service name
 - source:
     fieldPath: metadata.name
@@ -91,17 +91,17 @@ replacements:
     - webhooks.*.clientConfig.service.name
     select:
       kind: ValidatingWebhookConfiguration
-      name: localmodelcache.serving.kserve.io
+      name: localmodelcache.local.cache.ai
   - fieldPaths:
     - webhooks.*.clientConfig.service.name
     select:
       kind: ValidatingWebhookConfiguration
-      name: kernelcachecapture.serving.kserve.io
+      name: kernelcachecapture.local.cache.ai
   - fieldPaths:
     - webhooks.*.clientConfig.service.name
     select:
       kind: MutatingWebhookConfiguration
-      name: kernelcache.serving.kserve.io
+      name: kernelcache.local.cache.ai
   - fieldPaths:
     - spec.commonName
     - spec.dnsNames.0
@@ -111,4 +111,4 @@ replacements:
     select:
       kind: Certificate
       name: localmodel-serving-cert
-      namespace: kserve
+      namespace: localmodelcache

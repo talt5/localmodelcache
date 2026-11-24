@@ -19,7 +19,7 @@ package s3
 import (
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
 /*
@@ -59,15 +59,15 @@ type S3Config struct {
 }
 
 var (
-	InferenceServiceS3SecretEndpointAnnotation    = constants.KServeAPIGroupName + "/" + "s3-endpoint"
-	InferenceServiceS3SecretRegionAnnotation      = constants.KServeAPIGroupName + "/" + "s3-region"
-	InferenceServiceS3SecretSSLAnnotation         = constants.KServeAPIGroupName + "/" + "s3-verifyssl"
-	InferenceServiceS3SecretHttpsAnnotation       = constants.KServeAPIGroupName + "/" + "s3-usehttps"
-	InferenceServiceS3UseVirtualBucketAnnotation  = constants.KServeAPIGroupName + "/" + "s3-usevirtualbucket"
-	InferenceServiceS3UseAccelerateAnnotation     = constants.KServeAPIGroupName + "/" + "s3-useaccelerate"
-	InferenceServiceS3UseAnonymousCredential      = constants.KServeAPIGroupName + "/" + "s3-useanoncredential"
-	InferenceServiceS3CABundleConfigMapAnnotation = constants.KServeAPIGroupName + "/" + "s3-cabundle-configmap"
-	InferenceServiceS3CABundleAnnotation          = constants.KServeAPIGroupName + "/" + "s3-cabundle"
+	S3SecretEndpointAnnotation         = constants.APIGroupName + "/" + "s3-endpoint"
+	S3SecretRegionAnnotation           = constants.APIGroupName + "/" + "s3-region"
+	S3SecretSSLAnnotation              = constants.APIGroupName + "/" + "s3-verifyssl"
+	S3SecretHttpsAnnotation            = constants.APIGroupName + "/" + "s3-usehttps"
+	S3UseVirtualBucketAnnotation       = constants.APIGroupName + "/" + "s3-usevirtualbucket"
+	S3UseAccelerateAnnotation          = constants.APIGroupName + "/" + "s3-useaccelerate"
+	S3UseAnonymousCredentialAnnotation = constants.APIGroupName + "/" + "s3-useanoncredential"
+	S3CABundleConfigMapAnnotation      = constants.APIGroupName + "/" + "s3-cabundle-configmap"
+	S3CABundleAnnotation               = constants.APIGroupName + "/" + "s3-cabundle"
 )
 
 func BuildSecretEnvs(secret *corev1.Secret, s3Config *S3Config) []corev1.EnvVar {

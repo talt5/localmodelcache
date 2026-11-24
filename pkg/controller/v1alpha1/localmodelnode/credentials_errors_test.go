@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/talt5/localmodelcache/pkg/credentials"
 )
 
 func TestErrStorageKeyNotFound_IsTyped(t *testing.T) {

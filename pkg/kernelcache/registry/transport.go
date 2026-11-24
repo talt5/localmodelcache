@@ -27,7 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 )
 
 // NewTransport returns an HTTP transport that trusts the system certificate

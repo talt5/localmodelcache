@@ -7,26 +7,29 @@ glob patterns, and outputs all merged resources sorted by kind/name.
 
 Parameters (dict):
   - baseFile: string - Path to the base resources file (multi-document YAML)
-  - patchGlob: string - Glob pattern for patch files (e.g., "files/kserve/*-patch.yaml")
+  - patchGlob: string - Glob pattern for patch files (e.g., "files/localmodelcache/*-patch.yaml")
   - certName: string - The cert name portion after namespace (e.g., "serving-cert", "llmisvc-serving-cert")
   - context: . - The root context for accessing .Release, .Files, etc.
 
 Example usage:
-{{- include "kserve-common.renderMultiResourceWithPatches" (dict
-  "baseFile" "files/kserve/resources.yaml"
-  "patchGlob" "files/kserve/*-patch.yaml"
+{{- include "localmodelcache-common.renderMultiResourceWithPatches" (dict
+  "baseFile" "files/localmodelcache/resources.yaml"
+  "patchGlob" "files/localmodelcache/*-patch.yaml"
   "certName" "serving-cert"
   "context" .) -}}
 */}}
-{{- define "kserve-common.renderMultiResourceWithPatches" -}}
+{{- define "localmodelcache-common.renderMultiResourceWithPatches" -}}
 {{- /* 1. Load base resources file and replace namespace */ -}}
 {{- $baseContent := .context.Files.Get .baseFile -}}
-{{- $baseContent = include "kserve-common.replaceNamespace" (list $baseContent .context.Release.Namespace) -}}
+{{- $baseContent = include "localmodelcache-common.replaceNamespace" (list $baseContent .context.Release.Namespace) -}}
 
 {{- /* 1.1. Replace cert-manager annotation with correct namespace */ -}}
-{{- $pattern := printf "cert-manager.io/inject-ca-from: kserve/%s" .certName -}}
+{{- $pattern := printf "cert-manager.io/inject-ca-from: localmodelcache/%s" .certName -}}
 {{- $replacement := printf "cert-manager.io/inject-ca-from: %s/%s" .context.Release.Namespace .certName -}}
 {{- $baseContent = $baseContent | replace $pattern $replacement -}}
+
+{{- /* 1.2. Point the webhook certificate at the Service in the release namespace */ -}}
+{{- $baseContent = $baseContent | replace ".localmodelcache.svc" (printf ".%s.svc" .context.Release.Namespace) -}}
 
 {{- /* 2. Load and render all patch files */ -}}
 {{- $allPatchContent := "" -}}
@@ -70,7 +73,7 @@ Example usage:
 {{- range $key, $patch := $patchMap -}}
   {{- if hasKey $baseMap $key -}}
     {{- $base := get $baseMap $key -}}
-    {{- $merged := include "kserve-common.deepMerge" (list $base $patch) | fromYaml -}}
+    {{- $merged := include "localmodelcache-common.deepMerge" (list $base $patch) | fromYaml -}}
     {{- $_ := set $baseMap $key $merged -}}
   {{- else -}}
     {{- /* New resource from patch */ -}}

@@ -32,7 +32,7 @@ func TestBuildS3EnvVars(t *testing.T) {
 	}{
 		"S3Endpoint": {
 			annotations: map[string]string{
-				InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
+				S3SecretEndpointAnnotation: "s3.aws.com",
 			},
 			expected: []corev1.EnvVar{
 				{
@@ -47,15 +47,15 @@ func TestBuildS3EnvVars(t *testing.T) {
 		},
 		"AllAnnotations": {
 			annotations: map[string]string{
-				InferenceServiceS3SecretEndpointAnnotation:    "s3.aws.com",
-				InferenceServiceS3SecretRegionAnnotation:      "us-east-2",
-				InferenceServiceS3SecretSSLAnnotation:         "0",
-				InferenceServiceS3SecretHttpsAnnotation:       "0",
-				InferenceServiceS3UseVirtualBucketAnnotation:  "true",
-				InferenceServiceS3UseAccelerateAnnotation:     "true",
-				InferenceServiceS3UseAnonymousCredential:      "true",
-				InferenceServiceS3CABundleAnnotation:          "value",
-				InferenceServiceS3CABundleConfigMapAnnotation: "value",
+				S3SecretEndpointAnnotation:         "s3.aws.com",
+				S3SecretRegionAnnotation:           "us-east-2",
+				S3SecretSSLAnnotation:              "0",
+				S3SecretHttpsAnnotation:            "0",
+				S3UseVirtualBucketAnnotation:       "true",
+				S3UseAccelerateAnnotation:          "true",
+				S3UseAnonymousCredentialAnnotation: "true",
+				S3CABundleAnnotation:               "value",
+				S3CABundleConfigMapAnnotation:      "value",
 			},
 			expected: []corev1.EnvVar{
 				{
@@ -212,14 +212,14 @@ func TestBuildS3EnvVars(t *testing.T) {
 		},
 		"AnnotationsSecretAndS3Config": {
 			annotations: map[string]string{
-				InferenceServiceS3SecretEndpointAnnotation:    "s3.aws.com-annotation",
-				InferenceServiceS3SecretRegionAnnotation:      "us-east-2-annotation",
-				InferenceServiceS3SecretSSLAnnotation:         "0",
-				InferenceServiceS3UseVirtualBucketAnnotation:  "true",
-				InferenceServiceS3UseAccelerateAnnotation:     "true",
-				InferenceServiceS3UseAnonymousCredential:      "true",
-				InferenceServiceS3CABundleAnnotation:          "value-annotation",
-				InferenceServiceS3CABundleConfigMapAnnotation: "value-annotation",
+				S3SecretEndpointAnnotation:         "s3.aws.com-annotation",
+				S3SecretRegionAnnotation:           "us-east-2-annotation",
+				S3SecretSSLAnnotation:              "0",
+				S3UseVirtualBucketAnnotation:       "true",
+				S3UseAccelerateAnnotation:          "true",
+				S3UseAnonymousCredentialAnnotation: "true",
+				S3CABundleAnnotation:               "value-annotation",
+				S3CABundleConfigMapAnnotation:      "value-annotation",
 			},
 			secret: &map[string][]byte{
 				S3Endpoint:             []byte("s3.aws.com-secret"),
@@ -342,9 +342,9 @@ func TestBuildS3EnvVars(t *testing.T) {
 		},
 		"EndpointWithHttpsProtocol": {
 			annotations: map[string]string{
-				InferenceServiceS3SecretEndpointAnnotation: "https://s3.aws.com",
-				InferenceServiceS3SecretSSLAnnotation:      "1",
-				InferenceServiceS3SecretHttpsAnnotation:    "0",
+				S3SecretEndpointAnnotation: "https://s3.aws.com",
+				S3SecretSSLAnnotation:      "1",
+				S3SecretHttpsAnnotation:    "0",
 			},
 			expected: []corev1.EnvVar{
 				{
@@ -367,9 +367,9 @@ func TestBuildS3EnvVars(t *testing.T) {
 		},
 		"EndpointWithHttpProtocol": {
 			annotations: map[string]string{
-				InferenceServiceS3SecretEndpointAnnotation: "http://s3.aws.com",
-				InferenceServiceS3SecretSSLAnnotation:      "0",
-				InferenceServiceS3SecretHttpsAnnotation:    "1",
+				S3SecretEndpointAnnotation: "http://s3.aws.com",
+				S3SecretSSLAnnotation:      "0",
+				S3SecretHttpsAnnotation:    "1",
 			},
 			expected: []corev1.EnvVar{
 				{

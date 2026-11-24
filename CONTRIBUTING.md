@@ -1,1 +1,1 @@
-See [How to contribute](https://github.com/kserve/community#how-can-i-help-) in [KServe community repository](https://github.com/kserve/community).
+Read the Development section of [README.md](README.md), then follow `.github/PULL_REQUEST_TEMPLATE.md`.

@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcaches,verbs=get;list;watch
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachenodes,verbs=get;list;watch
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachenodes/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachenodegroups,verbs=get;list;watch
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcaches,verbs=get;list;watch
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcachenodes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcachenodes/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcachenodegroups,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
@@ -37,9 +37,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	kernelcachelabels "github.com/talt5/localmodelcache/pkg/kernelcache/labels"
 )
 
 const (

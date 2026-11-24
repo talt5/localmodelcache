@@ -32,7 +32,7 @@ import (
 	clienttesting "k8s.io/client-go/testing"
 	controllerfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 )
 
 func TestScopedPusherNamesUseSixByteDigest(t *testing.T) {

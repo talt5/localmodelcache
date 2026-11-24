@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kserve-kernelcache-nodegroup-manager
+  name: localmodelcache-kernelcache-nodegroup-manager
 rules:
 - apiGroups:
   - ""
@@ -43,7 +43,7 @@ rules:
 - apiGroups:
   - apps
   resourceNames:
-  - kserve-kernelcachenode-agent
+  - localmodelcache-kernelcache-agent
   resources:
   - daemonsets
   verbs:
@@ -73,9 +73,46 @@ rules:
   - list
   - watch
 - apiGroups:
+  - local.cache.ai
+  resources:
+  - kernelcachecaptures
+  - kernelcachenodes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - local.cache.ai
+  resources:
+  - kernelcachecaptures/status
+  - kernelcaches/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - local.cache.ai
+  resources:
+  - kernelcachenodegroups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - local.cache.ai
+  resources:
+  - kernelcaches
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
   - rbac.authorization.k8s.io
   resourceNames:
-  - kserve-kernelcache-token-requester
+  - localmodelcache-kernelcache-token-requester
   resources:
   - clusterroles
   verbs:
@@ -101,40 +138,3 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - kernelcachecaptures
-  - kernelcachenodes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - kernelcachecaptures/status
-  - kernelcaches/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - kernelcachenodegroups
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - kernelcaches
-  verbs:
-  - create
-  - get
-  - list
-  - watch

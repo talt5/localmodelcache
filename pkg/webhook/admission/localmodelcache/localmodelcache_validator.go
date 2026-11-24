@@ -24,8 +24,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/localmodelcache"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/localmodelcache"
 )
 
 // logger for the validation webhook.
@@ -44,7 +44,7 @@ type LocalModelCacheValidator struct {
 	Reader client.Reader
 }
 
-// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-localmodelcaches,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=localmodelcaches,versions=v1alpha1,name=localmodelcache.kserve-webhook-server.validator
+// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-localmodelcaches,mutating=false,failurePolicy=fail,groups=local.cache.ai,resources=localmodelcaches,versions=v1alpha1,name=localmodelcache-validator.webhook.local.cache.ai
 var _ admission.Validator[*v1alpha1.LocalModelCache] = &LocalModelCacheValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type

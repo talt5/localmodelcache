@@ -1,3 +1,3 @@
-domain: serving.kserve.io
-repo: github.com/kserve/kserve
+domain: local.cache.ai
+repo: github.com/talt5/localmodelcache
 version: "3"

@@ -27,7 +27,7 @@ The cache already contains all necessary GPU information:
 - **Size:** ~176MB
 - **Includes:** MCV binary, buildah, basic container tools
 - **Excludes:** ROCm/CUDA libraries
-- **Tags:** `quay.io/gkm/mcv:no-gpu`, `quay.io/gkm/mcv:latest` // TODO update later with kserve images
+- **Tags:** `quay.io/gkm/mcv:no-gpu`, `quay.io/gkm/mcv:latest` // TODO update later with localmodelcache images
 
 > **Note:** For MCV, `:latest` resolves to the no-gpu variant (lighter, safer default for cache
 > creation without GPU hardware). This differs from the agent and gkm-extract images where

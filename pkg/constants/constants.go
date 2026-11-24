@@ -23,49 +23,45 @@ import (
 	"strings"
 )
 
-// KServe Constants
+// LocalModelCache Constants
 const (
-	KServeAPIGroupName = "serving.kserve.io"
+	APIGroupName = "local.cache.ai"
 )
 
-var KServeNamespace = GetEnvOrDefault("POD_NAMESPACE", "kserve")
+var SystemNamespace = GetEnvOrDefault("POD_NAMESPACE", "localmodelcache")
 
-var (
-	InferenceServiceConfigMapName = "inferenceservice-config"
-	// LocalModelConfigMapName is the ConfigMap, in KServeNamespace, that configures the
-	// local model cache and kernel cache controllers and their node agents.
-	LocalModelConfigMapName = "kserve-localmodel-config"
-)
+// LocalModelConfigMapName is the ConfigMap, in SystemNamespace, that configures the
+// local model cache and kernel cache controllers and their node agents.
+var LocalModelConfigMapName = "localmodelcache-config"
 
-// InferenceService Annotations
+// Kernel cache annotations and labels
 var (
-	KernelCacheSupportedAnnotationKey        = KServeAPIGroupName + "/kernelcache-supported"
-	KernelCacheSidecarInjectionAnnotationKey = KServeAPIGroupName + "/kernelcache-sidecar-injection"
-	KernelCacheNodeGroupAnnotationKey        = KServeAPIGroupName + "/kernelcache-nodegroup"
+	KernelCacheSupportedAnnotationKey        = APIGroupName + "/kernelcache-supported"
+	KernelCacheSidecarInjectionAnnotationKey = APIGroupName + "/kernelcache-sidecar-injection"
+	KernelCacheNodeGroupAnnotationKey        = APIGroupName + "/kernelcache-nodegroup"
 	// KernelCacheModelURIAnnotationKey names the model a kernel-cache Pod serves. It is part of
 	// the cache identity, so Pods that serve another model never share a cache.
-	KernelCacheModelURIAnnotationKey = KServeAPIGroupName + "/kernelcache-model-uri"
+	KernelCacheModelURIAnnotationKey = APIGroupName + "/kernelcache-model-uri"
 	// KernelCacheContainerAnnotationKey names the runtime container of a kernel-cache Pod. It is
 	// required when the Pod has more than one container.
-	KernelCacheContainerAnnotationKey = KServeAPIGroupName + "/kernelcache-container"
+	KernelCacheContainerAnnotationKey = APIGroupName + "/kernelcache-container"
 	// KernelCacheWorkloadLabelKey is set by the kernel cache webhook to the name of the
 	// Deployment that owns an opted-in Pod. Controllers map Pods to their workload through it.
-	KernelCacheWorkloadLabelKey = KServeAPIGroupName + "/kernelcache-workload"
+	KernelCacheWorkloadLabelKey = APIGroupName + "/kernelcache-workload"
 )
 
 // KernelCacheWorkloadKind is the kind of workload kernel caches are captured from and mounted
 // into: Pods owned by a Deployment through its ReplicaSet.
 const KernelCacheWorkloadKind = "Deployment"
 
-// InferenceService Internal Annotations
+// Internal annotations
 var (
-	InferenceServiceInternalAnnotationsPrefix        = "internal." + KServeAPIGroupName
-	LocalModelLabel                                  = InferenceServiceInternalAnnotationsPrefix + "/localmodel"
-	LocalModelNamespaceLabel                         = InferenceServiceInternalAnnotationsPrefix + "/localmodel-namespace"
-	KernelCacheUsageAnnotationKey                    = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-usage"
-	KernelCacheCaptureGeneratedLabelKey              = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-capture-generated"
-	KernelCacheNodeGroupSelectionSourceAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-nodegroup-selection-source"
-	LocalModelLoRAAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/localmodel-lora"
+	InternalAnnotationsPrefix                        = "internal." + APIGroupName
+	LocalModelLabel                                  = InternalAnnotationsPrefix + "/localmodel"
+	LocalModelNamespaceLabel                         = InternalAnnotationsPrefix + "/localmodel-namespace"
+	KernelCacheUsageAnnotationKey                    = InternalAnnotationsPrefix + "/kernelcache-usage"
+	KernelCacheCaptureGeneratedLabelKey              = InternalAnnotationsPrefix + "/kernelcache-capture-generated"
+	KernelCacheNodeGroupSelectionSourceAnnotationKey = InternalAnnotationsPrefix + "/kernelcache-nodegroup-selection-source"
 )
 
 // StorageSpec Constants
@@ -76,11 +72,7 @@ var (
 const (
 	OciURIPrefix = "oci://"
 
-	PvcSourceMountName           = "kserve-pvc-source"
-	StorageInitializerVolumeName = "kserve-provision-location"
-
-	CpuModelcarDefault    = "10m"
-	MemoryModelcarDefault = "15Mi"
+	PvcSourceMountName = "localmodelcache-pvc-source"
 )
 
 // GPU Constants
@@ -92,35 +84,12 @@ const (
 	GaudiGPUResourceType           = "habana.ai/gaudi"
 )
 
-var CustomGPUResourceTypesAnnotationKey = KServeAPIGroupName + "/gpu-resource-types"
-
 var DefaultGPUResourceTypeList = []string{
 	NvidiaGPUResourceType,
 	AmdGPUResourceType,
 	IntelGPUResourceType,
 	GaudiGPUResourceType,
 }
-
-// InferenceService Environment Variables
-const (
-	ModelInitModeEnvVarKey = "MODEL_INIT_MODE"
-)
-
-// InferenceService model server args
-const (
-	ArgumentModelName = "--model_name"
-)
-
-// InferenceService container names
-const (
-	InferenceServiceContainerName = "kserve-container"
-
-	// TransformerContainerName transformer container name in collocation
-	TransformerContainerName = "transformer-container"
-
-	ModelcarContainerName     = "modelcar"
-	ModelcarInitContainerName = "modelcar-init"
-)
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
@@ -171,6 +140,6 @@ func KernelCacheCaptureRevisionName(sourceName, revisionID string) string {
 }
 
 // KernelCacheTargetImage returns the OCI image reference for one capture.
-func KernelCacheTargetImage(registry, namespace, inferenceServiceName, captureID string) string {
-	return fmt.Sprintf("%s/%s/kernel-cache-%s:%s", strings.TrimSuffix(registry, "/"), namespace, inferenceServiceName, captureID)
+func KernelCacheTargetImage(registry, namespace, workloadName, captureID string) string {
+	return fmt.Sprintf("%s/%s/kernel-cache-%s:%s", strings.TrimSuffix(registry, "/"), namespace, workloadName, captureID)
 }

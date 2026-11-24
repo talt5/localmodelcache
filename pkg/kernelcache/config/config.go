@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package config loads the KernelCache section from the kserve-localmodel-config
+// Package config loads the KernelCache section from the localmodelcache-config
 // ConfigMap.
 package config
 
@@ -26,14 +26,14 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
-// Load gets and parses the KernelCache configuration from the kserve-localmodel-config
-// ConfigMap in constants.KServeNamespace.
+// Load gets and parses the KernelCache configuration from the localmodelcache-config
+// ConfigMap in constants.SystemNamespace.
 func Load(ctx context.Context, reader client.Reader) (*KernelCacheConfig, error) {
 	configMap := &corev1.ConfigMap{}
-	key := client.ObjectKey{Namespace: constants.KServeNamespace, Name: constants.LocalModelConfigMapName}
+	key := client.ObjectKey{Namespace: constants.SystemNamespace, Name: constants.LocalModelConfigMapName}
 	if err := reader.Get(ctx, key, configMap); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("%s was not found: %w", constants.LocalModelConfigMapName, err)

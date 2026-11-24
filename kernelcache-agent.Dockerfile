@@ -1,7 +1,7 @@
 # Build the KernelCacheNode agent.
 FROM golang:1.26.8 AS deps
 
-WORKDIR /go/src/github.com/kserve/kserve
+WORKDIR /go/src/github.com/talt5/localmodelcache
 COPY go.mod go.mod
 COPY go.sum go.sum
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -37,5 +37,5 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM gcr.io/distroless/static:nonroot
 COPY --from=license /third_party /third_party
-COPY --from=builder /go/src/github.com/kserve/kserve/kernelcachenode-agent /manager
+COPY --from=builder /go/src/github.com/talt5/localmodelcache/kernelcachenode-agent /manager
 ENTRYPOINT ["/manager"]

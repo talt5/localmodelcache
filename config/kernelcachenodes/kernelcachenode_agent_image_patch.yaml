@@ -1,11 +1,11 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: kserve-kernelcachenode-agent
-  namespace: kserve
+  name: localmodelcache-kernelcache-agent
+  namespace: localmodelcache
 spec:
   template:
     spec:
       containers:
-      - image: ghcr.io/talt5/kserve-kernelcachenode-agent:latest
+      - image: ghcr.io/talt5/localmodelcache-kernelcache-agent:latest
         name: manager

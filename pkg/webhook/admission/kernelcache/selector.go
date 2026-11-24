@@ -21,9 +21,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	kernelcacheutil "github.com/talt5/localmodelcache/pkg/kernelcache"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 )
 
 type kernelCacheMatch string

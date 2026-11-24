@@ -24,8 +24,8 @@ from urllib.error import HTTPError
 import pytest
 import zstandard
 
-from kserve_storage import Storage
-from kserve_storage.kserve_storage import (
+from localmodelcache_storage import Storage
+from localmodelcache_storage.localmodelcache_storage import (
     _OCI_DOCKER_CONFIG_PATH,
     _OCI_DOCKER_CONFIG_PATH_ENV,
     _OCI_INSECURE_REGISTRY_ENV,
@@ -48,7 +48,7 @@ def _fake_config_exists(config_path_exists, config_path=None):
     config-path check in _download_oci, delegating every other path (notably
     tarfile's own internal directory-existence checks during real extraction)
     to the real os.path.exists. Patching this attribute patches the process-
-    wide os module (kserve_storage.kserve_storage.os IS the os module), so a
+    wide os module (localmodelcache_storage.localmodelcache_storage.os IS the os module), so a
     blanket return_value=False/True here would also fool tarfile's
     _extract_member into skipping or wrongly attempting os.makedirs on
     directories that genuinely do/don't exist on disk."""
@@ -168,11 +168,11 @@ def test_oci_anonymous_pull_no_config(tmp_path):
     with (
         mock.patch("oras.client.OrasClient", return_value=client) as ctor,
         mock.patch(
-            "kserve_storage.kserve_storage.os.path.exists",
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
             side_effect=_fake_config_exists(False),
         ),
         mock.patch(
-            "kserve_storage.kserve_storage._login_from_docker_config"
+            "localmodelcache_storage.localmodelcache_storage._login_from_docker_config"
         ) as mock_login,
     ):
         result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
@@ -194,14 +194,14 @@ def test_oci_with_config(tmp_path):
     with (
         mock.patch("oras.client.OrasClient", return_value=client) as ctor,
         mock.patch(
-            "kserve_storage.kserve_storage.os.path.exists",
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
             side_effect=_fake_config_exists(True),
         ),
         mock.patch(
-            "kserve_storage.kserve_storage._login_from_docker_config"
+            "localmodelcache_storage.localmodelcache_storage._login_from_docker_config"
         ) as mock_login,
         mock.patch(
-            "kserve_storage.kserve_storage._oci_auth_backend_for_registry",
+            "localmodelcache_storage.localmodelcache_storage._oci_auth_backend_for_registry",
             return_value="basic",
         ),
     ):
@@ -249,7 +249,9 @@ def test_oci_auth_backend_probe_basic_401():
         {"Www-Authenticate": 'Basic realm="Registry Realm"'},
         io.BytesIO(),
     )
-    with mock.patch("kserve_storage.kserve_storage.urlopen", side_effect=err):
+    with mock.patch(
+        "localmodelcache_storage.localmodelcache_storage.urlopen", side_effect=err
+    ):
         assert _oci_auth_backend_for_registry("registry.local:5000", True) == "basic"
 
 
@@ -257,7 +259,7 @@ def test_oci_auth_backend_probe_http_exception_falls_back():
     import http.client
 
     with mock.patch(
-        "kserve_storage.kserve_storage.urlopen",
+        "localmodelcache_storage.localmodelcache_storage.urlopen",
         side_effect=http.client.BadStatusLine("broken"),
     ):
         assert _oci_auth_backend_for_registry("registry.local:5000", True) == "token"
@@ -275,7 +277,9 @@ def test_oci_auth_backend_probe_bearer_401():
         },
         io.BytesIO(),
     )
-    with mock.patch("kserve_storage.kserve_storage.urlopen", side_effect=err):
+    with mock.patch(
+        "localmodelcache_storage.localmodelcache_storage.urlopen", side_effect=err
+    ):
         assert _oci_auth_backend_for_registry("ghcr.io", False) == "token"
 
 
@@ -311,7 +315,7 @@ def test_oci_auth_backend_probe_passes_ca_context(monkeypatch):
         io.BytesIO(),
     )
     with mock.patch(
-        "kserve_storage.kserve_storage.urlopen", side_effect=err
+        "localmodelcache_storage.localmodelcache_storage.urlopen", side_effect=err
     ) as urlopen_mock:
         assert _oci_auth_backend_for_registry("registry.local:5000", False) == "basic"
 
@@ -327,12 +331,14 @@ def test_oci_with_config_uses_bearer_backend(tmp_path):
     with (
         mock.patch("oras.client.OrasClient", return_value=client) as ctor,
         mock.patch(
-            "kserve_storage.kserve_storage.os.path.exists",
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
             side_effect=_fake_config_exists(True),
         ),
-        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
         mock.patch(
-            "kserve_storage.kserve_storage._oci_auth_backend_for_registry",
+            "localmodelcache_storage.localmodelcache_storage._login_from_docker_config"
+        ),
+        mock.patch(
+            "localmodelcache_storage.localmodelcache_storage._oci_auth_backend_for_registry",
             return_value="token",
         ),
     ):
@@ -355,10 +361,12 @@ def test_oci_uncompressed_tar_layer_extracts(tmp_path):
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
         mock.patch(
-            "kserve_storage.kserve_storage.os.path.exists",
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
             side_effect=_fake_config_exists(False),
         ),
-        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+        mock.patch(
+            "localmodelcache_storage.localmodelcache_storage._login_from_docker_config"
+        ),
     ):
         result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
@@ -386,10 +394,12 @@ def test_oci_zstd_layer_extracts(tmp_path):
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
         mock.patch(
-            "kserve_storage.kserve_storage.os.path.exists",
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
             side_effect=_fake_config_exists(False),
         ),
-        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+        mock.patch(
+            "localmodelcache_storage.localmodelcache_storage._login_from_docker_config"
+        ),
     ):
         result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
@@ -423,10 +433,12 @@ def test_oci_zstd_and_gzip_layers_extract(tmp_path):
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
         mock.patch(
-            "kserve_storage.kserve_storage.os.path.exists",
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
             side_effect=_fake_config_exists(False),
         ),
-        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+        mock.patch(
+            "localmodelcache_storage.localmodelcache_storage._login_from_docker_config"
+        ),
     ):
         result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
@@ -491,10 +503,12 @@ def test_oci_zstd_multiframe_layer_extracts(tmp_path):
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
         mock.patch(
-            "kserve_storage.kserve_storage.os.path.exists",
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
             side_effect=_fake_config_exists(False),
         ),
-        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+        mock.patch(
+            "localmodelcache_storage.localmodelcache_storage._login_from_docker_config"
+        ),
     ):
         result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
@@ -523,10 +537,12 @@ def test_oci_non_tar_layer_skipped(tmp_path):
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
         mock.patch(
-            "kserve_storage.kserve_storage.os.path.exists",
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
             side_effect=_fake_config_exists(False),
         ),
-        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+        mock.patch(
+            "localmodelcache_storage.localmodelcache_storage._login_from_docker_config"
+        ),
     ):
         result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
@@ -555,11 +571,12 @@ def test_oci_multi_arch_index_resolves_to_platform(tmp_path):
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
         mock.patch(
-            "kserve_storage.kserve_storage.os.path.exists",
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
             side_effect=_fake_config_exists(False),
         ),
         mock.patch(
-            "kserve_storage.kserve_storage.platform.machine", return_value="x86_64"
+            "localmodelcache_storage.localmodelcache_storage.platform.machine",
+            return_value="x86_64",
         ),
     ):
         Storage._download_oci("oci://registry.io/mymodel:v1", out)
@@ -584,9 +601,13 @@ def test_oci_multi_arch_index_no_matching_platform_errors(tmp_path):
     client = _make_client(index)
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
-        mock.patch("kserve_storage.kserve_storage.os.path.exists", return_value=False),
         mock.patch(
-            "kserve_storage.kserve_storage.platform.machine", return_value="x86_64"
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
+            return_value=False,
+        ),
+        mock.patch(
+            "localmodelcache_storage.localmodelcache_storage.platform.machine",
+            return_value="x86_64",
         ),
     ):
         with pytest.raises(RuntimeError, match="linux/amd64"):
@@ -599,7 +620,10 @@ def test_oci_no_models_subpath_errors(tmp_path):
     client = _make_client(_IMAGE_MANIFEST, models_dir=False, extra_dirs=("bin", "etc"))
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
-        mock.patch("kserve_storage.kserve_storage.os.path.exists", return_value=False),
+        mock.patch(
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
+            return_value=False,
+        ),
     ):
         with pytest.raises(RuntimeError, match="no /models/ directory"):
             Storage._download_oci("oci://registry.io/mymodel:v1", out)
@@ -637,7 +661,8 @@ def test_oci_rewrite_with_digest():
 )
 def test_oci_detect_goarch(machine, expected):
     with mock.patch(
-        "kserve_storage.kserve_storage.platform.machine", return_value=machine
+        "localmodelcache_storage.localmodelcache_storage.platform.machine",
+        return_value=machine,
     ):
         assert _detect_goarch() == expected
 
@@ -660,17 +685,17 @@ def test_oci_honors_env_var_for_config_path(tmp_path):
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
         mock.patch(
-            "kserve_storage.kserve_storage.os.path.exists",
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
             side_effect=_fake_config_exists(True, "/custom/path/config.json"),
         ),
         mock.patch.dict(
             os.environ, {_OCI_DOCKER_CONFIG_PATH_ENV: "/custom/path/config.json"}
         ),
         mock.patch(
-            "kserve_storage.kserve_storage._login_from_docker_config"
+            "localmodelcache_storage.localmodelcache_storage._login_from_docker_config"
         ) as mock_login,
         mock.patch(
-            "kserve_storage.kserve_storage._oci_auth_backend_for_registry",
+            "localmodelcache_storage.localmodelcache_storage._oci_auth_backend_for_registry",
             return_value="token",
         ),
     ):
@@ -693,7 +718,7 @@ def test_oci_insecure_registry_defaults_to_secure(tmp_path):
     with (
         mock.patch("oras.client.OrasClient", side_effect=fake_oras_client),
         mock.patch(
-            "kserve_storage.kserve_storage.os.path.exists",
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
             side_effect=_fake_config_exists(False),
         ),
         mock.patch.dict(os.environ, {}, clear=False),
@@ -701,7 +726,7 @@ def test_oci_insecure_registry_defaults_to_secure(tmp_path):
         os.environ.pop(_OCI_INSECURE_REGISTRY_ENV, None)
         Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
-    # No KSERVE_OCI_INSECURE_REGISTRY set -> secure/verified HTTPS by default.
+    # No LOCALMODELCACHE_OCI_INSECURE_REGISTRY set -> secure/verified HTTPS by default.
     assert captured["insecure"] is False
 
 
@@ -717,7 +742,7 @@ def test_oci_insecure_registry_opt_in(tmp_path):
     with (
         mock.patch("oras.client.OrasClient", side_effect=fake_oras_client),
         mock.patch(
-            "kserve_storage.kserve_storage.os.path.exists",
+            "localmodelcache_storage.localmodelcache_storage.os.path.exists",
             side_effect=_fake_config_exists(False),
         ),
         mock.patch.dict(os.environ, {_OCI_INSECURE_REGISTRY_ENV: "true"}),
@@ -785,7 +810,7 @@ def test_docker_config_auth_keys_hub_aliases():
 
 
 def test_oci_login_insecure_skips_tls_verify(tmp_path, monkeypatch):
-    monkeypatch.setenv("KSERVE_OCI_INSECURE_REGISTRY", "true")
+    monkeypatch.setenv("LOCALMODELCACHE_OCI_INSECURE_REGISTRY", "true")
     cfg = tmp_path / "config.json"
     token = base64.b64encode(b"alice:s3cret").decode("utf-8")
     cfg.write_text(json.dumps({"auths": {"registry.io": {"auth": token}}}))

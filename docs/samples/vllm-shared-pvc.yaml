@@ -18,7 +18,7 @@ spec:
     requests:
       storage: 50Gi
 ---
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: local.cache.ai/v1alpha1
 kind: LocalModelNamespaceCache
 metadata:
   name: qwen3-shared

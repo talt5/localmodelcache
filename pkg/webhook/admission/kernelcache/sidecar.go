@@ -36,14 +36,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
-	"github.com/kserve/kserve/pkg/kernelcache/captureconfig"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	"github.com/kserve/kserve/pkg/kernelcache/podconfig"
-	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
-	"github.com/kserve/kserve/pkg/kernelcache/reporter"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheutil "github.com/talt5/localmodelcache/pkg/kernelcache"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/captureconfig"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/podconfig"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/registryauth"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/reporter"
 )
 
 const (

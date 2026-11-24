@@ -34,11 +34,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	controllerutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
-	"github.com/kserve/kserve/pkg/localmodelcache"
-	"github.com/kserve/kserve/pkg/utils"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	controllerutils "github.com/talt5/localmodelcache/pkg/controller/v1alpha1/utils"
+	"github.com/talt5/localmodelcache/pkg/localmodelcache"
+	"github.com/talt5/localmodelcache/pkg/utils"
 )
 
 // LocalModelReconciler reconciles cluster-scoped LocalModelCache resources
@@ -61,7 +61,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	c.Log.Info("Reconciling localmodel", "name", req.Name)
 	configMap, err := localmodelcache.GetConfigMap(ctx, c.Clientset)
 	if err != nil {
-		c.Log.Error(err, "unable to get configmap", "name", constants.LocalModelConfigMapName, "namespace", constants.KServeNamespace)
+		c.Log.Error(err, "unable to get configmap", "name", constants.LocalModelConfigMapName, "namespace", constants.SystemNamespace)
 		return reconcile.Result{}, err
 	}
 	localModelConfig, err := localmodelcache.NewLocalModelConfig(configMap)

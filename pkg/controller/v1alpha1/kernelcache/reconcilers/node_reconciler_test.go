@@ -32,8 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
 func kernelCacheConfigMap(enabled bool) *corev1.ConfigMap {
@@ -44,7 +44,7 @@ func kernelCacheConfigMap(enabled bool) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.LocalModelConfigMapName,
-			Namespace: constants.KServeNamespace,
+			Namespace: constants.SystemNamespace,
 		},
 		Data: map[string]string{"kernelcache": value},
 	}
@@ -70,7 +70,7 @@ func TestKernelCacheNodeReconcilerSkipsWhenDisabled(t *testing.T) {
 		Status:     corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}}},
 	}
 	existingNode := &v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: "existing-node"}}
-	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.KServeNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
+	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
 	k8sClient := newKernelCacheClient(scheme, false, group, node, existingNode, daemonSet)
 	reconciler := &KernelCacheNodeReconciler{Client: k8sClient}
 
@@ -101,7 +101,7 @@ func TestKernelCacheNodeReconcilerRemovesOrphanNodes(t *testing.T) {
 		Status:     corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}}},
 	}
 	orphan := &v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: "orphan-node"}}
-	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.KServeNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
+	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
 	k8sClient := newKernelCacheClient(scheme, true, group, node, orphan, daemonSet)
 	reconciler := &KernelCacheNodeReconciler{Client: k8sClient}
 
@@ -128,7 +128,7 @@ func TestKernelCacheNodeReconcilerKeepsNotReadyMatchingNode(t *testing.T) {
 		Status:     corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionFalse}}},
 	}
 	kernelCacheNode := &v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: node.Name}}
-	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.KServeNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
+	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
 	k8sClient := newKernelCacheClient(scheme, true, group, node, kernelCacheNode, daemonSet)
 	reconciler := &KernelCacheNodeReconciler{Client: k8sClient}
 
@@ -151,7 +151,7 @@ func TestKernelCacheNodeReconcilerCreatesNotReadyMatchingNode(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "gpu-node", Labels: map[string]string{"role": "gpu"}},
 		Status:     corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionFalse}}},
 	}
-	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.KServeNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
+	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
 	k8sClient := newKernelCacheClient(scheme, true, group, node, daemonSet)
 	reconciler := &KernelCacheNodeReconciler{Client: k8sClient}
 
@@ -168,7 +168,7 @@ func TestKernelCacheNodeReconcilerDoesNotUpdateDaemonSetForInvalidNodeGroup(t *t
 
 	group := &v1alpha1.KernelCacheNodeGroup{ObjectMeta: metav1.ObjectMeta{Name: "invalid"}}
 	daemonSet := &appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{Namespace: constants.KServeNamespace, Name: kernelCacheNodeAgentDaemonSetName},
+		ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName},
 		Spec: appsv1.DaemonSetSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
 			NodeSelector: map[string]string{"role": "worker"},
 		}}},
@@ -202,7 +202,7 @@ func TestKernelCacheNodeReconcilerConfigMapPredicate(t *testing.T) {
 
 	matching := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
 		Name:      constants.LocalModelConfigMapName,
-		Namespace: constants.KServeNamespace,
+		Namespace: constants.SystemNamespace,
 	}}
 	if !predicate.Create(event.CreateEvent{Object: matching}) {
 		t.Fatal("expected the local model ConfigMap to enqueue the controller")
@@ -215,7 +215,7 @@ func TestKernelCacheNodeReconcilerConfigMapPredicate(t *testing.T) {
 	}
 	if predicate.Create(event.CreateEvent{Object: &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
 		Name:      "other",
-		Namespace: constants.KServeNamespace,
+		Namespace: constants.SystemNamespace,
 	}}}) {
 		t.Fatal("did not expect another ConfigMap to enqueue the controller")
 	}
@@ -229,7 +229,7 @@ func TestKernelCacheNodeReconcilerRemovesNodesAfterGroupDeletion(t *testing.T) {
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 
 	orphan := &v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: "orphan-node"}}
-	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.KServeNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
+	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
 	k8sClient := newKernelCacheClient(scheme, true, orphan, daemonSet)
 	reconciler := &KernelCacheNodeReconciler{Client: k8sClient}
 
@@ -250,7 +250,7 @@ func TestKernelCacheNodeReconcilerDoesNotDeleteOnNodeListFailure(t *testing.T) {
 		Spec:       v1alpha1.KernelCacheNodeGroupSpec{NodeSelector: map[string]string{"role": "gpu"}},
 	}
 	orphan := &v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: "orphan-node"}}
-	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.KServeNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
+	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
 	baseClient := newKernelCacheClient(scheme, true, group, orphan, daemonSet)
 	k8sClient := &failingListClient{Client: baseClient, fail: func(list client.ObjectList) bool {
 		_, ok := list.(*corev1.NodeList)
@@ -271,7 +271,7 @@ func TestKernelCacheNodeReconcilerDoesNotDeleteOnNodeGroupListFailure(t *testing
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 
 	orphan := &v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: "orphan-node"}}
-	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.KServeNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
+	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
 	baseClient := newKernelCacheClient(scheme, true, orphan, daemonSet)
 	k8sClient := &failingListClient{Client: baseClient, fail: func(list client.ObjectList) bool {
 		_, ok := list.(*v1alpha1.KernelCacheNodeGroupList)
@@ -300,7 +300,7 @@ func TestKernelCacheNodeReconcilerDoesNotDeleteOnKernelCacheNodeListFailure(t *t
 		Status:     corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}}},
 	}
 	orphan := &v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: "orphan-node"}}
-	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.KServeNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
+	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
 	baseClient := newKernelCacheClient(scheme, true, group, node, orphan, daemonSet)
 	k8sClient := &failingListClient{Client: baseClient, fail: func(list client.ObjectList) bool {
 		_, ok := list.(*v1alpha1.KernelCacheNodeList)
@@ -353,9 +353,9 @@ func TestKernelCacheNodeReconcilerConfiguresAgentDaemonSetFromNodeGroups(t *test
 		},
 	}
 	daemonSet := &appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{Namespace: constants.KServeNamespace, Name: kernelCacheNodeAgentDaemonSetName},
+		ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName},
 		Spec: appsv1.DaemonSetSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
-			NodeSelector: map[string]string{"kserve/localmodel": "worker"},
+			NodeSelector: map[string]string{"local.cache.ai/node": "worker"},
 		}}},
 	}
 
@@ -390,7 +390,7 @@ func TestAgentDaemonSetDoesNotScheduleWithoutNodeGroups(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, appsv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
-	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.KServeNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
+	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(daemonSet).Build()
 	reconciler := &KernelCacheNodeReconciler{Client: k8sClient}
 

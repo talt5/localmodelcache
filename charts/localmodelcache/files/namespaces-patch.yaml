@@ -1,0 +1,22 @@
+{{- /*
+Job namespaces. A namespace that already exists is left alone, and none is ever deleted with the
+release. With `helm template`, lookup finds nothing, so they are always rendered.
+*/ -}}
+{{- $names := list }}
+{{- if .Values.localmodelcache.createJobNamespaces }}
+{{- $names = append $names .Values.localmodelcache.localmodel.jobNamespace }}
+{{- if .Values.localmodelcache.kernelcache.enabled }}
+{{- $names = append $names .Values.localmodelcache.kernelcache.jobNamespace }}
+{{- end }}
+{{- end }}
+{{- range $name := uniq $names }}
+{{- if and (ne $name $.Release.Namespace) (not (lookup "v1" "Namespace" "" $name)) }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $name }}
+  annotations:
+    helm.sh/resource-policy: keep
+{{- end }}
+{{- end }}

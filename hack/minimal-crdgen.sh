@@ -12,7 +12,7 @@ strip_and_copy_crds() {
   local src_dir="$1"
   local dst_dir="$2"
 
-  find "$src_dir" -maxdepth 1 -name 'serving.kserve.io*.yaml' | while read -r file; do
+  find "$src_dir" -maxdepth 1 -name 'local.cache.ai*.yaml' | while read -r file; do
     minimal="$dst_dir/$(basename "$file")"
     echo "Creating minimal CRD file: ${minimal}"
     cp "$file" "$minimal"
@@ -22,7 +22,7 @@ strip_and_copy_crds() {
 
 # Sync kustomize artifacts (kustomization.yaml and patch files) from a full
 # subdirectory to the corresponding minimal subdirectory.  CRD schema files
-# (serving.kserve.io*.yaml) are handled separately by strip_and_copy_crds.
+# (local.cache.ai*.yaml) are handled separately by strip_and_copy_crds.
 sync_kustomize_patches() {
   local src_dir="$1"
   local dst_dir="$2"
@@ -38,7 +38,7 @@ sync_kustomize_patches() {
     local base
     base=$(basename "$file")
     case "$base" in
-      kustomization.yaml|serving.kserve.io*) continue ;;
+      kustomization.yaml|local.cache.ai*) continue ;;
     esac
     echo "Syncing patch file: $dst_dir/$base"
     cp "$file" "$dst_dir/$base"

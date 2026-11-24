@@ -29,13 +29,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 )
 
 const (
-	TokenRequesterRole            = "kserve-kernelcache-token-requester" // #nosec G101 -- this is an RBAC role name, not a credential
-	ManagedLabel                  = "internal.serving.kserve.io/kernelcache-registry"
-	AccessSecretAnnotation        = "internal.serving.kserve.io/kernelcache-access-secret"
+	TokenRequesterRole            = "localmodelcache-kernelcache-token-requester" // #nosec G101 -- this is an RBAC role name, not a credential
+	ManagedLabel                  = "internal.local.cache.ai/kernelcache-registry"
+	AccessSecretAnnotation        = "internal.local.cache.ai/kernelcache-access-secret"
 	AccessNamePrefix              = "mcv-registry-"
 	AccessKey                     = "access.json"
 	ControllerPushRoleBindingName = "kernel-cache-controller-registry-push"

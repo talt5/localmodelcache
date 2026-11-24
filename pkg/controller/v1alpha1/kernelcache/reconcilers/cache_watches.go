@@ -31,10 +31,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/nodegroup"
 )
 
 // SetupWithManager registers KC and the resources that can change its status.
@@ -52,10 +52,10 @@ func (r *KernelCacheReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// isLocalModelConfigMap reports whether obj is the kserve-localmodel-config ConfigMap that
+// isLocalModelConfigMap reports whether obj is the localmodelcache-config ConfigMap that
 // holds the kernel cache configuration.
 func isLocalModelConfigMap(obj client.Object) bool {
-	return obj != nil && obj.GetNamespace() == constants.KServeNamespace && obj.GetName() == constants.LocalModelConfigMapName
+	return obj != nil && obj.GetNamespace() == constants.SystemNamespace && obj.GetName() == constants.LocalModelConfigMapName
 }
 
 // prefetchAuthResourcePredicate accepts only the shared prefetch identity resources.

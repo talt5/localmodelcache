@@ -37,10 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/credentials"
-	"github.com/kserve/kserve/pkg/localmodelcache"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/credentials"
+	"github.com/talt5/localmodelcache/pkg/localmodelcache"
 )
 
 func fsMode() *corev1.PersistentVolumeMode {
@@ -442,7 +442,7 @@ func TestReconcileSharedPVCPreservesNotReadyOnImportJobReadError(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add core scheme: %v", err)
@@ -491,7 +491,7 @@ func TestFinalizeSharedPVCDeletesForegroundAndRetainsFinalizer(t *testing.T) {
 	}}
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := batchv1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add batch scheme: %v", err)
@@ -533,7 +533,7 @@ func TestFinalizeSharedPVCPreservesNotReadyOnJobReadError(t *testing.T) {
 	cache.Status.MarkReady(cache.Generation)
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	baseClient := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -589,7 +589,7 @@ func TestReconcileSharedPVCSurfacesCredentialErrorWithoutCreatingJob(t *testing.
 
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add core scheme: %v", err)
@@ -651,7 +651,7 @@ func TestReconcileSharedPVCMountsImagePullSecretFromCacheNamespace(t *testing.T)
 
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add core scheme: %v", err)
@@ -723,7 +723,7 @@ func TestReconcileSharedPVCMissingImagePullSecretSurfacesCredentialError(t *test
 
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add core scheme: %v", err)
@@ -773,7 +773,7 @@ func TestBuildImportJobFSGroup(t *testing.T) {
 
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add core scheme: %v", err)
@@ -838,7 +838,7 @@ func sharedPVCFixture(t *testing.T, cache *v1alpha1.LocalModelNamespaceCache, pv
 	t.Helper()
 	scheme := runtime.NewScheme()
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("add KServe scheme: %v", err)
+		t.Fatalf("add LocalModelCache scheme: %v", err)
 	}
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatalf("add core scheme: %v", err)
@@ -946,7 +946,7 @@ func claimPod(name, claimName string, phase corev1.PodPhase) *corev1.Pod {
 // so the gate waits for every one of them.
 func TestReconcileSharedPVCBlocksReimportWhilePodsMountClaim(t *testing.T) {
 	terminating := claimPod("terminating", "pvc", corev1.PodRunning)
-	terminating.Finalizers = []string{"test.kserve.io/hold"}
+	terminating.Finalizers = []string{"test.local.cache.ai/hold"}
 	tests := []struct {
 		name string
 		pod  *corev1.Pod
@@ -1326,7 +1326,7 @@ func TestReconcileSharedPVCBlocksAfterTerminatingCompletedJobIsGone(t *testing.T
 	terminating := jobWithCondition(batchv1.JobComplete)
 	terminating.Name = importJobName(cache.Name)
 	terminating.Namespace = cache.Namespace
-	terminating.Finalizers = []string{"test.kserve.io/hold"}
+	terminating.Finalizers = []string{"test.local.cache.ai/hold"}
 	terminating.Annotations = map[string]string{
 		importPVCUIDAnnotation:     string(pvc.UID),
 		importStorageKeyAnnotation: v1alpha1.GetStorageKey(cache.Spec.SourceModelUri),

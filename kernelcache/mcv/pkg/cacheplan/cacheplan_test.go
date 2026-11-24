@@ -19,12 +19,12 @@ package cacheplan
 import (
 	"testing"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/constants"
 )
 
 const (
-	testVLLMCacheDir        = constants.KServeHome + "/" + constants.VLLMCache   // testVLLMCacheDir
-	testHabanaCacheDir      = constants.KServeHome + "/" + constants.HabanaCache // testHabanaCacheDir
+	testVLLMCacheDir        = constants.DefaultHome + "/" + constants.VLLMCache   // testVLLMCacheDir
+	testHabanaCacheDir      = constants.DefaultHome + "/" + constants.HabanaCache // testHabanaCacheDir
 	testHabanaCacheEnvValue = testHabanaCacheDir + ",false,8192"
 )
 
@@ -63,7 +63,7 @@ func TestDeriveVLLM(t *testing.T) {
 func TestDeriveHabana(t *testing.T) {
 	labels := map[string]string{
 		LabelCacheType:         constants.CacheTypeHabanaRecipe,
-		LabelCacheRootEnv:      "PT_HPU_RECIPE_CACHE_CONFIG=/home/kserve/.cache/habana,false,8192",
+		LabelCacheRootEnv:      "PT_HPU_RECIPE_CACHE_CONFIG=/home/localmodelcache/.cache/habana,false,8192",
 		LabelCacheMountSubpath: ".",
 	}
 
@@ -93,11 +93,11 @@ func TestDeriveHabana(t *testing.T) {
 }
 
 // TestDeriveInfersFromSummary verifies the fallback path for older images that
-// carry the per-class summary label but no io.kserve.km/cache-type label.
+// carry the per-class summary label but no ai.cache.local.km/cache-type label.
 func TestDeriveInfersFromSummary(t *testing.T) {
 	labels := map[string]string{
 		summaryLabelHabana: `{"targets":[{"backend":"hpu"}]}`,
-		LabelCacheRootEnv:  "PT_HPU_RECIPE_CACHE_CONFIG=/home/kserve/.cache/habana,false,8192",
+		LabelCacheRootEnv:  "PT_HPU_RECIPE_CACHE_CONFIG=/home/localmodelcache/.cache/habana,false,8192",
 	}
 	plan, err := Derive(labels)
 	if err != nil {

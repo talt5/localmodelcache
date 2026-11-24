@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
 
 func TestCaptureConfigRoundTrip(t *testing.T) {
@@ -35,7 +35,7 @@ func TestCaptureConfigRoundTrip(t *testing.T) {
 			SessionID: "session-id",
 		},
 		CachePaths: []v1alpha1.KernelCachePath{{
-			ContainerName: "kserve-container",
+			ContainerName: "localmodelcache-container",
 			ContainerPath: "/tmp/vllm",
 			OCIPath:       "io.vllm.cache",
 		}},
@@ -64,7 +64,7 @@ func TestMarshalCaptureConfigRejectsMissingRequiredFields(t *testing.T) {
 			SessionID: "session-id",
 		},
 		CachePaths: []v1alpha1.KernelCachePath{{
-			ContainerName: "kserve-container",
+			ContainerName: "localmodelcache-container",
 			ContainerPath: "/tmp/vllm",
 			OCIPath:       "io.vllm.cache",
 		}},

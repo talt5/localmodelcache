@@ -20,7 +20,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from jwcrypto import jwe, jwk
-from kserve_storage.confidential import (
+from localmodelcache_storage.confidential import (
     CDHSecretResolver,
     JWEDecryptor,
     SecretResolutionError,
@@ -98,7 +98,7 @@ class TestCDHSecretResolver:
         with pytest.raises(SecretResolutionError, match="Invalid resource ID"):
             resolver.resolve_key("invalid-id")
 
-    @patch("kserve_storage.confidential.cdh_client.requests.get")
+    @patch("localmodelcache_storage.confidential.cdh_client.requests.get")
     def test_valid_resource_id_format(self, mock_get):
         key_data = b"0123456789abcdef0123456789abcdef"
         mock_response = MagicMock()
@@ -344,7 +344,7 @@ class TestJWEDecryptorRoundTrip:
         """76-column wrapped ciphertext exercises whitespace strip and carry."""
         import textwrap
 
-        from kserve_storage.confidential import jwe_decryptor as decryptor_mod
+        from localmodelcache_storage.confidential import jwe_decryptor as decryptor_mod
 
         plaintext = os.urandom(4096)
         key_bytes = os.urandom(32)
@@ -368,7 +368,7 @@ class TestJWEDecryptorRoundTrip:
         """Ciphertext must be streamed; jwcrypto deserialize loads the whole token."""
         from pathlib import Path as PathlibPath
 
-        from kserve_storage.confidential import jwe_decryptor as decryptor_mod
+        from localmodelcache_storage.confidential import jwe_decryptor as decryptor_mod
 
         plaintext = os.urandom(64 * 1024)
         key_bytes = os.urandom(32)

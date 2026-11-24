@@ -26,15 +26,15 @@ import certifi
 import pytest
 import requests
 
-from kserve_storage import Storage
-from kserve_storage.kserve_storage import (
+from localmodelcache_storage import Storage
+from localmodelcache_storage.localmodelcache_storage import (
     _assert_http_storage_uri_allowed,
     _parse_patterns_from_env,
     _pinned_http_get,
     _should_download,
 )
 
-STORAGE_MODULE = "kserve_storage.kserve_storage"
+STORAGE_MODULE = "localmodelcache_storage.localmodelcache_storage"
 HTTPS_URI_TARGZ = "https://foo.bar/model.tar.gz"
 HTTPS_URI_TARGZ_WITH_QUERY = HTTPS_URI_TARGZ + "?foo=bar"
 

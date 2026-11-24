@@ -2,10 +2,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: localmodel-webhook-server-service
-  namespace: kserve
+  namespace: localmodelcache
 spec:
   ports:
     - port: 443
       targetPort: webhook-server
   selector:
-    control-plane: kserve-localmodel-controller-manager
+    control-plane: localmodelcache-controller-manager

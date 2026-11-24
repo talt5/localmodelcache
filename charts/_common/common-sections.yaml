@@ -1,7 +1,9 @@
-kserve:
+localmodelcache:
   version: v0.1.1
+  # -- Create localmodel.jobNamespace, and kernelcache.jobNamespace when the kernel cache is enabled, if they do not exist. They are kept when the release is uninstalled.
+  createJobNamespaces: true
   storage:
-    image: ghcr.io/talt5/storage-initializer
+    image: ghcr.io/talt5/localmodelcache-storage-initializer
     tag: ''
     resources:
       requests:
@@ -18,11 +20,11 @@ kserve:
     # carry no explicit suffix. One of: modelcar | native | fetch.
     # Only rendered into the storageInitializer config when non-empty.
     ociModelMode: ''
-    # -- ConfigMap with the CA certificates (key cabundle.crt) that downloads trust. Create it in every namespace that runs download Jobs: kserve.localmodel.jobNamespace, and the namespace of each shared-PVC cache. A ConfigMap named by the storage credentials takes precedence.
+    # -- ConfigMap with the CA certificates (key cabundle.crt) that downloads trust. Create it in every namespace that runs download Jobs: localmodelcache.localmodel.jobNamespace, and the namespace of each shared-PVC cache. A ConfigMap named by the storage credentials takes precedence.
     caBundleConfigMapName: ''
     caBundleVolumeMountPath: /etc/ssl/custom-certs
     storageSpecSecretName: storage-config
-    storageSecretNameAnnotation: serving.kserve.io/secretName
+    storageSecretNameAnnotation: local.cache.ai/secretName
     s3:
       accessKeyIdName: AWS_ACCESS_KEY_ID
       secretAccessKeyName: AWS_SECRET_ACCESS_KEY
@@ -36,11 +38,11 @@ kserve:
       CABundle: ''
   localmodel:
     controller:
-      image: ghcr.io/talt5/kserve-localmodel-controller
+      image: ghcr.io/talt5/localmodelcache-controller
       tag: ''
-    jobNamespace: kserve-localmodel-jobs
+    jobNamespace: localmodelcache-jobs
     jobTTLSecondsAfterFinished: 3600
-    defaultJobImage: ghcr.io/talt5/storage-initializer
+    defaultJobImage: ghcr.io/talt5/localmodelcache-storage-initializer
     defaultJobTag: ''
     securityContext:
       fsGroup: 1000
@@ -54,8 +56,8 @@ kserve:
     defaultSidecarInjection: true
     defaultMountType: 'oci'
     defaultNodeGroup: ''
-    jobNamespace: 'kserve-kernelcache-jobs'
-    mcvImage: 'ghcr.io/talt5/kserve-mcv'
+    jobNamespace: 'localmodelcache-kernelcache-jobs'
+    mcvImage: 'ghcr.io/talt5/localmodelcache-mcv'
     mcvTag: ''
     prefetchImage: 'registry.access.redhat.com/ubi9/ubi-minimal:latest'
     prefetchTag: ''
@@ -81,9 +83,9 @@ kserve:
       failurePolicy: 'reject'
       cert:
         signingProfileRef: 'kernelcache-signer'
-        trustBundle: 'kserve/kernelcache-root-ca'
+        trustBundle: 'localmodelcache/kernelcache-root-ca'
         trustBundleKey: ''
-        subjectRegexp: 'spiffe://kserve/kernelcache-signer'
+        subjectRegexp: 'spiffe://localmodelcache/kernelcache-signer'
     abandonedCapturePolicy: 'retain'
     jobTTLSecondsAfterFinished: 600
     mcvCaptureReadinessTimeoutSeconds: 600

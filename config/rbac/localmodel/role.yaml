@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kserve-localmodel-manager-role
+  name: localmodelcache-manager-role
 rules:
 - apiGroups:
   - ""
@@ -78,7 +78,7 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - clusterstoragecontainers
   - localmodelnodegroups
@@ -87,7 +87,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - localmodelcaches
   - localmodelnamespacecaches
@@ -101,14 +101,14 @@ rules:
   - update
   - watch
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - localmodelcaches/finalizers
   - localmodelnamespacecaches/finalizers
   verbs:
   - update
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - localmodelcaches/status
   - localmodelnamespacecaches/status
@@ -117,7 +117,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - serving.kserve.io
+  - local.cache.ai
   resources:
   - localmodelnodes/status
   verbs:

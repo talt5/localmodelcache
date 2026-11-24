@@ -23,7 +23,7 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
-	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
+	kernelcachetypes "github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 func TestNewKernelCacheConfigDefaults(t *testing.T) {
@@ -76,8 +76,8 @@ func TestNewKernelCacheConfigAcceptsCertificateArtifactSecurity(t *testing.T) {
 				"failurePolicy": "reject",
 				"cert": {
 					"signingProfileRef": "kernelcache-signer",
-					"trustBundle": "kserve/kernelcache-root-ca",
-					"subjectRegexp": "spiffe://kserve/kernelcache-signer"
+					"trustBundle": "localmodelcache/kernelcache-root-ca",
+					"subjectRegexp": "spiffe://localmodelcache/kernelcache-signer"
 				}
 			}
 		}`,
@@ -89,8 +89,8 @@ func TestNewKernelCacheConfigAcceptsCertificateArtifactSecurity(t *testing.T) {
 	g.Expect(config.ArtifactSecurity.FailurePolicy).To(gomega.Equal(string(kernelcachetypes.FailurePolicyReject)))
 	g.Expect(config.ArtifactSecurity.Cert).To(gomega.Equal(KernelCacheArtifactCertConfig{
 		SigningProfileRef: "kernelcache-signer",
-		TrustBundle:       "kserve/kernelcache-root-ca",
-		SubjectRegexp:     "spiffe://kserve/kernelcache-signer",
+		TrustBundle:       "localmodelcache/kernelcache-root-ca",
+		SubjectRegexp:     "spiffe://localmodelcache/kernelcache-signer",
 	}))
 }
 

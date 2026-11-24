@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kserve-localmodel-controller-manager
-  namespace: kserve
+  name: localmodelcache-controller-manager
+  namespace: localmodelcache
 spec:
   template:
     spec:
       containers:
       # Change the value of image field below to your controller image URL
-      - image: ghcr.io/talt5/kserve-localmodel-controller:latest
+      - image: ghcr.io/talt5/localmodelcache-controller:latest
         name: manager

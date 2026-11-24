@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
 
 var storageURI = "gs://testbucket/testmodel"
@@ -371,7 +371,7 @@ func TestValidateUpdate_SharedPVCSkipsDestinationConflict(t *testing.T) {
 
 	oldCache := makeTestSharedPVCCache("shared-pvc")
 	newCache := makeTestSharedPVCCache("shared-pvc")
-	newCache.Finalizers = []string{"serving.kserve.io/test-finalizer"}
+	newCache.Finalizers = []string{"local.cache.ai/test-finalizer"}
 	warnings, err := validator.ValidateUpdate(t.Context(), &oldCache, &newCache)
 	g.Expect(warnings).To(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())

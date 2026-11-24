@@ -34,7 +34,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
 
 var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
@@ -434,7 +434,7 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 				if err := k8sClient.Get(ctx, jobKey, current); err != nil {
 					return err
 				}
-				current.Annotations["serving.kserve.io/import-storage-key"] = "stale-key"
+				current.Annotations["local.cache.ai/import-storage-key"] = "stale-key"
 				return k8sClient.Update(ctx, current)
 			})).Should(Succeed())
 
@@ -552,7 +552,7 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			Eventually(func() error {
 				return k8sClient.Get(ctx, ownerJobKey, ownerJob)
 			}, timeout, interval).Should(Succeed())
-			ownerJob.Finalizers = []string{"test.kserve.io/hold-deletion"}
+			ownerJob.Finalizers = []string{"test.local.cache.ai/hold-deletion"}
 			Expect(k8sClient.Update(ctx, ownerJob)).Should(Succeed())
 
 			Eventually(func() string {
@@ -750,7 +750,7 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 				if current.Annotations == nil {
 					current.Annotations = map[string]string{}
 				}
-				current.Annotations["test.kserve.io/nudge"] = "pods-gone"
+				current.Annotations["test.local.cache.ai/nudge"] = "pods-gone"
 				return k8sClient.Update(ctx, current)
 			})).Should(Succeed())
 			Eventually(func() bool {
@@ -854,7 +854,7 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 				if err := k8sClient.Get(ctx, jobKey, replacement); err != nil {
 					return false
 				}
-				return replacement.UID != originalJob.UID && replacement.Annotations["serving.kserve.io/import-pvc-uid"] == string(recreated.UID)
+				return replacement.UID != originalJob.UID && replacement.Annotations["local.cache.ai/import-pvc-uid"] == string(recreated.UID)
 			}, timeout, interval).Should(BeTrue(), "a recreated claim must be imported again even while a Pod mounts it")
 			// The record names the old claim. It is cleared as soon as the fresh import starts,
 			// and the cache stays NotReady until the new claim holds the model.
@@ -895,7 +895,7 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 					return false
 				}
 				for _, finalizer := range current.Finalizers {
-					if finalizer == "localmodelnamespacecache.kserve.io/finalizer" {
+					if finalizer == "local.cache.ai/localmodelnamespacecache-finalizer" {
 						return true
 					}
 				}

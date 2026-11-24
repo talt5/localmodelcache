@@ -25,7 +25,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/registryauth"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/registryauth"
 )
 
 type remoteFetcher struct{}

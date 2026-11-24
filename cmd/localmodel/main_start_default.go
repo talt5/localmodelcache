@@ -22,14 +22,14 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	kservetls "github.com/kserve/kserve/pkg/tls"
+	lmctls "github.com/talt5/localmodelcache/pkg/tls"
 )
 
 // resolveTLS and setupDistroStartup are distro hooks (see main.go). This is
 // the upstream no-op default; distributions overlay their own version to add
 // platform-specific TLS handling without touching main.go.
 func resolveTLS(_ context.Context, minVer, ciphers string) ([]func(*tls.Config), error) {
-	return kservetls.Resolve(minVer, ciphers)
+	return lmctls.Resolve(minVer, ciphers)
 }
 
 func setupDistroStartup(ctx context.Context, _ ctrl.Manager) (context.Context, error) {

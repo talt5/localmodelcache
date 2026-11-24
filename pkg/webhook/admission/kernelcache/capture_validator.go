@@ -24,9 +24,9 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
-	"github.com/kserve/kserve/pkg/kernelcache/reporter"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	kernelcacheutil "github.com/talt5/localmodelcache/pkg/kernelcache"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/reporter"
 )
 
 // CaptureStatusValidator restricts authenticated MCV reporters to the

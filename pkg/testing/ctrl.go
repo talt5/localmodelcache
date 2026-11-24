@@ -19,7 +19,7 @@ package testing
 import (
 	"path/filepath"
 
-	kservescheme "github.com/kserve/kserve/pkg/scheme"
+	lmcscheme "github.com/talt5/localmodelcache/pkg/scheme"
 )
 
 // NewEnvTest prepares k8s EnvTest with prereq
@@ -27,7 +27,7 @@ func NewEnvTest(options ...Option) *Config {
 	testCRDs := WithCRDs(
 		filepath.Join(ProjectRoot(), "test", "crds"),
 	)
-	schemes := WithScheme(append([]AddToSchemeFunc{kservescheme.AddAll}, additionalTestSchemes()...)...)
+	schemes := WithScheme(append([]AddToSchemeFunc{lmcscheme.AddAll}, additionalTestSchemes()...)...)
 
 	return Configure(append(options, testCRDs, schemes)...)
 }

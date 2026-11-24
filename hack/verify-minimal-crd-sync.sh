@@ -4,7 +4,7 @@
 # patches, and any future sections) as well as non-CRD yaml files such as
 # conversion webhook patches.
 #
-# CRD schema files (serving.kserve.io*.yaml) are intentionally different
+# CRD schema files (local.cache.ai*.yaml) are intentionally different
 # between full and minimal (minimal has validation stripped), so they are
 # excluded from comparison.
 set -eu -o pipefail
@@ -42,7 +42,7 @@ for full_subdir in "$FULL_DIR"/*/; do
     [[ -f "$file" ]] || continue
     base=$(basename "$file")
     case "$base" in
-      kustomization.yaml|serving.kserve.io*) continue ;;
+      kustomization.yaml|local.cache.ai*) continue ;;
     esac
 
     minimal_file="$minimal_subdir/$base"

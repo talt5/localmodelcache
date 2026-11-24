@@ -24,9 +24,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/config"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/constants"
 )
 
 const (
@@ -169,7 +169,7 @@ func TestVLLMCache_GenericMountingLabels(t *testing.T) {
 
 	labels := got.Labels()
 
-	// Verify the 5 generic mounting labels for KServe Kernel Manager integration
+	// Verify the 5 generic mounting labels for LocalModelCache Kernel Manager integration
 	assert.Equal(t, constants.VLLM, labels[kmFramework], "framework label should be 'vllm'")
 	assert.Equal(t, constants.CacheTypeVLLMTorchCompile, labels[kmCacheType],
 		"cache-type label should be 'torch-compile'")
@@ -182,7 +182,7 @@ func TestVLLMCache_GenericMountingLabels(t *testing.T) {
 		"cache-mount-subpath should be torch_compile_cache/torch_aot_compile (parent dir, no hash)")
 
 	assert.Equal(t, vllmCacheRootEnvDefault, labels[kmCacheRootEnv],
-		"cache-root-env should be VLLM_CACHE_ROOT=/home/kserve/.cache/vllm")
+		"cache-root-env should be VLLM_CACHE_ROOT=/home/localmodelcache/.cache/vllm")
 
 	// Verify existing labels still present
 	assert.Equal(t, BinaryCacheFormat, labels[cacheVLLMImageFormat])
@@ -235,7 +235,7 @@ func TestVLLMCache_GenericMountingLabels_MultipleHashes(t *testing.T) {
 
 	// Verify kmCacheRootEnv is still set correctly
 	assert.Equal(t, vllmCacheRootEnvDefault, labels[kmCacheRootEnv],
-		"cache-root-env should be VLLM_CACHE_ROOT=/home/kserve/.cache/vllm")
+		"cache-root-env should be VLLM_CACHE_ROOT=/home/localmodelcache/.cache/vllm")
 
 	// Verify existing labels still present
 	assert.Equal(t, BinaryCacheFormat, labels[cacheVLLMImageFormat])

@@ -91,10 +91,10 @@ ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-RUN useradd kserve -m -u 1000 -d /home/kserve
+RUN useradd localmodelcache -m -u 1000 -d /home/localmodelcache
 
-COPY --from=builder --chown=kserve:kserve third_party third_party
-COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
+COPY --from=builder --chown=localmodelcache:localmodelcache third_party third_party
+COPY --from=builder --chown=localmodelcache:localmodelcache $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder storage storage
 COPY ./storage-initializer /storage-initializer
 
@@ -103,6 +103,6 @@ RUN mkdir /work
 WORKDIR /work
 
 # Set a writable /mnt folder to avoid permission issue on Huggingface download. See https://huggingface.co/docs/hub/spaces-sdks-docker#permissions
-RUN chown -R kserve:kserve /mnt
+RUN chown -R localmodelcache:localmodelcache /mnt
 USER 1000
 ENTRYPOINT ["/storage-initializer/scripts/initializer-entrypoint"]

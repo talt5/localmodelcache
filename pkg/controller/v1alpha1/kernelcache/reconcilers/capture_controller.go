@@ -37,14 +37,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
-	"github.com/kserve/kserve/pkg/kernelcache/captureconfig"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
-	"github.com/kserve/kserve/pkg/kernelcache/reporter"
-	"github.com/kserve/kserve/pkg/kernelcache/workload"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheutil "github.com/talt5/localmodelcache/pkg/kernelcache"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/captureconfig"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/registryauth"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/reporter"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/workload"
 )
 
 // KernelCacheCaptureControllerReconciler prepares capture identities in workload namespaces.
@@ -353,8 +353,8 @@ func (r *KernelCacheCaptureControllerReconciler) ensureReporterIdentityForCaptur
 	desiredRole := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{Name: roleName, Namespace: namespace, Labels: map[string]string{reporter.ManagedLabel: "true"}, OwnerReferences: []metav1.OwnerReference{*owner}},
 		Rules: []rbacv1.PolicyRule{
-			{APIGroups: []string{"serving.kserve.io"}, Resources: []string{"kernelcachecaptures"}, ResourceNames: []string{capture.Name}, Verbs: []string{"get"}},
-			{APIGroups: []string{"serving.kserve.io"}, Resources: []string{"kernelcachecaptures/status"}, ResourceNames: []string{capture.Name}, Verbs: []string{"get", "update"}},
+			{APIGroups: []string{"local.cache.ai"}, Resources: []string{"kernelcachecaptures"}, ResourceNames: []string{capture.Name}, Verbs: []string{"get"}},
+			{APIGroups: []string{"local.cache.ai"}, Resources: []string{"kernelcachecaptures/status"}, ResourceNames: []string{capture.Name}, Verbs: []string{"get", "update"}},
 		},
 	}
 	currentRole := &rbacv1.Role{}

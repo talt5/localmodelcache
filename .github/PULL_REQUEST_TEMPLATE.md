@@ -38,7 +38,7 @@ If this PR changes any image versions, that must be its only change. -->
 
 - [ ] Have you added unit/e2e tests that prove your fix is effective or that this feature works?
 - [ ] Has code been commented, particularly in hard-to-understand areas?
-- [ ] Have you made corresponding changes to the [documentation](https://github.com/kserve/website)?
+- [ ] Have you made corresponding changes to the documentation (README.md and docs/samples)?
 
 **Release note**:
 

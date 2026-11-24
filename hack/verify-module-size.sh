@@ -1,5 +1,5 @@
 #!/bin/bash
-# Verify that the github.com/kserve/kserve module at HEAD stays under Go's
+# Verify that the github.com/talt5/localmodelcache module at HEAD stays under Go's
 # 500 MiB module zip limit. Over it, `go get` and the module proxy fail with
 # "module source tree too large" and the release cannot be used as a
 # dependency (kserve#6302).
@@ -27,14 +27,14 @@ git -C "$tmp/src" update-ref refs/heads/verify "$sha"
 # GOPRIVATE skips the checksum database, which has never seen this commit.
 if ! (cd "$tmp" && env \
   GOPROXY=direct \
-  GOPRIVATE=github.com/kserve/kserve \
+  GOPRIVATE=github.com/talt5/localmodelcache \
   GOMODCACHE="$tmp/mod" \
   GOFLAGS=-modcacherw \
   GIT_CONFIG_COUNT=1 \
   GIT_CONFIG_KEY_0="url.file://$tmp/src.insteadOf" \
-  GIT_CONFIG_VALUE_0=https://github.com/kserve/kserve \
-  go mod download github.com/kserve/kserve@"$sha"); then
-  echo "FAIL: github.com/kserve/kserve@$sha cannot be downloaded as a Go module."
+  GIT_CONFIG_VALUE_0=https://github.com/talt5/localmodelcache \
+  go mod download github.com/talt5/localmodelcache@"$sha"); then
+  echo "FAIL: github.com/talt5/localmodelcache@$sha cannot be downloaded as a Go module."
   echo "If the module is too large, move the largest non-Go directory into its own"
   echo "module with a nested go.mod, as install/ is (kserve#6305)."
   exit 1

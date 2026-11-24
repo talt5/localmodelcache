@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgpg-error-dev \
  && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /go/src/github.com/kserve/kernelcache/mcv
+WORKDIR /go/src/github.com/talt5/localmodelcache/kernelcache/mcv
 COPY kernelcache/mcv/go.mod  go.mod
 COPY kernelcache/mcv/go.sum  go.sum
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -68,7 +68,7 @@ RUN mkdir -p /etc/containers && \
  printf '[storage]\ndriver="vfs"\nrunroot="/home/appuser/.local/share/containers/runroot"\ngraphroot="/home/appuser/.local/share/containers/storage"\n' \
    > /etc/containers/storage.conf
 
-COPY --from=builder /go/src/github.com/kserve/kernelcache/mcv/mcv /mcv
+COPY --from=builder /go/src/github.com/talt5/localmodelcache/kernelcache/mcv/mcv /mcv
 COPY --from=license /third_party/library /third_party/library
 COPY kernelcache/mcv/entrypoint.sh /entrypoint.sh
 COPY kernelcache/mcv/capture-entrypoint.py /capture-entrypoint.py
@@ -197,7 +197,7 @@ RUN wget -q -O /tmp/habana-key.asc https://vault.habana.ai/artifactory/api/gpg/k
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /go/src/github.com/kserve/kernelcache/mcv/mcv /mcv
+COPY --from=builder /go/src/github.com/talt5/localmodelcache/kernelcache/mcv/mcv /mcv
 COPY --from=license /third_party/library /third_party/library
 COPY kernelcache/mcv/entrypoint.sh /entrypoint.sh
 COPY kernelcache/mcv/capture-entrypoint.py /capture-entrypoint.py
@@ -249,7 +249,7 @@ RUN mkdir -p /etc/containers && \
  printf '[storage]\ndriver="vfs"\nrunroot="/home/appuser/.local/share/containers/runroot"\ngraphroot="/home/appuser/.local/share/containers/storage"\n' \
    > /etc/containers/storage.conf
 
-COPY --from=builder /go/src/github.com/kserve/kernelcache/mcv/mcv /mcv
+COPY --from=builder /go/src/github.com/talt5/localmodelcache/kernelcache/mcv/mcv /mcv
 COPY --from=license /third_party/library /third_party/library
 COPY kernelcache/mcv/entrypoint.sh /entrypoint.sh
 COPY kernelcache/mcv/capture-entrypoint.py /capture-entrypoint.py
@@ -345,7 +345,7 @@ RUN mkdir -p /etc/containers && \
  printf '[storage]\ndriver="vfs"\nrunroot="/home/appuser/.local/share/containers/runroot"\ngraphroot="/home/appuser/.local/share/containers/storage"\n' \
    > /etc/containers/storage.conf
 
-COPY --from=builder /go/src/github.com/kserve/kernelcache/mcv/mcv /mcv
+COPY --from=builder /go/src/github.com/talt5/localmodelcache/kernelcache/mcv/mcv /mcv
 COPY --from=license /third_party/library /third_party/library
 COPY kernelcache/mcv/entrypoint.sh /entrypoint.sh
 COPY kernelcache/mcv/capture-entrypoint.py /capture-entrypoint.py

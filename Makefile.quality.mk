@@ -103,7 +103,7 @@ ensure-golangci-go-version: yq
 # Sync common helpers to all charts (must run before helm package)
 sync-helm-common-helpers:
 	@echo "Syncing common helpers to all charts..."
-	@for chart in kserve-localmodel-resources; do \
+	@for chart in localmodelcache; do \
 		cp charts/_common/_utils.tpl charts/$$chart/templates/_utils.tpl; \
 		echo "  ✓ Copied to charts/$$chart/templates/_utils.tpl"; \
 	done

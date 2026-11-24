@@ -14,29 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachenodegroups,verbs=get;list;watch
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachenodes,verbs=get;list;watch;create;delete
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcaches,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcaches/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachecaptures,verbs=get;list;watch;create;delete
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachecaptures/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcachenodegroups,verbs=get;list;watch
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcachenodes,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcaches,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcaches/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcachecaptures,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=local.cache.ai,resources=kernelcachecaptures/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;create;update;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create
-// +kubebuilder:rbac:groups=apps,resources=daemonsets,resourceNames=kserve-kernelcachenode-agent,verbs=get;patch
+// +kubebuilder:rbac:groups=apps,resources=daemonsets,resourceNames=localmodelcache-kernelcache-agent,verbs=get;patch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=replicasets,verbs=get
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;create;patch;update;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;patch;delete
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=kserve-kernelcache-token-requester,verbs=bind
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=localmodelcache-kernelcache-token-requester,verbs=bind
 
 package kernelcache
 
-import "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcache/reconcilers"
+import "github.com/talt5/localmodelcache/pkg/controller/v1alpha1/kernelcache/reconcilers"
 
 type (
 	KernelCacheCaptureControllerReconciler = reconcilers.KernelCacheCaptureControllerReconciler

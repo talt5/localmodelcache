@@ -21,9 +21,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/config"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/imgbuild"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/imgbuild"
 )
 
 const (

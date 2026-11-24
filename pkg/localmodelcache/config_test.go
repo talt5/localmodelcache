@@ -26,16 +26,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
 func TestGetConfigMapReadsLocalModelConfigMap(t *testing.T) {
 	clientset := fake.NewSimpleClientset(
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
-			Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace,
+			Name: "other-config", Namespace: constants.SystemNamespace,
 		}},
 		&corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+			ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 			Data:       map[string]string{LocalModelConfigKeyName: `{"jobNamespace":"jobs"}`},
 		},
 	)
@@ -98,7 +98,7 @@ func TestNewLocalModelConfig(t *testing.T) {
 
 func TestGetStorageInitializerConfigs(t *testing.T) {
 	baseJSON := func(extra string) string {
-		return `{"image":"kserve/storage-initializer:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1","caBundleConfigMapName":"","caBundleVolumeMountPath":"/etc/ssl/custom-certs"` + extra + `}`
+		return `{"image":"localmodelcache/storage-initializer:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1","caBundleConfigMapName":"","caBundleVolumeMountPath":"/etc/ssl/custom-certs"` + extra + `}`
 	}
 	parse := func(raw string) *corev1.ConfigMap {
 		return &corev1.ConfigMap{Data: map[string]string{StorageInitializerConfigKeyName: raw}}

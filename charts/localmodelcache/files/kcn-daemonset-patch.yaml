@@ -1,0 +1,27 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: localmodelcache-kernelcache-agent
+spec:
+  template:
+    spec:
+      tolerations:
+        {{- toYaml (.Values.localmodelcache.kernelcachenode.controller.tolerations | default list) | nindent 8 }}
+      affinity:
+        {{- toYaml (.Values.localmodelcache.kernelcachenode.controller.affinity | default dict) | nindent 8 }}
+      containers:
+      - name: manager
+        image: "{{ .Values.localmodelcache.kernelcachenode.controller.image }}:{{ .Values.localmodelcache.kernelcachenode.controller.tag | default .Values.localmodelcache.version }}"
+        {{- with .Values.localmodelcache.kernelcachenode.controller.extraArgs }}
+        args:
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        imagePullPolicy: {{ .Values.localmodelcache.kernelcachenode.controller.imagePullPolicy }}
+        resources:
+          {{- toYaml .Values.localmodelcache.kernelcachenode.controller.resources | nindent 10 }}
+  {{- if .Values.openshift.enabled }}
+    metadata:
+      annotations:
+        openshift.io/required-scc: restricted-v2
+  {{- end }}

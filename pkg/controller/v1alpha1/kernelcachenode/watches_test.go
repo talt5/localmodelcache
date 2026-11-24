@@ -27,9 +27,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcachelabels "github.com/talt5/localmodelcache/pkg/kernelcache/labels"
 )
 
 func TestCurrentNodeReadinessPredicate(t *testing.T) {
@@ -161,7 +161,7 @@ func TestEnqueueCurrentNodeForJobUsesConfiguredNamespace(t *testing.T) {
 		t.Fatal(err)
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"jobNamespace":"kernel-cache-jobs"}`},
 	}
 	reconciler := &KernelCacheNodeReconciler{
@@ -192,13 +192,13 @@ func TestLocalModelConfigMapPredicate(t *testing.T) {
 	configMap := func(namespace, name string) *corev1.ConfigMap {
 		return &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name}}
 	}
-	if !pred.Create(event.CreateEvent{Object: configMap(constants.KServeNamespace, constants.LocalModelConfigMapName)}) {
+	if !pred.Create(event.CreateEvent{Object: configMap(constants.SystemNamespace, constants.LocalModelConfigMapName)}) {
 		t.Fatal("expected the local model ConfigMap to enqueue the node")
 	}
 	if pred.Create(event.CreateEvent{Object: configMap("other", constants.LocalModelConfigMapName)}) {
 		t.Fatal("did not expect a ConfigMap from another namespace to enqueue the node")
 	}
-	if pred.Create(event.CreateEvent{Object: configMap(constants.KServeNamespace, "other")}) {
+	if pred.Create(event.CreateEvent{Object: configMap(constants.SystemNamespace, "other")}) {
 		t.Fatal("did not expect another ConfigMap to enqueue the node")
 	}
 }

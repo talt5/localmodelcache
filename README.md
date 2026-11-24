@@ -16,8 +16,7 @@ is the product and `LocalModelCache` is one of its resources.
 | `ClusterStorageContainer` | cluster | Replaces the container that downloads models from a given URI scheme. |
 | `KernelCache`, `KernelCacheCapture`, `KernelCacheNodeGroup` | namespace, namespace, cluster | Capture the compiled kernel cache of a running Deployment as an OCI image and mount it into its later Pods. |
 
-The API group stays `serving.kserve.io/v1alpha1`. The chart, ConfigMap and namespace names also
-keep their `kserve` prefix, so use those names in the commands below.
+The API group is `local.cache.ai`, so LocalModelCache and upstream KServe can share a cluster.
 
 ## Install
 
@@ -27,27 +26,27 @@ The webhooks need [cert-manager](https://cert-manager.io). Install it first, for
 With Helm:
 
 ```sh
-helm upgrade -i kserve-localmodel-crd charts/kserve-localmodel-crd -n kserve --create-namespace
-helm upgrade -i kserve-localmodel charts/kserve-localmodel-resources -n kserve
+helm upgrade -i localmodelcache-crd charts/localmodelcache-crd -n localmodelcache --create-namespace
+helm upgrade -i localmodelcache charts/localmodelcache -n localmodelcache
 ```
 
 On OpenShift, also set `openshift.enabled=true` and keep the model cache under `/var`, since
 the root filesystem is read-only:
 
 ```sh
-helm upgrade -i kserve-localmodel charts/kserve-localmodel-resources -n kserve \
+helm upgrade -i localmodelcache charts/localmodelcache -n localmodelcache \
   --set openshift.enabled=true \
-  --set kserve.localmodelnode.controller.hostPath=/var/mnt/models
+  --set localmodelcache.localmodelnode.controller.hostPath=/var/mnt/models
 ```
 
 This creates the SecurityContextConstraints the node agent and the download Jobs need and pins
-every Pod to its SCC. See [the chart README](charts/kserve-localmodel-resources/README.md)
+every Pod to its SCC. See [the chart README](charts/localmodelcache/README.md)
 for all values.
 
 Without Helm, `make deploy` applies `config/default`: the CRDs, the controller and both node
-agents, in the `kserve` namespace.
+agents, in the `localmodelcache` namespace.
 
-The controller reads its settings from the `kserve-localmodel-config` ConfigMap in its own
+The controller reads its settings from the `localmodelcache-config` ConfigMap in its own
 namespace:
 
 | Key | Configures |
@@ -57,13 +56,31 @@ namespace:
 | `credentials` | Where download Jobs find storage credentials. |
 | `kernelcache` | Kernel capture, prefetch, registry and artifact signing. |
 
+### Upgrade from v0.1
+
+Nothing upgrades in place: v0.2 changes the API group, namespaces and every object name. Helm
+would also delete the old CRDs together with all their resources.
+
+1. Save your manifests and stop the workloads that mount caches. Delete the caches, kernel caches
+   and node groups while the old controller still runs, so that it can clean up.
+2. Uninstall `kserve-localmodel`, then `kserve-localmodel-crd`. Keep CRDs that an upstream KServe
+   on the same cluster uses.
+3. Install v0.2. Label the nodes `local.cache.ai/node=worker`, and recreate the Secrets,
+   ServiceAccounts and CA ConfigMap in `localmodelcache-jobs`.
+4. In your manifests, replace `serving.kserve.io` with `local.cache.ai` in `apiVersion` and
+   annotations, and the Helm values root `kserve` with `localmodelcache`. Models download again,
+   and kernel caches are captured again.
+
+Never run the v0.1 and v0.2 node agents on the same host path: each deletes the model folders it
+does not know.
+
 ## Cache a model and mount it
 
 Start with a node group. Its PersistentVolume spec describes the local volume on each node,
-and its path must match the node agent's host path (`kserve.localmodelnode.controller.hostPath`):
+and its path must match the node agent's host path (`localmodelcache.localmodelnode.controller.hostPath`):
 
 ```yaml
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: local.cache.ai/v1alpha1
 kind: LocalModelNodeGroup
 metadata:
   name: gpu
@@ -80,7 +97,7 @@ spec:
       required:
         nodeSelectorTerms:
           - matchExpressions:
-              - key: kserve/localmodel
+              - key: local.cache.ai/node
                 operator: In
                 values: [worker]
   persistentVolumeClaimSpec:
@@ -98,7 +115,7 @@ its own, so also give the models their own disk: PV and PVC sizes do not limit a
 Then cache the model in the namespace your workload runs in:
 
 ```yaml
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: local.cache.ai/v1alpha1
 kind: LocalModelNamespaceCache
 metadata:
   name: qwen3
@@ -185,7 +202,7 @@ spec:
     required:
       nodeSelectorTerms:
         - matchExpressions:
-            - key: kserve/localmodel
+            - key: local.cache.ai/node
               operator: In
               values: [worker]
 ---
@@ -229,12 +246,12 @@ Opt in through the Pod template of a Deployment:
 
 | Annotation | Value |
 | --- | --- |
-| `serving.kserve.io/kernelcache-supported` | `"true"` to opt in. |
-| `serving.kserve.io/kernelcache-model-uri` | The model the Pod serves. It is part of the cache identity. |
-| `serving.kserve.io/kernelcache-container` | The runtime container. Needed only when the Pod has more than one. |
-| `serving.kserve.io/kernelcache-sidecar-injection` | `"true"` or `"false"` to override capture for this workload. |
+| `local.cache.ai/kernelcache-supported` | `"true"` to opt in. |
+| `local.cache.ai/kernelcache-model-uri` | The model the Pod serves. It is part of the cache identity. |
+| `local.cache.ai/kernelcache-container` | The runtime container. Needed only when the Pod has more than one. |
+| `local.cache.ai/kernelcache-sidecar-injection` | `"true"` or `"false"` to override capture for this workload. |
 
-The `kernelcache` key of `kserve-localmodel-config` turns the feature on and sets the registry
+The `kernelcache` key of `localmodelcache-config` turns the feature on and sets the registry
 captured images are pushed to. See
 [docs/samples/vllm-kernel-cache.yaml](docs/samples/vllm-kernel-cache.yaml).
 

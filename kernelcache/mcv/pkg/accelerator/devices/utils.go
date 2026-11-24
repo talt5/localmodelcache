@@ -22,7 +22,7 @@ import (
 	"github.com/jaypipes/ghw"
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/talt5/localmodelcache/kernelcache/mcv/pkg/config"
 )
 
 func GetProductName(id int) (name string, err error) {

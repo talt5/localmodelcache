@@ -1,0 +1,9 @@
+LocalModelCache
+Copyright 2026 The LocalModelCache Authors
+
+This product is a fork of KServe (https://github.com/kserve/kserve),
+Copyright The KServe Authors, licensed under the Apache License, Version 2.0.
+
+The files have been modified: model serving was removed, and the API group,
+packages, images and other names were changed. Files that came from KServe keep
+their original copyright notices.

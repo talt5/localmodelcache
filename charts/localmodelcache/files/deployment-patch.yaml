@@ -1,0 +1,23 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: localmodelcache-controller-manager
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        image: "{{ .Values.localmodelcache.localmodel.controller.image }}:{{ .Values.localmodelcache.localmodel.controller.tag | default .Values.localmodelcache.version }}"
+        {{- with .Values.localmodelcache.localmodel.controller.extraArgs }}
+        args:
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        imagePullPolicy: {{ .Values.localmodelcache.localmodel.controller.imagePullPolicy }}
+        resources:
+          {{- toYaml .Values.localmodelcache.localmodel.controller.resources | nindent 10 }}
+  {{- if .Values.openshift.enabled }}
+    metadata:
+      annotations:
+        openshift.io/required-scc: restricted-v2
+  {{- end }}

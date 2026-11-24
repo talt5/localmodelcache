@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/kserve/kserve/pkg/kernelcache/reporter"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/reporter"
 )
 
 const (

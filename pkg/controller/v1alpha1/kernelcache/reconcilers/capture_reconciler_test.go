@@ -39,12 +39,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
-	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
-	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	cacheidentity "github.com/talt5/localmodelcache/pkg/kernelcache/identity"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/registryauth"
+	kernelcachetypes "github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 func TestCapturePodPredicate(t *testing.T) {
@@ -116,7 +116,7 @@ func TestCompleteCaptureStatusIncludesPodRuntimeConfigFactors(t *testing.T) {
 			Labels:    map[string]string{constants.KernelCacheWorkloadLabelKey: "model"},
 		},
 		Spec: corev1.PodSpec{Containers: []corev1.Container{{
-			Name:    "kserve-container",
+			Name:    "localmodelcache-container",
 			Image:   "registry.example/vllm@sha256:" + strings.Repeat("b", 64),
 			Command: []string{"vllm", "--dtype", "bfloat16"},
 			Args:    []string{"--max-model-len=4096"},
@@ -131,7 +131,7 @@ func TestCompleteCaptureStatusIncludesPodRuntimeConfigFactors(t *testing.T) {
 		Spec: v1alpha1.KernelCacheCaptureSpec{
 			SourceRef: v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: "model"},
 			CachePaths: []v1alpha1.KernelCachePath{{
-				ContainerName: "kserve-container", OCIPath: "io.vllm.cache",
+				ContainerName: "localmodelcache-container", OCIPath: "io.vllm.cache",
 			}},
 		},
 		Status: v1alpha1.KernelCacheCaptureStatus{RuntimeResult: map[string]string{
@@ -196,7 +196,7 @@ func TestSuccessfulCaptureWithMissingProducerFailsWithoutArtifact(t *testing.T) 
 		ObjectMeta: metav1.ObjectMeta{Name: "capture", Namespace: "team"},
 		Spec: v1alpha1.KernelCacheCaptureSpec{
 			SourceRef:  v1alpha1.KernelCacheSourceRef{Kind: constants.KernelCacheWorkloadKind, Name: "model"},
-			CachePaths: []v1alpha1.KernelCachePath{{ContainerName: "kserve-container", ContainerPath: "/runtime/vllm", OCIPath: "io.vllm.cache"}},
+			CachePaths: []v1alpha1.KernelCachePath{{ContainerName: "localmodelcache-container", ContainerPath: "/runtime/vllm", OCIPath: "io.vllm.cache"}},
 		},
 		Status: v1alpha1.KernelCacheCaptureStatus{
 			ActiveSession: &v1alpha1.KernelCacheCaptureSession{ID: "session", PodName: "missing-pod"},
@@ -277,7 +277,7 @@ func TestKernelCacheCaptureReconcilerDoesNotCreateDefaultCapture(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team", UID: "deployment-uid"},
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"none"}}`},
 	}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(deployment, configMap).Build()
@@ -528,7 +528,7 @@ func TestKernelCacheCaptureReconcilerProcessesEveryCaptureForDeployment(t *testi
 		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team", UID: "deployment-uid"},
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"none"}}`},
 	}
 	first := completedUnsignedCapture("model-capture-first", deployment)
@@ -662,7 +662,7 @@ func TestCompletedCaptureDoesNotPatchProducerPod(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team", UID: "deployment-uid"},
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"none"}}`},
 	}
 	capture := completedUnsignedCapture("model-capture", deployment)
@@ -796,7 +796,7 @@ func unchangedCaptureFixture() (*appsv1.Deployment, *corev1.ConfigMap, *v1alpha1
 		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team", UID: "deployment-uid"},
 	}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"none"}}`},
 	}
 	capture := &v1alpha1.KernelCacheCapture{
@@ -978,5 +978,5 @@ func TestCaptureSigningSecurityConfigUsesControllerNamespace(t *testing.T) {
 	}
 
 	securityConfig := captureSigningSecurityConfig(config)
-	require.Equal(t, constants.KServeNamespace+"/kernelcache-signer", securityConfig.Cert.SigningSecret)
+	require.Equal(t, constants.SystemNamespace+"/kernelcache-signer", securityConfig.Cert.SigningSecret)
 }

@@ -58,7 +58,7 @@ Unit tests cover validation, v1alpha1 conversion, and how the strategy lands on 
 
 **Special notes for your reviewer**:
 
-- When the field is omitted, the Kubernetes and LeaderWorkerSet defaults apply rather than a KServe default. Existing services see no change, but single-node and multi-node services keep rolling differently (25%/25% vs 1/0).
+- When the field is omitted, the Kubernetes and LeaderWorkerSet defaults apply rather than a LocalModelCache default. Existing services see no change, but single-node and multi-node services keep rolling differently (25%/25% vs 1/0).
 - The webhook rejects `maxSurge` and `maxUnavailable` both set to zero. Kubernetes would refuse that Deployment anyway, but only when the controller writes it, so the error would show up at reconcile time instead of on apply.
 
 The field is new and optional. Services that don't set it are unchanged, and nothing rolls on upgrade.

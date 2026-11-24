@@ -29,12 +29,12 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	"github.com/kserve/kserve/pkg/kernelcache/workload"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/workload"
 )
 
-// +kubebuilder:webhook:path=/mutate-kernelcache-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=kernelcache.kserve-webhook-server.pod-mutator,reinvocationPolicy=IfNeeded
+// +kubebuilder:webhook:path=/mutate-kernelcache-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=kernelcache-pod-mutator.webhook.local.cache.ai,reinvocationPolicy=IfNeeded
 
 // PodMutator is the KernelCache Pod webhook entry point.
 type PodMutator struct {
@@ -126,7 +126,7 @@ func (m *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 }
 
 func (m *PodMutator) getKernelCacheConfig(ctx context.Context) (*kernelcacheconfig.KernelCacheConfig, error) {
-	configMap, err := m.Clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(ctx, constants.LocalModelConfigMapName, metav1.GetOptions{})
+	configMap, err := m.Clientset.CoreV1().ConfigMaps(constants.SystemNamespace).Get(ctx, constants.LocalModelConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

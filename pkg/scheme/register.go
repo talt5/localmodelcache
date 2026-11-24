@@ -25,13 +25,13 @@ import (
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
 
 type addToSchemeFunc func(scheme *runtime.Scheme) error
 
-// AddKServeAPIs registers the serving.kserve.io/v1alpha1 API group.
-func AddKServeAPIs(s *runtime.Scheme) error {
+// AddAPIs registers the local.cache.ai/v1alpha1 API group.
+func AddAPIs(s *runtime.Scheme) error {
 	return addAll(s, v1alpha1.AddToScheme)
 }
 
@@ -49,7 +49,7 @@ func AddCoreKubernetesAPIs(s *runtime.Scheme) error {
 // AddControllerAPIs registers the APIs used by the controllers, the node agents and tests.
 func AddControllerAPIs(s *runtime.Scheme) error {
 	return addAll(s,
-		AddKServeAPIs,
+		AddAPIs,
 		AddCoreKubernetesAPIs,
 	)
 }

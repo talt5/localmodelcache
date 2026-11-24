@@ -178,14 +178,14 @@ linters:
   settings:
     depguard:
       rules:
-        # Downstreams import the API types without the rest of kserve. These
+        # Downstreams import the API types without the rest of localmodelcache. These
         # packages bring in the cloud storage SDKs and credentials handling.
         apis:
           list-mode: lax
           files:
             - "**/pkg/apis/**"
           deny:
-            - pkg: "github.com/kserve/kserve/pkg/credentials"
+            - pkg: "github.com/talt5/localmodelcache/pkg/credentials"
               desc: "pulls cloud storage SDKs into the API types"
     forbidigo:
       forbid:
@@ -209,7 +209,7 @@ linters:
         G306: "0640"
     importas:
       alias:
-        - pkg: "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+        - pkg: "github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
           alias: ""
         - pkg: "k8s.io/api/core/v1"
           alias: "corev1"
@@ -251,7 +251,7 @@ formatters:
 
   settings:
     goimports:
-      local-prefixes: "github.com/kserve/kserve"
+      local-prefixes: "github.com/talt5/localmodelcache"
 
   exclusions:
     generated: lax

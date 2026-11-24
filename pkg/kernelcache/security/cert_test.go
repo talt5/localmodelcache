@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 // Required fields are enforced per role at construction, not by Validate, so a
@@ -38,7 +38,7 @@ func TestCertConfig_ConstructorRequirements(t *testing.T) {
 		assert.Contains(t, err.Error(), "trustBundle")
 	})
 	t.Run("verifier needs subject regexp", func(t *testing.T) {
-		_, err := newCertVerifier(ctx, types.CertConfig{TrustBundle: "kserve/ca"}, nil)
+		_, err := newCertVerifier(ctx, types.CertConfig{TrustBundle: "localmodelcache/ca"}, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "subjectRegexp")
 	})

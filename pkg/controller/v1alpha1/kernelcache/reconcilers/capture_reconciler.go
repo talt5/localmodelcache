@@ -41,17 +41,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
-	"github.com/kserve/kserve/pkg/kernelcache/registry"
-	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
-	"github.com/kserve/kserve/pkg/kernelcache/reporter"
-	kernelcachesecurity "github.com/kserve/kserve/pkg/kernelcache/security"
-	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
-	"github.com/kserve/kserve/pkg/kernelcache/workload"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheutil "github.com/talt5/localmodelcache/pkg/kernelcache"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	cacheidentity "github.com/talt5/localmodelcache/pkg/kernelcache/identity"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/registry"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/registryauth"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/reporter"
+	kernelcachesecurity "github.com/talt5/localmodelcache/pkg/kernelcache/security"
+	kernelcachetypes "github.com/talt5/localmodelcache/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/workload"
 )
 
 const (
@@ -649,7 +649,7 @@ func (r *KernelCacheCaptureReconciler) reconcileArtifactSigning(
 func captureSigningSecurityConfig(config *kernelcacheconfig.KernelCacheConfig) kernelcachetypes.SecurityConfig {
 	securityConfig := config.ArtifactSecurity.ToSecurityConfig()
 	if securityConfig.Mode == kernelcachetypes.ModeCert && config.ArtifactSecurity.Cert.SigningProfileRef != "" {
-		securityConfig.Cert.SigningSecret = constants.KServeNamespace + "/" + config.ArtifactSecurity.Cert.SigningProfileRef
+		securityConfig.Cert.SigningSecret = constants.SystemNamespace + "/" + config.ArtifactSecurity.Cert.SigningProfileRef
 	}
 	return securityConfig
 }

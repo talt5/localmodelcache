@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - serving.kserve.io_localmodelcaches.yaml
-  - serving.kserve.io_localmodelnamespacecaches.yaml
-  - serving.kserve.io_localmodelnodegroups.yaml
-  - serving.kserve.io_localmodelnodes.yaml
+  - local.cache.ai_localmodelcaches.yaml
+  - local.cache.ai_localmodelnamespacecaches.yaml
+  - local.cache.ai_localmodelnodegroups.yaml
+  - local.cache.ai_localmodelnodes.yaml

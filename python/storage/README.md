@@ -1,6 +1,6 @@
-# kserve-storage
+# localmodelcache-storage
 
-A Python module for handling model storage and retrieval for KServe. This package provides a unified API to download models from various storage backends including cloud providers, file systems, and model hubs.
+A Python module for handling model storage and retrieval for LocalModelCache. This package provides a unified API to download models from various storage backends including cloud providers, file systems, and model hubs.
 
 ## Features
 
@@ -20,13 +20,13 @@ A Python module for handling model storage and retrieval for KServe. This packag
 ## Installation
 
 ```bash
-pip install kserve-storage
+pip install localmodelcache-storage
 ```
 
 Or with Poetry:
 
 ```bash
-uv add kserve-storage
+uv add localmodelcache-storage
 ```
 
 ## Usage
@@ -34,7 +34,7 @@ uv add kserve-storage
 The main entry point is the `Storage` class which provides a `download` method:
 
 ```python
-from kserve_storage import Storage
+from localmodelcache_storage import Storage
 
 # Download from GCS to a temporary directory
 model_dir = Storage.download("gs://your-bucket/model")
@@ -156,4 +156,4 @@ Storage configuration can be provided through environment variables:
 
 ## License
 
-Apache License 2.0 - See [LICENSE](https://github.com/kserve/kserve/blob/master/LICENSE) for details.
+Apache License 2.0 - See [LICENSE](https://github.com/talt5/localmodelcache/blob/master/LICENSE) for details.

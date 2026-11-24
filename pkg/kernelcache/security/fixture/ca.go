@@ -58,7 +58,7 @@ func WithCACommonName(cn string) CAOption {
 // NewCA mints a self-signed CA whose subject makes clear it is test-only.
 func NewCA(tb testing.TB, opts ...CAOption) *TestCA {
 	tb.Helper()
-	o := caOptions{commonName: "kserve-kernelcache-test-ca"}
+	o := caOptions{commonName: "localmodelcache-kernelcache-test-ca"}
 	for _, f := range opts {
 		f(&o)
 	}
@@ -68,7 +68,7 @@ func NewCA(tb testing.TB, opts ...CAOption) *TestCA {
 
 	tmpl := &x509.Certificate{
 		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{CommonName: o.commonName, Organization: []string{"KServe TEST (DO NOT TRUST)"}},
+		Subject:               pkix.Name{CommonName: o.commonName, Organization: []string{"LocalModelCache TEST (DO NOT TRUST)"}},
 		NotBefore:             time.Now().Add(-time.Hour),
 		NotAfter:              time.Now().Add(24 * time.Hour),
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
@@ -90,7 +90,7 @@ func (ca *TestCA) IssueIntermediate(tb testing.TB) *TestCA {
 
 	tmpl := &x509.Certificate{
 		SerialNumber:          big.NewInt(3),
-		Subject:               pkix.Name{CommonName: "kserve-kernelcache-test-intermediate"},
+		Subject:               pkix.Name{CommonName: "localmodelcache-kernelcache-test-intermediate"},
 		NotBefore:             time.Now().Add(-time.Hour),
 		NotAfter:              time.Now().Add(24 * time.Hour),
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
@@ -145,7 +145,7 @@ func NotYetValid() LeafOption {
 func (ca *TestCA) IssueLeaf(tb testing.TB, opts ...LeafOption) (leafKey *ecdsa.PrivateKey, leafCertPEM []byte) {
 	tb.Helper()
 	o := leafOptions{
-		san:       "spiffe://kserve-test/kc-signer",
+		san:       "spiffe://localmodelcache-test/kc-signer",
 		notBefore: time.Now().Add(-time.Hour),
 		notAfter:  time.Now().Add(24 * time.Hour),
 	}
@@ -177,7 +177,7 @@ func (ca *TestCA) IssueLeaf(tb testing.TB, opts ...LeafOption) (leafKey *ecdsa.P
 func (ca *TestCA) IssueLeafRSA(tb testing.TB, opts ...LeafOption) (leafKey *rsa.PrivateKey, leafCertPEM []byte) {
 	tb.Helper()
 	o := leafOptions{
-		san:       "spiffe://kserve-test/kc-signer",
+		san:       "spiffe://localmodelcache-test/kc-signer",
 		notBefore: time.Now().Add(-time.Hour),
 		notAfter:  time.Now().Add(24 * time.Hour),
 	}

@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kserve-localmodel-config
-  namespace: kserve
+  name: localmodelcache-config
+  namespace: localmodelcache
 data:
   # Settings for the LocalModelCache controller and the LocalModelNode agent.
   #   jobNamespace: namespace of the per-node download Jobs and their PVCs.
@@ -15,8 +15,8 @@ data:
   #     <cache>-<node group> claims that workloads mount.
   localModel: |-
     {
-      "jobNamespace": "kserve-localmodel-jobs",
-      "defaultJobImage": "ghcr.io/talt5/storage-initializer:latest",
+      "jobNamespace": "localmodelcache-jobs",
+      "defaultJobImage": "ghcr.io/talt5/localmodelcache-storage-initializer:latest",
       "fsGroup": 1000,
       "sharedPVCImportFSGroup": 1000,
       "jobTTLSecondsAfterFinished": 3600,
@@ -27,7 +27,7 @@ data:
   # (key cabundle.crt) that must exist in each namespace that runs download Jobs.
   storageInitializer: |-
     {
-        "image" : "ghcr.io/talt5/storage-initializer:latest",
+        "image" : "ghcr.io/talt5/localmodelcache-storage-initializer:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "4Gi",
         "cpuRequest": "100m",
@@ -39,7 +39,7 @@ data:
   credentials: |-
     {
        "storageSpecSecretName": "storage-config",
-       "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
+       "storageSecretNameAnnotation": "local.cache.ai/storageSecretName",
        "gcs": {
            "gcsCredentialFileName": "gcloud-application-credentials.json"
        },
@@ -64,8 +64,8 @@ data:
       "defaultSidecarInjection": true,
       "defaultMountType": "oci",
       "defaultNodeGroup": "",
-      "jobNamespace": "kserve-kernelcache-jobs",
-      "mcvImage": "ghcr.io/talt5/kserve-mcv:latest-minimal",
+      "jobNamespace": "localmodelcache-kernelcache-jobs",
+      "mcvImage": "ghcr.io/talt5/localmodelcache-mcv:latest-minimal",
       "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
       "runtimeImagePrefetch": {
         "enabled": false,
@@ -81,8 +81,8 @@ data:
         "failurePolicy": "reject",
         "cert": {
           "signingProfileRef": "kernelcache-signer",
-          "trustBundle": "kserve/kernelcache-root-ca",
-          "subjectRegexp": "spiffe://kserve/kernelcache-signer"
+          "trustBundle": "localmodelcache/kernelcache-root-ca",
+          "subjectRegexp": "spiffe://localmodelcache/kernelcache-signer"
         }
       },
       "abandonedCapturePolicy": "retain",

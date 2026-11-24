@@ -35,9 +35,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 )
 
 func TestCaptureRejectsKernelCacheWithDifferentImage(t *testing.T) {
@@ -160,7 +160,7 @@ func TestKernelCacheReconcilerCreatesKernelCacheFromCompletedCapture(t *testing.
 			Artifact: &v1alpha1.KernelCacheArtifact{
 				ImageReference: "registry.example.com/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				CachePaths: []v1alpha1.KernelCachePath{{
-					ContainerName: "kserve-container",
+					ContainerName: "localmodelcache-container",
 					ContainerPath: "/tmp/vllm",
 					OCIPath:       "io.vllm.cache",
 				}},
@@ -204,7 +204,7 @@ func TestKernelCacheReconcilerCreatesKernelCacheFromCompletedCapture(t *testing.
 	}
 	annotationGroup := &v1alpha1.KernelCacheNodeGroup{ObjectMeta: metav1.ObjectMeta{Name: "annotation-group"}, Spec: v1alpha1.KernelCacheNodeGroupSpec{NodeSelector: map[string]string{"role": "gpu"}}}
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data: map[string]string{
 			"kernelcache": `{"enabled":true,"defaultMountType":"oci","defaultNodeGroup":"config-group"}`,
 		},
@@ -482,7 +482,7 @@ func newCaptureNodeGroupHarness(
 			Artifact: &v1alpha1.KernelCacheArtifact{
 				ImageReference: image,
 				CachePaths: []v1alpha1.KernelCachePath{{
-					ContainerName: "kserve-container", ContainerPath: "/tmp/vllm", OCIPath: "io.vllm.cache",
+					ContainerName: "localmodelcache-container", ContainerPath: "/tmp/vllm", OCIPath: "io.vllm.cache",
 				}},
 			},
 			Signing: &v1alpha1.KernelCacheSigningStatus{Mode: "none", State: v1alpha1.KernelCacheArtifactSecurityStateSkipped},
@@ -495,7 +495,7 @@ func newCaptureNodeGroupHarness(
 	}
 	require.True(t, isCaptureComplete(capture), "capture fixture must be complete")
 	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"defaultMountType":"oci","defaultNodeGroup":"` + defaultNodeGroup + `"}`},
 	}
 	objects := []client.Object{capture, configMap}

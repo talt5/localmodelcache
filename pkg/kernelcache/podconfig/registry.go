@@ -25,9 +25,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 
-	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
+	kernelcacheutil "github.com/talt5/localmodelcache/pkg/kernelcache"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/registryauth"
 )
 
 const (

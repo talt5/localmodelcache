@@ -5,20 +5,20 @@ resources:
 - ../../localmodels
 
 # Used by hack/setup/scripts/generate_chart_manifests.sh to build the
-# kserve-localmodel-resources chart's files/resources.yaml. The chart sets the
-# DaemonSet nodeSelector from .Values.kserve.localmodelnode.controller.nodeSelector
+# localmodelcache chart's files/resources.yaml. The chart sets the
+# DaemonSet nodeSelector from .Values.localmodelcache.localmodelnode.controller.nodeSelector
 # (files/daemonset-patch.yaml). The hardcoded selector must not remain in the
 # base: Helm would merge it back in, making it impossible to override or clear.
 patches:
 - target:
     kind: DaemonSet
-    name: kserve-localmodelnode-agent
+    name: localmodelcache-node-agent
   patch: |-
     - op: remove
       path: /spec/template/spec/nodeSelector
 - target:
     kind: DaemonSet
-    name: kserve-kernelcachenode-agent
+    name: localmodelcache-kernelcache-agent
   patch: |-
     - op: remove
       path: /spec/template/spec/affinity

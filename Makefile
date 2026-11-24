@@ -23,10 +23,10 @@ endif
 include Makefile.tools.mk
 
 # Load dependency versions
-include kserve-deps.env
+include deps.env
 
 # Load image configurations
-include kserve-images.env
+include images.env
 
 CURRENT_YEAR := $(shell date +%Y)
 

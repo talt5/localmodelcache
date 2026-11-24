@@ -24,18 +24,18 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	kernelcachetypes "github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
 // KernelCacheConfigKeyName is the ConfigMap key holding KernelCacheConfig as JSON.
 const KernelCacheConfigKeyName = "kernelcache"
 
 const (
-	DefaultKernelCacheMCVImage                                = "ghcr.io/talt5/kserve-mcv:latest-minimal"
+	DefaultKernelCacheMCVImage                                = "ghcr.io/talt5/localmodelcache-mcv:latest-minimal"
 	DefaultKernelCachePrefetchImage                           = "registry.access.redhat.com/ubi9/ubi-minimal:latest"
 	DefaultKernelCacheMountType                               = "oci"
-	DefaultKernelCacheJobNamespace                            = "kserve-kernelcache-jobs"
+	DefaultKernelCacheJobNamespace                            = "localmodelcache-kernelcache-jobs"
 	DefaultKernelCacheJobTTLSeconds                     int32 = 600
 	DefaultKernelCacheRuntimeImagePrefetchJobTTLSeconds int32 = 86400
 	DefaultKernelCacheReconcileIntervalSeconds          int64 = 300
@@ -46,8 +46,8 @@ const (
 	DefaultKernelCacheAbandonedCapturePolicy          = "retain"
 	DefaultKernelCacheArtifactSecurityMode            = "cert"
 	DefaultKernelCacheArtifactSigningProfileRef       = "kernelcache-signer"
-	DefaultKernelCacheArtifactTrustBundle             = "kserve/kernelcache-root-ca"
-	DefaultKernelCacheArtifactSubjectRegexp           = "spiffe://kserve/kernelcache-signer"
+	DefaultKernelCacheArtifactTrustBundle             = "localmodelcache/kernelcache-root-ca"
+	DefaultKernelCacheArtifactSubjectRegexp           = "spiffe://localmodelcache/kernelcache-signer"
 	// KernelCacheRegistryAuthTypeNone disables registry credential provisioning.
 	KernelCacheRegistryAuthTypeNone = "none"
 	// KernelCacheRegistryAuthTypeServiceAccountToken uses the Kubernetes
@@ -61,7 +61,7 @@ type KernelCacheRuntimeImagePrefetchConfig struct {
 }
 
 // KernelCacheConfig contains the shared KernelCache configuration loaded from
-// the kernelcache entry of the kserve-localmodel-config ConfigMap.
+// the kernelcache entry of the localmodelcache-config ConfigMap.
 type KernelCacheConfig struct {
 	Enabled                           bool                                  `json:"enabled"`
 	DefaultSidecarInjection           bool                                  `json:"defaultSidecarInjection"`

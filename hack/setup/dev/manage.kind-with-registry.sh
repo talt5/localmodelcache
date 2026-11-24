@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Setup local Kind cluster with registry for KServe development
+# Setup local Kind cluster with registry for LocalModelCache development
 # Usage: manage.kind-with-registry.sh [--reinstall|--uninstall]
 #   or:  REINSTALL=true manage.kind-with-registry.sh
 #   or:  UNINSTALL=true manage.kind-with-registry.sh

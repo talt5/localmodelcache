@@ -35,15 +35,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
-	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
+	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
+	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
+	"github.com/talt5/localmodelcache/pkg/kernelcache/nodegroup"
 )
 
 const (
-	kernelCacheNodeAgentDaemonSetName   = "kserve-kernelcachenode-agent"
-	kernelCacheNodeAgentDisabledKey     = "serving.kserve.io/kernelcache-agent"
+	kernelCacheNodeAgentDaemonSetName   = "localmodelcache-kernelcache-agent"
+	kernelCacheNodeAgentDisabledKey     = "local.cache.ai/kernelcache-agent"
 	kernelCacheNodeAgentDisabledValue   = "disabled"
 	kernelCacheNodeReconcileRequestName = "kernelcache-node-reconcile"
 )
@@ -175,7 +175,7 @@ func (r *KernelCacheNodeReconciler) nodeToNodeGroupRequests(context.Context, cli
 
 func (r *KernelCacheNodeReconciler) reconcileAgentDaemonSet(ctx context.Context, groups []v1alpha1.KernelCacheNodeGroup) error {
 	daemonSet := &appsv1.DaemonSet{}
-	key := client.ObjectKey{Namespace: constants.KServeNamespace, Name: kernelCacheNodeAgentDaemonSetName}
+	key := client.ObjectKey{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName}
 	reader := r.Reader
 	if reader == nil {
 		reader = r.Client
