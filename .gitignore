@@ -73,3 +73,5 @@ istio-*
 # bkit
 .bkit/
 
+# make airgapped-bundle
+/dist/

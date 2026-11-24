@@ -1,0 +1,88 @@
+name: Air-gapped bundle
+
+on:
+  push:
+    # Attach the bundle to the release of `v1.2.3` tags.
+    tags:
+      - v*
+
+  pull_request:
+    paths:
+      - "hack/airgapped/**"
+      - "deps.env"
+      - ".github/workflows/airgapped-bundle.yml"
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Check that the tag matches the version
+        if: github.ref_type == 'tag'
+        run: |
+          . ./deps.env
+          if [ "$GITHUB_REF_NAME" != "$LOCALMODELCACHE_VERSION" ]; then
+            echo "::error::tag $GITHUB_REF_NAME, but deps.env has $LOCALMODELCACHE_VERSION"
+            exit 1
+          fi
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+
+      - name: Build the bundle
+        run: make airgapped-bundle
+
+      - name: Load the bundle into a registry
+        run: |
+          docker run -d -p 5000:5000 --name registry registry:2
+          ENGINE=docker dist/localmodelcache-v*/load-images.sh localhost:5000/bundle
+          curl -fsS localhost:5000/v2/_catalog
+
+      - name: Upload the bundle
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: airgapped-bundle
+          path: dist/*.tar.gz*
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download the bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: airgapped-bundle
+
+      - name: Attach it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" --verify-tag --draft --title "LocalModelCache $GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" localmodelcache-airgapped-*.tar.gz*

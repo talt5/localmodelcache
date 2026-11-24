@@ -1,0 +1,30 @@
+# Replace REGISTRY with your internal registry and project (load-images.sh prints the command).
+localmodelcache:
+  storage:
+    image: REGISTRY/localmodelcache-storage-initializer
+    # Uncomment if your internal S3 uses a private CA. The ConfigMap needs the key cabundle.crt.
+    # caBundleConfigMapName: corp-ca
+    # s3:
+    #   endpoint: s3.example.internal
+  localmodel:
+    controller:
+      image: REGISTRY/localmodelcache-controller
+    defaultJobImage: REGISTRY/localmodelcache-storage-initializer
+  localmodelnode:
+    controller:
+      image: REGISTRY/localmodelcache-node-agent
+      hostPath: /var/mnt/models
+  kernelcachenode:
+    controller:
+      image: REGISTRY/localmodelcache-kernelcache-agent
+  kernelcache:
+    enabled: false
+    # @VERSION@-cuda is also in the bundle; set mcvTag: @VERSION@-cuda to use it.
+    mcvImage: REGISTRY/localmodelcache-mcv
+    prefetchImage: REGISTRY/ubi-minimal
+    prefetchTag: @UBI_MINIMAL_VERSION@
+openshift:
+  enabled: true
+  localmodelnode:
+    prepareHostPath:
+      image: REGISTRY/ubi-minimal:@UBI_MINIMAL_VERSION@
