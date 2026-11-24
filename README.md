@@ -254,7 +254,7 @@ replace the model of another. The parameters of a cache cannot change.
 
 ### Custom download container
 
-Download Jobs run the `storage-initializer` image built from `python/storage`. To use another
+Download Jobs run the `localmodelcache-storage-initializer` image built from `python/storage`. To use another
 image for some URIs, for example one from an internal registry, create a
 `ClusterStorageContainer` with `workloadType: localModelDownloadJob`. See
 [docs/samples/storage-container.yaml](docs/samples/storage-container.yaml).

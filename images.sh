@@ -3,7 +3,7 @@
 
 # Image URL to use all building/pushing image targets
 export TAG="${TAG:-latest}"
-export STORAGE_INIT_IMG="${STORAGE_INIT_IMG:-storage-initializer}"
+export STORAGE_INIT_IMG="${STORAGE_INIT_IMG:-localmodelcache-storage-initializer}"
 export LOCALMODEL_CONTROLLER_IMG="${LOCALMODEL_CONTROLLER_IMG:-localmodelcache-controller}"
 export LOCALMODEL_AGENT_IMG="${LOCALMODEL_AGENT_IMG:-localmodelcache-node-agent}"
 export KERNELCACHE_AGENT_IMG="${KERNELCACHE_AGENT_IMG:-localmodelcache-kernelcache-agent}"
