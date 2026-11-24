@@ -57,7 +57,7 @@ func ApplyCaptureRegistry(pod *corev1.PodSpec, container *corev1.Container, cfg 
 		}})
 		env = append(env, corev1.EnvVar{Name: "MCV_REGISTRY_ACCESS_FILE", Value: registryPath + "/" + registryauth.AccessKey})
 		// The webhook passes the operator-configured endpoint from the kernelcache
-		// section of the inferenceservice-config ConfigMap as the allowlist.
+		// section of the localmodelcache-config ConfigMap as the allowlist.
 		env = append(env, corev1.EnvVar{Name: "MCV_REGISTRY_ALLOWED_ENDPOINT", Value: cfg.Endpoint})
 	default:
 		return fmt.Errorf("unsupported registry.auth.type %q", cfg.Auth.Type)

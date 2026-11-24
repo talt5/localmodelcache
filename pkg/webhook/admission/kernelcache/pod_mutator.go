@@ -19,6 +19,7 @@ package kernelcache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -61,10 +62,11 @@ func (m *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 
 	// Load kernelcache configuration
 	pod.Namespace = req.Namespace
+	// The kernel cache only saves time, so problems with it never refuse the Pod.
 	kernelCacheConfig, err := m.getKernelCacheConfig(ctx)
 	if err != nil {
 		logger.Error(err, "Failed to load kernelcache configuration")
-		return admission.Errored(http.StatusInternalServerError, err)
+		return skipped(err)
 	}
 	if !kernelCacheConfig.Enabled {
 		return admission.ValidationResponse(true, "")
@@ -75,13 +77,13 @@ func (m *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 	deployment, err := workload.ResolveDeployment(ctx, m.reader(), pod)
 	if err != nil {
 		logger.Error(err, "Failed to resolve the Pod's Deployment")
-		return admission.Errored(http.StatusInternalServerError, err)
+		return skipped(err)
 	}
 	if deployment == nil {
-		return admission.Allowed("").WithWarnings("kernel cache skipped: the Pod is not owned by a Deployment")
+		return skipped(errors.New("the Pod is not owned by a Deployment"))
 	}
 	if _, err := resolveRuntimeContainerName(pod, ""); err != nil {
-		return admission.Allowed("").WithWarnings("kernel cache skipped: " + err.Error())
+		return skipped(err)
 	}
 	if pod.Labels == nil {
 		pod.Labels = map[string]string{}
@@ -101,16 +103,14 @@ func (m *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 			return admission.Errored(http.StatusBadRequest, err)
 		}
 	}
+	// Both change the Pod only when they succeed.
+	var warnings []string
 	cacheMounted, err := m.injectKernelCacheArtifact(ctx, pod, kernelCacheConfig)
 	if err != nil {
-		logger.Error(err, "Failed to mount KernelCache")
-		return admission.Errored(http.StatusInternalServerError, err)
+		logger.Error(err, "Kernel cache mount skipped", "pod", pod.GenerateName, "namespace", req.Namespace)
+		warnings = append(warnings, "kernel cache mount skipped: "+err.Error())
 	}
-
-	// Capturing only speeds up later Pods, so failing to set it up must not block this one.
-	// injectMCVSidecar changes the Pod only when it succeeds.
-	var warnings []string
-	if sidecarInjection && !cacheMounted {
+	if err == nil && sidecarInjection && !cacheMounted {
 		if err := m.injectMCVSidecar(ctx, pod, kernelCacheConfig); err != nil {
 			logger.Error(err, "Kernel cache capture skipped", "pod", pod.GenerateName, "namespace", req.Namespace)
 			warnings = append(warnings, "kernel cache capture skipped: "+err.Error())
@@ -123,6 +123,11 @@ func (m *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 	return admission.PatchResponseFromRaw(req.Object.Raw, patchedPod).WithWarnings(warnings...)
+}
+
+// skipped admits a Pod unchanged and tells its creator why.
+func skipped(reason error) admission.Response {
+	return admission.Allowed("").WithWarnings("kernel cache skipped: " + reason.Error())
 }
 
 func (m *PodMutator) getKernelCacheConfig(ctx context.Context) (*kernelcacheconfig.KernelCacheConfig, error) {

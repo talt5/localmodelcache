@@ -17,7 +17,10 @@ limitations under the License.
 package kernelcache
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,7 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
@@ -196,4 +201,95 @@ func TestPodMutatorAdmitsPodsItCannotCapture(t *testing.T) {
 			}
 		})
 	}
+}
+
+// mountableFixture has a ready KernelCache that matches its Pod.
+func mountableFixture(t *testing.T) (*podMutatorFixture, *PodMutator) {
+	t.Helper()
+	fixture := newPodMutatorFixture()
+	fixture.pod.Spec.Containers[0].Env = []corev1.EnvVar{{Name: "VLLM_CACHE_ROOT", Value: "/cache/vllm"}}
+	identified := fixture.pod.DeepCopy()
+	identified.Namespace = "team"
+	identified.Labels[constants.KernelCacheWorkloadLabelKey] = "vllm"
+	identity, err := identityForPod(identified, "hf://Qwen/Qwen3-0.6B")
+	require.NoError(t, err)
+	cache := readyCache("captured", identity)
+	cache.Spec.Artifact.CachePaths[0].ContainerName = ""
+	cache.Spec.Artifact.CachePaths[0].ContainerPath = ""
+	node := kernelCacheNode("node-a", cache, v1alpha1.KernelCacheNodePreparationStateReady)
+	mutator := fixture.mutator(t, enabledKernelCache)
+	require.NoError(t, mutator.Client.Create(t.Context(), &cache))
+	require.NoError(t, mutator.Client.Create(t.Context(), &node))
+	return fixture, mutator
+}
+
+func patchesSpec(response admission.Response) bool {
+	for _, op := range response.Patches {
+		if strings.HasPrefix(op.Path, "/spec") {
+			return true
+		}
+	}
+	return false
+}
+
+func TestPodMutatorMountsAMatchingCache(t *testing.T) {
+	fixture, mutator := mountableFixture(t)
+	response := mutator.Handle(t.Context(), podCreateRequest(t, fixture.pod))
+	require.True(t, response.Allowed, response.Result)
+	require.Empty(t, response.Warnings)
+	require.True(t, patchesSpec(response))
+}
+
+// The kernel cache only saves time, so a Pod that cannot use it starts without it.
+func TestPodMutatorAdmitsPodsThatCannotMountTheCache(t *testing.T) {
+	tests := map[string]func(*corev1.PodSpec){
+		"a volume at a parent of the cache path": func(spec *corev1.PodSpec) {
+			spec.Volumes = []corev1.Volume{{Name: "home"}}
+			spec.Containers[0].VolumeMounts = []corev1.VolumeMount{{Name: "home", MountPath: "/cache"}}
+		},
+		"a volume inside the cache path": func(spec *corev1.PodSpec) {
+			spec.Volumes = []corev1.Volume{{Name: "inner"}}
+			spec.Containers[0].VolumeMounts = []corev1.VolumeMount{{Name: "inner", MountPath: "/cache/vllm/inner"}}
+		},
+		"a read-only volume at the cache path": func(spec *corev1.PodSpec) {
+			spec.Volumes = []corev1.Volume{{Name: "fixed"}}
+			spec.Containers[0].VolumeMounts = []corev1.VolumeMount{{Name: "fixed", MountPath: "/cache/vllm", ReadOnly: true}}
+		},
+		"a volume with the name the webhook uses": func(spec *corev1.PodSpec) {
+			spec.Volumes = []corev1.Volume{{Name: kernelCacheSourceVolumeName}}
+		},
+	}
+	for name, change := range tests {
+		t.Run(name, func(t *testing.T) {
+			fixture, mutator := mountableFixture(t)
+			change(&fixture.pod.Spec)
+			response := mutator.Handle(t.Context(), podCreateRequest(t, fixture.pod))
+			require.True(t, response.Allowed, response.Result)
+			require.False(t, patchesSpec(response), "the Pod spec must not be changed")
+			require.Equal(t, "vllm", patchedLabel(response))
+		})
+	}
+}
+
+func TestPodMutatorAdmitsPodsWhenItCannotDecide(t *testing.T) {
+	t.Run("invalid settings", func(t *testing.T) {
+		fixture := newPodMutatorFixture()
+		response := fixture.mutator(t, `{"enabled": true, "defaultMountType": "nope"}`).Handle(t.Context(), podCreateRequest(t, fixture.pod))
+		require.True(t, response.Allowed, response.Result)
+		require.Len(t, response.Warnings, 1)
+		require.Contains(t, response.Warnings[0], "defaultMountType")
+	})
+	t.Run("the API cannot be read", func(t *testing.T) {
+		fixture, mutator := mountableFixture(t)
+		mutator.Reader = interceptor.NewClient(mutator.Client.(client.WithWatch), interceptor.Funcs{
+			List: func(context.Context, client.WithWatch, client.ObjectList, ...client.ListOption) error {
+				return errors.New("timeout")
+			},
+		})
+		response := mutator.Handle(t.Context(), podCreateRequest(t, fixture.pod))
+		require.True(t, response.Allowed, response.Result)
+		require.Len(t, response.Warnings, 1)
+		require.Contains(t, response.Warnings[0], "timeout")
+		require.Equal(t, "vllm", patchedLabel(response))
+	})
 }

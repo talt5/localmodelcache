@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -55,7 +56,7 @@ func newKernelCacheClient(scheme *runtime.Scheme, enabled bool, objects ...clien
 	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
 }
 
-func TestKernelCacheNodeReconcilerSkipsWhenDisabled(t *testing.T) {
+func TestKernelCacheNodeReconcilerCleansUpWhenDisabled(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, appsv1.AddToScheme(scheme))
 	require.NoError(t, corev1.AddToScheme(scheme))
@@ -63,26 +64,65 @@ func TestKernelCacheNodeReconcilerSkipsWhenDisabled(t *testing.T) {
 
 	group := &v1alpha1.KernelCacheNodeGroup{
 		ObjectMeta: metav1.ObjectMeta{Name: "gpu"},
-		Spec:       v1alpha1.KernelCacheNodeGroupSpec{NodeSelector: map[string]string{"role": "gpu"}},
+		Spec: v1alpha1.KernelCacheNodeGroupSpec{
+			NodeSelector: map[string]string{"role": "gpu"},
+			Tolerations:  []corev1.Toleration{{Key: "gpu", Operator: corev1.TolerationOpExists}},
+		},
 	}
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: "gpu-node", Labels: map[string]string{"role": "gpu"}},
 		Status:     corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}}},
 	}
-	existingNode := &v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: "existing-node"}}
 	daemonSet := &appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: kernelCacheNodeAgentDaemonSetName}}
-	k8sClient := newKernelCacheClient(scheme, false, group, node, existingNode, daemonSet)
+	k8sClient := newKernelCacheClient(scheme, true, group, node, daemonSet)
 	reconciler := &KernelCacheNodeReconciler{Client: k8sClient}
+	reconcile := func() {
+		t.Helper()
+		_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKey{Name: group.Name}})
+		require.NoError(t, err)
+	}
+	agent := func() corev1.PodSpec {
+		t.Helper()
+		current := &appsv1.DaemonSet{}
+		require.NoError(t, k8sClient.Get(t.Context(), client.ObjectKeyFromObject(daemonSet), current))
+		return current.Spec.Template.Spec
+	}
+	reconcile()
+	require.NoError(t, k8sClient.Get(t.Context(), client.ObjectKey{Name: node.Name}, &v1alpha1.KernelCacheNode{}))
+	require.NotEmpty(t, agent().Tolerations)
 
-	result, err := reconciler.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKey{Name: group.Name}})
+	// The chart sets the node selector while the kernel cache is disabled.
+	current := &appsv1.DaemonSet{}
+	require.NoError(t, k8sClient.Get(t.Context(), client.ObjectKeyFromObject(daemonSet), current))
+	selector := map[string]string{kernelCacheNodeAgentDisabledKey: kernelCacheNodeAgentDisabledValue}
+	current.Spec.Template.Spec.NodeSelector = selector
+	require.NoError(t, k8sClient.Update(t.Context(), current))
+	require.NoError(t, k8sClient.Update(t.Context(), kernelCacheConfigMap(false)))
+	reconcile()
+
+	require.True(t, apierrors.IsNotFound(k8sClient.Get(t.Context(), client.ObjectKey{Name: node.Name}, &v1alpha1.KernelCacheNode{})))
+	require.Equal(t, selector, agent().NodeSelector)
+	require.Empty(t, agent().Tolerations)
+	require.Equal(t, []corev1.NodeSelectorTerm{{
+		MatchExpressions: []corev1.NodeSelectorRequirement{{
+			Key: kernelCacheNodeAgentDisabledKey, Operator: corev1.NodeSelectorOpIn, Values: []string{kernelCacheNodeAgentDisabledValue},
+		}},
+	}}, agent().Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms)
+}
+
+// An install that never uses the kernel cache may leave out its agent.
+func TestKernelCacheNodeReconcilerDisabledWithoutAnAgent(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, appsv1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, v1alpha1.AddToScheme(scheme))
+	reconciler := &KernelCacheNodeReconciler{Client: newKernelCacheClient(scheme, false)}
+	_, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKey{Name: "any"}})
 	require.NoError(t, err)
-	require.Equal(t, ctrl.Result{}, result)
 
-	require.Error(t, k8sClient.Get(context.Background(), client.ObjectKey{Name: node.Name}, &v1alpha1.KernelCacheNode{}))
-	require.NoError(t, k8sClient.Get(context.Background(), client.ObjectKeyFromObject(existingNode), &v1alpha1.KernelCacheNode{}))
-	updatedDaemonSet := &appsv1.DaemonSet{}
-	require.NoError(t, k8sClient.Get(context.Background(), client.ObjectKeyFromObject(daemonSet), updatedDaemonSet))
-	require.Equal(t, daemonSet.Spec, updatedDaemonSet.Spec)
+	reconciler = &KernelCacheNodeReconciler{Client: newKernelCacheClient(scheme, true)}
+	_, err = reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKey{Name: "any"}})
+	require.Error(t, err, "an enabled kernel cache needs its agent")
 }
 
 // Delete KCN objects whose nodes no longer match any node group.

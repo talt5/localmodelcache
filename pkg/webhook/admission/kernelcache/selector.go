@@ -20,9 +20,9 @@ import (
 	"sort"
 
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
-	kernelcacheutil "github.com/talt5/localmodelcache/pkg/kernelcache"
 	kernelcacheconfig "github.com/talt5/localmodelcache/pkg/kernelcache/config"
 )
 
@@ -126,28 +126,14 @@ func kernelCacheVerificationAllowsUse(cache *v1alpha1.KernelCache, cfg *kernelca
 		verification.Verified
 }
 
-func cacheCanMountToPod(cache *v1alpha1.KernelCache, pod *corev1.Pod) bool {
-	if cache.Namespace != pod.Namespace || cache.Spec.Artifact.ImageReference == "" || len(cache.Spec.Artifact.CachePaths) == 0 {
+// cacheCanMountToPod tries the mount on a copy of the Pod. The Pod's own volumes can be in the way.
+func cacheCanMountToPod(cache *v1alpha1.KernelCache, pod *corev1.Pod, cfg *kernelcacheconfig.KernelCacheConfig) bool {
+	if cache.Namespace != pod.Namespace {
 		return false
 	}
-	if cache.Spec.MountType != "" && cache.Spec.MountType != v1alpha1.KernelCacheMountTypeOCI {
+	if err := injectKernelCacheMount(pod.DeepCopy(), cache, cfg); err != nil {
+		logger.Info("KernelCache cannot be mounted", "kernelCache", client.ObjectKeyFromObject(cache), "reason", err.Error())
 		return false
-	}
-	for _, cachePath := range cache.Spec.Artifact.CachePaths {
-		containerName, err := resolveRuntimeContainerName(pod, cachePath.ContainerName)
-		if err != nil {
-			return false
-		}
-		containerIndex := findContainerIndex(pod.Spec.Containers, containerName)
-		if containerIndex < 0 {
-			return false
-		}
-		if _, err := kernelcacheutil.ResolveContainerPath(&pod.Spec.Containers[containerIndex], cachePath.ContainerPath); err != nil {
-			return false
-		}
-		if _, err := kernelcacheutil.ResolveOCIPath(cachePath.OCIPath); err != nil {
-			return false
-		}
 	}
 	return true
 }

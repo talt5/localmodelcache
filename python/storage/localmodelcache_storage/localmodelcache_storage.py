@@ -642,8 +642,7 @@ class Storage(object):
                 os.makedirs(out_dir, exist_ok=True)
 
             if uri.startswith(MODEL_MOUNT_DIRS):
-                # Don't need to download models if this InferenceService is running in the multi-model
-                # serving mode. The model agent will download models.
+                # The model is mounted already.
                 model_dir = out_dir
             elif uri.startswith(_GCS_PREFIX):
                 model_dir = Storage._download_gcs(
@@ -813,11 +812,11 @@ class Storage(object):
         # is cabundle.crt.
         if verify_ssl:
             global_ca_bundle_configmap = os.getenv("CA_BUNDLE_CONFIGMAP_NAME")
-            isvc_aws_ca_bundle_path = os.getenv("AWS_CA_BUNDLE")
+            aws_ca_bundle_path = os.getenv("AWS_CA_BUNDLE")
             ca_bundle_set = False
-            if isvc_aws_ca_bundle_path and isvc_aws_ca_bundle_path != "":
+            if aws_ca_bundle_path and aws_ca_bundle_path != "":
                 ca_bundle_set = True
-                ca_bundle_full_path = isvc_aws_ca_bundle_path
+                ca_bundle_full_path = aws_ca_bundle_path
             elif global_ca_bundle_configmap:
                 ca_bundle_set = True
                 global_ca_bundle_volume_mount_path = os.getenv(

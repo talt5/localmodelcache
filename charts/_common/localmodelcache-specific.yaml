@@ -48,8 +48,6 @@ localmodelcache:
         requests:
           cpu: 10m
           memory: 128Mi
-      affinity: {}
-      tolerations: []
 openshift:
   # -- Deploy on OpenShift. Creates SecurityContextConstraints (SCCs), grants them to the chart's ServiceAccounts and the download Job ServiceAccount, and pins each pod to its SCC.
   enabled: false

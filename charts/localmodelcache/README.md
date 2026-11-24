@@ -32,7 +32,7 @@ $ helm install localmodelcache oci://ghcr.io/talt5/charts/localmodelcache --vers
 | localmodelcache.kernelcache.abandonedCapturePolicy | string | `"retain"` |  |
 | localmodelcache.kernelcache.artifactSecurity.cert.signingProfileRef | string | `"kernelcache-signer"` |  |
 | localmodelcache.kernelcache.artifactSecurity.cert.subjectRegexp | string | `"spiffe://localmodelcache/kernelcache-signer"` |  |
-| localmodelcache.kernelcache.artifactSecurity.cert.trustBundle | string | `"localmodelcache/kernelcache-root-ca"` |  |
+| localmodelcache.kernelcache.artifactSecurity.cert.trustBundle | string | `""` | Secret or ConfigMap (namespace/name) with the CA that artifacts must be signed by. Empty uses kernelcache-root-ca in the release namespace. |
 | localmodelcache.kernelcache.artifactSecurity.cert.trustBundleKey | string | `""` |  |
 | localmodelcache.kernelcache.artifactSecurity.failurePolicy | string | `"reject"` |  |
 | localmodelcache.kernelcache.artifactSecurity.mode | string | `"cert"` |  |
@@ -59,7 +59,6 @@ $ helm install localmodelcache oci://ghcr.io/talt5/charts/localmodelcache --vers
 | localmodelcache.kernelcache.registry.endpoint | string | `""` |  |
 | localmodelcache.kernelcache.runtimeImagePrefetch.enabled | bool | `false` |  |
 | localmodelcache.kernelcache.runtimeImagePrefetch.jobTTLSecondsAfterFinished | int | `86400` |  |
-| localmodelcache.kernelcachenode.controller.affinity | object | `{}` |  |
 | localmodelcache.kernelcachenode.controller.extraArgs | list | `[]` | Additional container arguments. |
 | localmodelcache.kernelcachenode.controller.image | string | `"ghcr.io/talt5/localmodelcache-kernelcache-agent"` |  |
 | localmodelcache.kernelcachenode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
@@ -68,7 +67,6 @@ $ helm install localmodelcache oci://ghcr.io/talt5/charts/localmodelcache --vers
 | localmodelcache.kernelcachenode.controller.resources.requests.cpu | string | `"10m"` |  |
 | localmodelcache.kernelcachenode.controller.resources.requests.memory | string | `"128Mi"` |  |
 | localmodelcache.kernelcachenode.controller.tag | string | `""` |  |
-| localmodelcache.kernelcachenode.controller.tolerations | list | `[]` |  |
 | localmodelcache.localmodel.agent.reconcilationFrequencyInSecs | int | `60` |  |
 | localmodelcache.localmodel.controller.extraArgs | list | `[]` | Additional container arguments. Example: ["--log-format=otel-json"]. |
 | localmodelcache.localmodel.controller.image | string | `"ghcr.io/talt5/localmodelcache-controller"` |  |

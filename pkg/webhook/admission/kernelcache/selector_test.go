@@ -342,13 +342,13 @@ func TestCacheCanMountToPodResolvesOptionalContainerPath(t *testing.T) {
 	cache.Spec.Artifact.CachePaths[0].ContainerName = ""
 	cache.Spec.Artifact.CachePaths[0].ContainerPath = ""
 
-	require.True(t, cacheCanMountToPod(&cache, pod))
+	require.True(t, cacheCanMountToPod(&cache, pod, &kernelcacheconfig.KernelCacheConfig{}))
 
 	pod.Spec.Containers[0].Env[0] = corev1.EnvVar{
 		Name:      "VLLM_CACHE_ROOT",
 		ValueFrom: &corev1.EnvVarSource{},
 	}
-	require.False(t, cacheCanMountToPod(&cache, pod))
+	require.False(t, cacheCanMountToPod(&cache, pod, &kernelcacheconfig.KernelCacheConfig{}))
 }
 
 func selectionPod(image string) *corev1.Pod {

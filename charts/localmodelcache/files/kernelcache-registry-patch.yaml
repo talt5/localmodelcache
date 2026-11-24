@@ -1,0 +1,45 @@
+{{- /*
+Lets the controller bind the registry roles to capture Pods, prefetch Jobs and itself in workload
+namespaces. Kubernetes lets it bind only roles it holds itself or may bind.
+*/ -}}
+{{- $kernelcache := .Values.localmodelcache.kernelcache }}
+{{- $auth := $kernelcache.registry.auth }}
+{{- if and $kernelcache.enabled (eq $auth.type "serviceAccountToken") }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: localmodelcache
+  name: localmodelcache-kernelcache-registry-binder
+rules:
+{{- range $ref := list $auth.pushRoleRef $auth.pullRoleRef }}
+{{- if $ref.name }}
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - {{ if eq $ref.kind "Role" }}roles{{ else }}clusterroles{{ end }}
+  resourceNames:
+  - {{ $ref.name | quote }}
+  verbs:
+  - bind
+{{- end }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: localmodelcache
+  name: localmodelcache-kernelcache-registry-binder
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: localmodelcache-kernelcache-registry-binder
+subjects:
+- kind: ServiceAccount
+  name: localmodelcache-controller-manager
+  namespace: {{ .Release.Namespace }}
+{{- end }}

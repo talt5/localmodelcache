@@ -629,7 +629,6 @@ data:
         "failurePolicy": "reject",
         "cert": {
           "signingProfileRef": "kernelcache-signer",
-          "trustBundle": "localmodelcache/kernelcache-root-ca",
           "subjectRegexp": "spiffe://localmodelcache/kernelcache-signer"
         }
       },

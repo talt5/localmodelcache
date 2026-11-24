@@ -41,8 +41,10 @@ func ApplyCaptureReporter(pod *corev1.PodSpec, container *corev1.Container, secr
 		VolumeSource: corev1.VolumeSource{Projected: &corev1.ProjectedVolumeSource{Sources: []corev1.VolumeProjection{{
 			Secret: &corev1.SecretProjection{
 				LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
-				Optional:             ptr.To(false),
-				Items:                []corev1.KeyToPath{{Key: reporter.AccessKey, Path: reporter.AccessKey}},
+				// The sidecar waits for it. The Secret does not exist yet when the Pod starts, and no
+				// longer when the Pod starts again, after a node reboot, with its capture finished.
+				Optional: ptr.To(true),
+				Items:    []corev1.KeyToPath{{Key: reporter.AccessKey, Path: reporter.AccessKey}},
 			},
 		}, {
 			ConfigMap: &corev1.ConfigMapProjection{

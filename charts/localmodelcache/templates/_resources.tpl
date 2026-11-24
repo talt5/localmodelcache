@@ -8,7 +8,7 @@ glob patterns, and outputs all merged resources sorted by kind/name.
 Parameters (dict):
   - baseFile: string - Path to the base resources file (multi-document YAML)
   - patchGlob: string - Glob pattern for patch files (e.g., "files/localmodelcache/*-patch.yaml")
-  - certName: string - The cert name portion after namespace (e.g., "serving-cert", "llmisvc-serving-cert")
+  - certName: string - The cert name portion after namespace (e.g., "serving-cert", "localmodel-serving-cert")
   - context: . - The root context for accessing .Release, .Files, etc.
 
 Example usage:

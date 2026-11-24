@@ -51,7 +51,8 @@ while [ "$#" -gt 0 ]; do
         exit 1
     fi
     mkdir -p "$target"
-    cp -sr "$source"/. "$target"/
+    # -f: after a node reboot the links of the first run are still there.
+    cp -srf "$source"/. "$target"/
     echo "kernel-cache-linker: completed $target"
 done
 echo "kernel-cache-linker: cache materialization completed"`
@@ -176,7 +177,7 @@ func loadKernelCacheCandidate(
 		}
 		return nil, false, err
 	}
-	if !candidateMatchesKernelCache(candidate, cache) || !cacheCanMountToPod(cache, pod) || !kernelCacheVerificationAllowsUse(cache, cfg) {
+	if !candidateMatchesKernelCache(candidate, cache) || !kernelCacheVerificationAllowsUse(cache, cfg) || !cacheCanMountToPod(cache, pod, cfg) {
 		return nil, false, nil
 	}
 	return cache, true, nil

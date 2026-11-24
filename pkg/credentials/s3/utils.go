@@ -28,7 +28,7 @@ import (
 // Parameters:
 //   - annotations: The annotations present within a service account or secret.
 //   - secretData: The data contained within a secret, if needed.
-//   - s3Config: The s3 configuration defined in the inferenceservice-config configmap.
+//   - s3Config: The s3 configuration defined in the localmodelcache-config ConfigMap.
 //
 // Returns:
 //

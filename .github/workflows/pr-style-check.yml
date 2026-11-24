@@ -57,10 +57,7 @@ jobs:
             api
             deps
             e2e
-            infgraph
-            isvc
             modelcache
-            modelserver
             examples
             backport
             refactor

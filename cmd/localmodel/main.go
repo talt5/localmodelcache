@@ -139,7 +139,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	cacheOpts, err := cacheOptions()
+	if err != nil {
+		setupLog.Error(err, "unable to configure the cache")
+		os.Exit(1)
+	}
+
 	mgr, err := manager.New(cfg, manager.Options{
+		Cache:   cacheOpts,
 		Metrics: metricsServerOptions,
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    options.webhookPort,

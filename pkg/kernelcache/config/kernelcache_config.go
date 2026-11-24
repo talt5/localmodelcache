@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
 	kernelcachetypes "github.com/talt5/localmodelcache/pkg/kernelcache/types"
 )
 
@@ -46,8 +47,9 @@ const (
 	DefaultKernelCacheAbandonedCapturePolicy          = "retain"
 	DefaultKernelCacheArtifactSecurityMode            = "cert"
 	DefaultKernelCacheArtifactSigningProfileRef       = "kernelcache-signer"
-	DefaultKernelCacheArtifactTrustBundle             = "localmodelcache/kernelcache-root-ca"
-	DefaultKernelCacheArtifactSubjectRegexp           = "spiffe://localmodelcache/kernelcache-signer"
+	// DefaultKernelCacheArtifactTrustBundle is in constants.SystemNamespace, like the signer.
+	DefaultKernelCacheArtifactTrustBundle   = "kernelcache-root-ca"
+	DefaultKernelCacheArtifactSubjectRegexp = "spiffe://localmodelcache/kernelcache-signer"
 	// KernelCacheRegistryAuthTypeNone disables registry credential provisioning.
 	KernelCacheRegistryAuthTypeNone = "none"
 	// KernelCacheRegistryAuthTypeServiceAccountToken uses the Kubernetes
@@ -255,6 +257,10 @@ func (c *KernelCacheConfig) DeepCopy() *KernelCacheConfig {
 	return &out
 }
 
+func defaultTrustBundle() string {
+	return constants.SystemNamespace + "/" + DefaultKernelCacheArtifactTrustBundle
+}
+
 // NewKernelCacheConfig parses the KernelCache configuration and applies source defaults.
 func NewKernelCacheConfig(configMap *corev1.ConfigMap) (*KernelCacheConfig, error) {
 	jobTTLSeconds := DefaultKernelCacheJobTTLSeconds
@@ -282,7 +288,7 @@ func NewKernelCacheConfig(configMap *corev1.ConfigMap) (*KernelCacheConfig, erro
 			FailurePolicy: string(kernelcachetypes.FailurePolicyReject),
 			Cert: KernelCacheArtifactCertConfig{
 				SigningProfileRef: DefaultKernelCacheArtifactSigningProfileRef,
-				TrustBundle:       DefaultKernelCacheArtifactTrustBundle,
+				TrustBundle:       defaultTrustBundle(),
 				SubjectRegexp:     DefaultKernelCacheArtifactSubjectRegexp,
 			},
 		},
@@ -343,7 +349,7 @@ func NewKernelCacheConfig(configMap *corev1.ConfigMap) (*KernelCacheConfig, erro
 			kernelCacheConfig.ArtifactSecurity.Cert.SigningProfileRef = DefaultKernelCacheArtifactSigningProfileRef
 		}
 		if kernelCacheConfig.ArtifactSecurity.Cert.TrustBundle == "" {
-			kernelCacheConfig.ArtifactSecurity.Cert.TrustBundle = DefaultKernelCacheArtifactTrustBundle
+			kernelCacheConfig.ArtifactSecurity.Cert.TrustBundle = defaultTrustBundle()
 		}
 		if kernelCacheConfig.ArtifactSecurity.Cert.SubjectRegexp == "" {
 			kernelCacheConfig.ArtifactSecurity.Cert.SubjectRegexp = DefaultKernelCacheArtifactSubjectRegexp

@@ -93,7 +93,8 @@ localmodelcache:
       failurePolicy: 'reject'
       cert:
         signingProfileRef: 'kernelcache-signer'
-        trustBundle: 'localmodelcache/kernelcache-root-ca'
+        # -- Secret or ConfigMap (namespace/name) with the CA that artifacts must be signed by. Empty uses kernelcache-root-ca in the release namespace.
+        trustBundle: ''
         trustBundleKey: ''
         subjectRegexp: 'spiffe://localmodelcache/kernelcache-signer'
     abandonedCapturePolicy: 'retain'
@@ -135,8 +136,6 @@ localmodelcache:
         requests:
           cpu: 10m
           memory: 128Mi
-      affinity: {}
-      tolerations: []
 openshift:
   # -- Deploy on OpenShift. Creates SecurityContextConstraints (SCCs), grants them to the chart's ServiceAccounts and the download Job ServiceAccount, and pins each pod to its SCC.
   enabled: false
