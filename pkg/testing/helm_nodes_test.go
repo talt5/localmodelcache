@@ -74,7 +74,7 @@ func TestChartGivesDownloadJobsTheTolerationsOfTheNodeAgent(t *testing.T) {
 // Downloads go to the path of the node group's volume, and the agent looks for them in its own.
 func TestDefaultHostPathIsTheDocumentedOne(t *testing.T) {
 	nodeGroupPath := regexp.MustCompile(`(?m)local:\n(?: +#.*\n)* +path: (\S+)`)
-	readme, err := os.ReadFile("../../README.md")
+	guide, err := os.ReadFile("../../docs/model-cache.md")
 	require.NoError(t, err)
 	sample, err := os.ReadFile("../../docs/samples/vllm-node-local.yaml")
 	require.NoError(t, err)
@@ -88,7 +88,7 @@ func TestDefaultHostPathIsTheDocumentedOne(t *testing.T) {
 		agents["chart"], _ = renderNodes(t, helm)
 	}
 	for name, agent := range agents {
-		for _, document := range [][]byte{readme, sample} {
+		for _, document := range [][]byte{guide, sample} {
 			match := nodeGroupPath.FindSubmatch(document)
 			require.NotNil(t, match)
 			require.Equal(t, string(match[1]), agent.Spec.Template.Spec.Volumes[0].HostPath.Path, name)

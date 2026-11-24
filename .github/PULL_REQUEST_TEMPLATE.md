@@ -1,7 +1,7 @@
 <!--  Thanks for sending a pull request! Read the comments in this template, then delete every one. CI fails while the description contains HTML comment markers.
 
 Before you open it:
-- If this is your first time, read the Development section of README.md.
+- If this is your first time, read docs/development.md.
 - Run `make precommit`. Open unfinished work as a draft.
 
 Writing the description (examples: .github/PR_DESCRIPTION_EXAMPLES.md):
@@ -38,7 +38,7 @@ If this PR changes any image versions, that must be its only change. -->
 
 - [ ] Have you added unit/e2e tests that prove your fix is effective or that this feature works?
 - [ ] Has code been commented, particularly in hard-to-understand areas?
-- [ ] Have you made corresponding changes to the documentation (README.md and docs/samples)?
+- [ ] Have you made corresponding changes to the documentation (README.md and docs/)?
 
 **Release note**:
 
