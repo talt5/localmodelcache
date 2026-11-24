@@ -36,9 +36,8 @@ flowchart LR
 You need [cert-manager](https://cert-manager.io), and a host path on the nodes that
 [the agent can write to](docs/install.md#requirements).
 
-- **OpenShift:** add [these flags](docs/install.md#openshift), and set the `path` in the sample to
-  `/var/mnt/models`.
-- **v0.2.0 from GHCR:** add [two more flags](docs/install.md#helm).
+On OpenShift, add [these flags](docs/install.md#openshift), and set the `path` in the sample to
+`/var/mnt/models`.
 
 ```sh
 # Install
