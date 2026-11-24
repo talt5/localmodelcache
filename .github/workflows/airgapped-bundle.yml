@@ -9,6 +9,8 @@ on:
   pull_request:
     paths:
       - "hack/airgapped/**"
+      - "docs/upgrade.md"
+      - "docs/samples/vllm-node-local.yaml"
       - "deps.env"
       - ".github/workflows/airgapped-bundle.yml"
 

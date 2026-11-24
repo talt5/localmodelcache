@@ -40,11 +40,11 @@ func TestNoUpstreamNames(t *testing.T) {
 	listed, err := exec.CommandContext(t.Context(), "git", "-C", dir, "ls-files", "-z").Output() // #nosec G204 -- dir is the checkout root
 	require.NoError(t, err)
 
-	skipped := map[string]bool{"LICENSE": true, "NOTICE": true, "pkg/testing/branding_test.go": true}
+	// docs/upgrade.md names what v0.1 called things.
+	skipped := map[string]bool{"LICENSE": true, "docs/upgrade.md": true, "NOTICE": true, "pkg/testing/branding_test.go": true}
 	// Copyright notices and attribution must stay, and upstream issues are references.
 	allowed := regexp.MustCompile(`The KServe Authors|fork of \[?KServe|\(https://github\.com/kserve/kserve\)|kserve#\d+|upstream KServe|[Ww]ebhook[Ss]erver` +
 		`|no InferenceService or LLMInferenceService|InferenceService and LLMInferenceService are gone`)
-	upgrade := regexp.MustCompile(`(?s)### Upgrade from v0\.1.*?\n## `)
 	name := regexp.MustCompile(`(?i)kserve|inference-?service|llmisvc|\bisvc`)
 
 	for path := range strings.SplitSeq(strings.TrimRight(string(listed), "\x00"), "\x00") {
@@ -57,9 +57,6 @@ func TestNoUpstreamNames(t *testing.T) {
 			continue // Deleted in the working tree, or binary.
 		}
 		require.NoError(t, err)
-		if path == "README.md" {
-			data = upgrade.ReplaceAll(data, nil)
-		}
 		for i, line := range bytes.Split(data, []byte("\n")) {
 			if name.Match(allowed.ReplaceAll(line, nil)) {
 				t.Errorf("%s:%d: %s", path, i+1, line)

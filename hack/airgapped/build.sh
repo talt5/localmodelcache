@@ -75,9 +75,7 @@ for file in README.md values-airgapped.yaml load-images.sh; do
 done
 chmod +x "$bundle/load-images.sh"
 cp LICENSE NOTICE "$bundle/"
-# The upgrade steps of README.md.
-awk '/^### Upgrade from /{sub(/^###/, "#"); on = 1} on && /^## /{exit} on' README.md >"$bundle/UPGRADE.md"
-[ -s "$bundle/UPGRADE.md" ] || { echo "README.md has no 'Upgrade from' section" >&2; exit 1; }
+cp docs/upgrade.md "$bundle/UPGRADE.md"
 # OpenShift keeps the models under /var.
 sed -e 's|path: /mnt/models|path: /var/mnt/models|' -e '/# On OpenShift use \/var\/mnt\/models/d' \
   docs/samples/vllm-node-local.yaml >"$bundle/sample-vllm-node-local.yaml"
