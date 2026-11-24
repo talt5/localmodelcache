@@ -273,7 +273,8 @@ Opt in through the Pod template of a Deployment:
 | `local.cache.ai/kernelcache-sidecar-injection` | `"true"` or `"false"` to override capture for this workload. |
 
 The `kernelcache` key of `localmodelcache-config` turns the feature on and sets the registry
-captured images are pushed to. The cluster must support OCI image volumes. With Helm and the
+captured images are pushed to. The cluster must support OCI image volumes, which
+Kubernetes 1.35 and OpenShift 4.22 enable by default. With Helm and the
 registry of OpenShift:
 
 ```yaml

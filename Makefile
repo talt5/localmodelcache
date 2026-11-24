@@ -31,7 +31,7 @@ include images.env
 CURRENT_YEAR := $(shell date +%Y)
 
 # Base Image URL
-BASE_IMG ?= python:3.11-slim-bookworm
+BASE_IMG ?= python:3.11-slim-trixie
 
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 

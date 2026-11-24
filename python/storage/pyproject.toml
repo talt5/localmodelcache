@@ -4,12 +4,12 @@ authors = [
     {name = "The KServe Authors", email = "fspolti@redhat.com"},
 ]
 license = {text = "https://github.com/talt5/localmodelcache/blob/master/LICENSE"}
-requires-python = "<3.14,>=3.10"
+requires-python = "<3.14,>=3.11"
 dependencies = [
-    # GHSA-6mq8-rvhq-8wgg, CVE-2025-69223 aiohttp HTTP parser auto_decompress zip bomb DoS
-    "aiohttp<4.0.0,>=3.13.3",
-    "certifi>=2024.7.4",
-    "requests<3.0.0,>=2.32.2",
+    # GHSA-6mq8-rvhq-8wgg (CVE-2025-69223) and later aiohttp advisories, up to PYSEC-2026-4395
+    "aiohttp<4.0.0,>=3.14.4",
+    "certifi>=2026.10.18", # PYSEC-2026-4320
+    "requests<3.0.0,>=2.33.0",
     "google-cloud-storage<3.0.0,>=2.14.0",
     "azure-storage-blob<13.0.0,>=12.20.0",
     "azure-storage-file-share<13.0.0,>=12.16.0",
@@ -34,17 +34,17 @@ dependencies = [
     "cryptography>=48.0.1", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36
     # CVE-2026-32597 PyJWT accepts unknown `crit` header extensions (RFC 7515 §4.1.11 MUST violation)
     # Pinning because it is a transitive dependency.
-    "pyjwt>=2.14.0,<2.15.0",
+    "pyjwt>=2.15.0",
     # CVE-2026-30922 pyasn1 Vulnerable to Denial of Service via Unbounded Recursion
     # CVE-2026-59885 pyasn1 Quadratic complexity in OID processing allows DoS
     # Pinning because it is a transitive dependency.
-    "pyasn1>=0.6.4",
+    "pyasn1>=0.6.5",
     # CVE-2026-21226 Azure Core is vulnerable to deserialization of untrusted data
     # Pinning because it is a transitive dependency.
     "azure-core>=1.38.0",
     # GHSA-38jv-5279-wg99, CVE-2026-21441 urllib3 decompression-bomb bypass via HTTP redirects
     # Pinning because it is a transitive dependency.
-    "urllib3>=2.6.3"
+    "urllib3>=2.8.0"
 ]
 name = "localmodelcache-storage"
 version = "0.21.0"

@@ -1,5 +1,5 @@
 ARG PYTHON_VERSION=3.11
-ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim-bookworm
+ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim-trixie
 ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
@@ -90,6 +90,13 @@ FROM ${BASE_IMAGE} AS prod
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Kerberos HDFS needs the GSSAPI library, which the base image does not include.
+RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Only the virtual environment is used at run time; the installers of the base image are not.
+RUN /usr/local/bin/python3 -m pip uninstall -y --root-user-action=ignore setuptools wheel pip
 
 RUN useradd localmodelcache -m -u 1000 -d /home/localmodelcache
 
