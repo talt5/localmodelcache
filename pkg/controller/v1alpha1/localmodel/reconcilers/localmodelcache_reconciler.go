@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -118,7 +117,11 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			}
 			for j := range nodeGroups {
 				pvName, claim := clusterServingVolumeNames(localModel, nodeGroups[j].Name, namespaces[i].Name)
-				if err := volumes.ensureServing(ctx, c.Client, &nodeGroups[j], subPath, pvName, claim); err != nil {
+				err := c.yieldClaim(ctx, pvName, claim)
+				if err == nil {
+					err = volumes.ensureServing(ctx, c.Client, &nodeGroups[j], subPath, pvName, claim)
+				}
+				if err != nil {
 					errs = append(errs, err)
 					continue
 				}
@@ -154,6 +157,29 @@ func (c *LocalModelReconciler) workloadNamespaces(ctx context.Context, localMode
 func clusterServingVolumeNames(localModel *v1alpha1.LocalModelCache, nodeGroup, namespace string) (string, types.NamespacedName) {
 	claim := types.NamespacedName{Namespace: namespace, Name: localmodelcache.ClaimName(localModel.Name, nodeGroup)}
 	return localmodelcache.ClusterCacheVolumeName(claim), claim
+}
+
+// yieldClaim returns an error if a claim that the cache does not have yet is that of a
+// LocalModelNamespaceCache. When a user deletes such a claim, it must not come back with another
+// model.
+func (c *LocalModelReconciler) yieldClaim(ctx context.Context, volume string, key types.NamespacedName) error {
+	claim := &corev1.PersistentVolumeClaim{}
+	if err := c.Get(ctx, key, claim); client.IgnoreNotFound(err) != nil {
+		return err
+	} else if err == nil && claim.Spec.VolumeName == volume {
+		return nil
+	}
+	caches := &v1alpha1.LocalModelNamespaceCacheList{}
+	if err := c.List(ctx, caches, client.InNamespace(key.Namespace)); err != nil {
+		return err
+	}
+	for i := range caches.Items {
+		cache := &caches.Items[i]
+		if cache.DeletionTimestamp.IsZero() && slices.Contains(localmodelcache.NamespaceCacheClaimNames(cache), key.Name) {
+			return fmt.Errorf("PersistentVolumeClaim %s belongs to LocalModelNamespaceCache %s", key, cache.Name)
+		}
+	}
+	return nil
 }
 
 // clusterVolumeNames returns the PV and the PVC that download Jobs mount for a node group.
@@ -237,11 +263,7 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.LocalModelCache{}).
 		Owns(&corev1.PersistentVolume{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
-		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(c.deletedClaimFunc), builder.WithPredicates(predicate.Funcs{
-			CreateFunc:  func(event.CreateEvent) bool { return false },
-			UpdateFunc:  func(event.UpdateEvent) bool { return false },
-			GenericFunc: func(event.GenericEvent) bool { return false },
-		})).
+		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(c.deletedClaimFunc), builder.WithPredicates(DeletedPredicate())).
 		WatchesMetadata(&corev1.Namespace{}, handler.EnqueueRequestsFromMapFunc(c.namespaceFunc), builder.WithPredicates(NamespaceChangedPredicate())).
 		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFunc), builder.WithPredicates(NodeChangedPredicate())).
 		Watches(&v1alpha1.LocalModelNodeGroup{}, handler.EnqueueRequestsFromMapFunc(c.nodeGroupFunc), builder.WithPredicates(predicate.GenerationChangedPredicate{})).

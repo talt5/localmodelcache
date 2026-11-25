@@ -169,6 +169,11 @@ Running Pods keep the files, since the cache still exists.
 Caches with the same source, which is `sourceModelUri` and `storage.parameters`, share one folder on
 each node. The files stay until the last of them is deleted.
 
+A claim belongs to the cache that created it. A `LocalModelNamespaceCache` is refused while a claim
+it would create exists, either one of a `LocalModelCache` or your own. A `LocalModelCache` is
+accepted, leaves such claims alone and creates its own when the name is free. So do not reuse the
+name of a `LocalModelCache` for a `LocalModelNamespaceCache`.
+
 ### Move from `LocalModelNamespaceCache`
 
 Claims of caches with the same name and node group have the same name, so the `LocalModelCache`

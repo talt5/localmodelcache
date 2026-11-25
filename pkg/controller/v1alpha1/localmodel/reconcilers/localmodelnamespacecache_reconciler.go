@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -175,7 +174,7 @@ func (c *LocalModelNamespaceCacheReconciler) finalizeNodeLocal(ctx context.Conte
 // servingVolumeNames returns the PV and the PVC that workloads mount for a node group.
 func servingVolumeNames(localModel *v1alpha1.LocalModelNamespaceCache, nodeGroup string) (string, types.NamespacedName) {
 	claim := types.NamespacedName{Namespace: localModel.Namespace, Name: localmodelcache.ClaimName(localModel.Name, nodeGroup)}
-	return claim.Name + "-" + claim.Namespace, claim
+	return localmodelcache.NamespaceCacheVolumeName(claim), claim
 }
 
 // namespaceDownloadVolumeNames returns the PV and the PVC that download Jobs mount for a node group.
@@ -252,6 +251,14 @@ func (c *LocalModelNamespaceCacheReconciler) pvcFuncNamespaceCache(ctx context.C
 	return requests
 }
 
+// deletedClaimFuncNamespaceCache reconciles the caches that can now create a claim of that name,
+// which something else had, such as a LocalModelCache.
+func (c *LocalModelNamespaceCacheReconciler) deletedClaimFuncNamespaceCache(ctx context.Context, obj client.Object) []reconcile.Request {
+	return c.requestsFor(ctx, func(model *v1alpha1.LocalModelNamespaceCache) bool {
+		return model.Namespace == obj.GetNamespace() && slices.Contains(localmodelcache.NamespaceCacheClaimNames(model), obj.GetName())
+	})
+}
+
 // Given a deleted shared-PVC cache, reconcile caches that were contending for the same
 // destination so the next deterministic owner can start its import.
 func (c *LocalModelNamespaceCacheReconciler) deletedCacheFuncNamespaceCache(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -309,13 +316,6 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 	if c.APIReader == nil {
 		c.APIReader = mgr.GetAPIReader()
 	}
-	cacheDeletePredicates := predicate.Funcs{
-		CreateFunc:  func(event.CreateEvent) bool { return false },
-		UpdateFunc:  func(event.UpdateEvent) bool { return false },
-		DeleteFunc:  func(event.DeleteEvent) bool { return true },
-		GenericFunc: func(event.GenericEvent) bool { return false },
-	}
-
 	controllerBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.LocalModelNamespaceCache{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
@@ -323,12 +323,13 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 		Owns(&batchv1.Job{})
 
 	return controllerBuilder.
-		Watches(&v1alpha1.LocalModelNamespaceCache{}, handler.EnqueueRequestsFromMapFunc(c.deletedCacheFuncNamespaceCache), builder.WithPredicates(cacheDeletePredicates)).
+		Watches(&v1alpha1.LocalModelNamespaceCache{}, handler.EnqueueRequestsFromMapFunc(c.deletedCacheFuncNamespaceCache), builder.WithPredicates(DeletedPredicate())).
 		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFuncNamespaceCache), builder.WithPredicates(NodeChangedPredicate())).
 		Watches(&v1alpha1.LocalModelNodeGroup{}, handler.EnqueueRequestsFromMapFunc(c.nodeGroupFuncNamespaceCache), builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFuncNamespaceCache), builder.WithPredicates(LocalModelNodeChangedPredicate())).
 		Watches(&corev1.PersistentVolume{}, handler.EnqueueRequestsFromMapFunc(c.volumeFuncNamespaceCache)).
 		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(c.volumeFuncNamespaceCache)).
+		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(c.deletedClaimFuncNamespaceCache), builder.WithPredicates(DeletedPredicate())).
 		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(c.pvcFuncNamespaceCache)).
 		Complete(c)
 }

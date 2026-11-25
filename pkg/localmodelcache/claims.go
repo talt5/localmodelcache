@@ -57,6 +57,12 @@ func ClusterCacheVolumeName(claim types.NamespacedName) string {
 	return claim.Namespace + "." + claim.Name
 }
 
+// NamespaceCacheVolumeName returns the PersistentVolume behind a claim of a node-local
+// LocalModelNamespaceCache.
+func NamespaceCacheVolumeName(claim types.NamespacedName) string {
+	return claim.Name + "-" + claim.Namespace
+}
+
 // FindPodMountingClaim returns a Pod in the namespace that mounts one of the claims, and that
 // claim, or nil.
 func FindPodMountingClaim(ctx context.Context, reader client.Reader, namespace string, claims []string) (*corev1.Pod, string, error) {

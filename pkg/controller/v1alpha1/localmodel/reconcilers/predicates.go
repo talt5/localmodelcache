@@ -60,3 +60,12 @@ func NamespaceChangedPredicate() predicate.Funcs {
 		},
 	}
 }
+
+// DeletedPredicate passes only deletions.
+func DeletedPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		CreateFunc:  func(event.CreateEvent) bool { return false },
+		UpdateFunc:  func(event.UpdateEvent) bool { return false },
+		GenericFunc: func(event.GenericEvent) bool { return false },
+	}
+}
