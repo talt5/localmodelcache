@@ -25,6 +25,9 @@ spec:
         local.cache.ai/node: worker
       serviceAccountName: localmodelcache-node-agent
       securityContext:
+        # The user of the download Jobs, to delete what they create, and their fsGroup.
+        runAsUser: 1000
+        runAsGroup: 1000
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault

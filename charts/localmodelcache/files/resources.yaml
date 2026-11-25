@@ -873,7 +873,9 @@ spec:
           name: models
           readOnly: false
       securityContext:
+        runAsGroup: 1000
         runAsNonRoot: true
+        runAsUser: 1000
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: localmodelcache-node-agent
