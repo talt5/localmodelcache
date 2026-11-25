@@ -16,6 +16,9 @@ These are now refused, when a cache is created or gets another node group. Exist
   so `a` with the group `b-c` equals `a-b` with the group `c`, and a `LocalModelNamespaceCache` `a` with
   the group `b` in the namespace `c-d` equals one with the group `b-c` in the namespace `d`.
 
+Outside OpenShift the node agent now runs as UID and GID 1000, as the download Jobs do. Run a custom
+download container as UID 1000 too, or the node agent cannot delete what it downloads.
+
 Before you roll back to v0.2, stop the workloads that mount claims of a `LocalModelCache`: v0.2 deletes
 those claims. The files stay.
 
