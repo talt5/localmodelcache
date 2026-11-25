@@ -18,6 +18,9 @@ package localmodelcache
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -51,10 +54,22 @@ func claimNames(cache string, nodeGroups []string) []string {
 	return claims
 }
 
-// ClusterCacheVolumeName returns the PersistentVolume behind a claim of a LocalModelCache. It is
-// never that of a LocalModelNamespaceCache, or two caches of the same name would fight over it.
+// ClusterCacheVolumeName returns the PersistentVolume behind a claim of a LocalModelCache. The hash
+// keeps it apart from the volumes of other claims, of LocalModelNamespaceCaches and of downloads:
+// names of caches, node groups and namespaces can be joined to the same text in many ways.
 func ClusterCacheVolumeName(claim types.NamespacedName) string {
-	return claim.Namespace + "." + claim.Name
+	hash := sha256.Sum256([]byte(claim.Namespace + "/" + claim.Name))
+	return claim.Name + "-" + claim.Namespace + "-" + hex.EncodeToString(hash[:])[:16]
+}
+
+// SharedClaimName returns a claim name that is in both lists, or "".
+func SharedClaimName(a, b []string) string {
+	for _, name := range a {
+		if slices.Contains(b, name) {
+			return name
+		}
+	}
+	return ""
 }
 
 // NamespaceCacheVolumeName returns the PersistentVolume behind a claim of a node-local

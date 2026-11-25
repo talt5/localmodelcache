@@ -19,13 +19,14 @@ package localmodelcache
 import (
 	"context"
 	"fmt"
-	"maps"
 	"slices"
 
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/labels"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -34,6 +35,9 @@ import (
 	"github.com/talt5/localmodelcache/pkg/constants"
 	"github.com/talt5/localmodelcache/pkg/localmodelcache"
 )
+
+// maxConcurrentPodLists bounds the requests that one admission request makes at a time.
+const maxConcurrentPodLists = 16
 
 // logger for the validation webhook.
 var localModelCacheValidatorLogger = logf.Log.WithName("localmodelcache-v1alpha1-validation-webhook")
@@ -57,6 +61,7 @@ var _ admission.Validator[*v1alpha1.LocalModelCache] = &LocalModelCacheValidator
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, localModelCache *v1alpha1.LocalModelCache) (admission.Warnings, error) {
 	localModelCacheValidatorLogger.Info("validate create", "name", localModelCache.Name)
+	claims := localmodelcache.ClusterCacheClaimNames(localModelCache)
 	if err := localmodelcache.ValidateModelSize(nil, localModelCache.Spec.ModelSize); err != nil {
 		return nil, err
 	}
@@ -70,6 +75,9 @@ func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, localMode
 	}
 	if localModelCacheWithSameStorageURI != nil {
 		return admission.Warnings{}, fmt.Errorf("LocalModelCache %s has the same StorageURI %s", localModelCacheWithSameStorageURI.Name, localModelCacheWithSameStorageURI.Spec.SourceModelUri)
+	}
+	if err := v.validateUniqueClaims(ctx, localModelCache, claims); err != nil {
+		return nil, err
 	}
 	return nil, localmodelcache.CheckStorageLimit(ctx, v.reader(), "", nil, localmodelcache.CacheUsageOf(localModelCache))
 }
@@ -97,6 +105,13 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldCache,
 	if localModelCacheWithSameStorageURI != nil {
 		return admission.Warnings{}, fmt.Errorf("LocalModelCache %s has the same StorageURI %s", localModelCacheWithSameStorageURI.Name, localModelCacheWithSameStorageURI.Spec.SourceModelUri)
 	}
+	// Claims the cache already names do not stop other changes to it.
+	added := slices.DeleteFunc(localmodelcache.ClusterCacheClaimNames(localModelCache), func(name string) bool {
+		return slices.Contains(localmodelcache.ClusterCacheClaimNames(oldCache), name)
+	})
+	if err := v.validateUniqueClaims(ctx, localModelCache, added); err != nil {
+		return nil, err
+	}
 	if err := v.validateRemovedClaimsNotInUse(ctx, oldCache, localModelCache); err != nil {
 		return nil, err
 	}
@@ -123,6 +138,28 @@ func validateNamespaceSelector(cache *v1alpha1.LocalModelCache) error {
 	return nil
 }
 
+// validateUniqueClaims denies a cache with a claim that another LocalModelCache has too, such as
+// those of cache a with group b-c and cache a-b with group c.
+func (v *LocalModelCacheValidator) validateUniqueClaims(ctx context.Context, cache *v1alpha1.LocalModelCache, claims []string) error {
+	if len(claims) == 0 {
+		return nil
+	}
+	caches := &v1alpha1.LocalModelCacheList{}
+	if err := v.reader().List(ctx, caches); err != nil {
+		return err
+	}
+	for i := range caches.Items {
+		other := &caches.Items[i]
+		if other.Name == cache.Name {
+			continue
+		}
+		if name := localmodelcache.SharedClaimName(claims, localmodelcache.ClusterCacheClaimNames(other)); name != "" {
+			return fmt.Errorf("PersistentVolumeClaim %s is that of LocalModelCache %s: use another name for this cache", name, other.Name)
+		}
+	}
+	return nil
+}
+
 // validateRemovedClaimsNotInUse denies a change of the node groups or the namespace selector while
 // a Pod mounts a claim that the controller would delete.
 func (v *LocalModelCacheValidator) validateRemovedClaimsNotInUse(ctx context.Context, oldCache, newCache *v1alpha1.LocalModelCache) error {
@@ -138,24 +175,27 @@ func (v *LocalModelCacheValidator) validateRemovedClaimsNotInUse(ctx context.Con
 	if err != nil {
 		return err
 	}
+	// One request, however many namespaces there are.
+	namespaces := &metav1.PartialObjectMetadataList{}
+	namespaces.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("NamespaceList"))
+	if err := v.reader().List(ctx, namespaces, client.MatchingLabelsSelector{Selector: selector}); err != nil {
+		return err
+	}
+	selected := sets.New[string]()
+	for i := range namespaces.Items {
+		selected.Insert(namespaces.Items[i].Name)
+	}
 	claimNames := localmodelcache.ClusterCacheClaimNames(newCache)
-	selected := map[string]bool{}
 	var removed []corev1.PersistentVolume
 	for i := range volumes {
-		// One that is already being deleted is not removed by this change.
-		if !volumes[i].DeletionTimestamp.IsZero() {
+		ref := volumes[i].Spec.ClaimRef
+		keepsGroup := slices.Contains(claimNames, ref.Name)
+		// The change does not remove one that is already being deleted. But with its node group,
+		// the files would go from under the Pods that still hold it.
+		if !volumes[i].DeletionTimestamp.IsZero() && keepsGroup {
 			continue
 		}
-		ref := volumes[i].Spec.ClaimRef
-		if _, ok := selected[ref.Namespace]; !ok {
-			namespace := &corev1.Namespace{}
-			err := v.reader().Get(ctx, client.ObjectKey{Name: ref.Namespace}, namespace)
-			if client.IgnoreNotFound(err) != nil {
-				return err
-			}
-			selected[ref.Namespace] = err == nil && selector.Matches(labels.Set(namespace.Labels))
-		}
-		if !selected[ref.Namespace] || !slices.Contains(claimNames, ref.Name) {
+		if !selected.Has(ref.Namespace) || !keepsGroup {
 			removed = append(removed, volumes[i])
 		}
 	}
@@ -183,18 +223,23 @@ func (v *LocalModelCacheValidator) validateNotInUse(ctx context.Context, cache *
 		ref := volumes[i].Spec.ClaimRef
 		claims[ref.Namespace] = append(claims[ref.Namespace], ref.Name)
 	}
-	for _, namespace := range slices.Sorted(maps.Keys(claims)) {
-		pod, claim, err := localmodelcache.FindPodMountingClaim(ctx, v.reader(), namespace, claims[namespace])
-		if err != nil {
-			localModelCacheValidatorLogger.Error(err, "Unable to list Pods", "namespace", namespace)
-			return err
-		}
-		if pod != nil {
-			return fmt.Errorf("LocalModelCache %s is in use: Pod %s/%s mounts PersistentVolumeClaim %s. Delete the workload first",
-				cache.Name, namespace, pod.Name, claim)
-		}
+	// The webhook must answer in time for a cache with claims in very many namespaces.
+	group, ctx := errgroup.WithContext(ctx)
+	group.SetLimit(maxConcurrentPodLists)
+	for namespace, names := range claims {
+		group.Go(func() error {
+			pod, claim, err := localmodelcache.FindPodMountingClaim(ctx, v.reader(), namespace, names)
+			if err != nil {
+				return fmt.Errorf("list Pods in namespace %s: %w", namespace, err)
+			}
+			if pod != nil {
+				return fmt.Errorf("LocalModelCache %s is in use: Pod %s/%s mounts PersistentVolumeClaim %s. Delete the workload first",
+					cache.Name, namespace, pod.Name, claim)
+			}
+			return nil
+		})
 	}
-	return nil
+	return group.Wait()
 }
 
 // Checks if there are other LocalModelCache with the same storage URI and parameters

@@ -144,12 +144,28 @@ func (v *LocalModelNamespaceCacheValidator) ValidateDelete(ctx context.Context, 
 	return nil, v.validateNotInUse(ctx, localModelNamespaceCache, localmodelcache.NamespaceCacheClaimNames(localModelNamespaceCache))
 }
 
-// validateClaimsFree returns an error if one of the claims exists and is not bound to the volume of
+// validateClaimsFree returns an error if one of the claims is that of another
+// LocalModelNamespaceCache, or exists and is not bound to the volume of
 // the cache, so the controller could not offer it. A claim left by an earlier cache of the same
 // name is.
 func (v *LocalModelNamespaceCacheValidator) validateClaimsFree(ctx context.Context, cache *v1alpha1.LocalModelNamespaceCache, claims []string) error {
 	if len(claims) == 0 {
 		return nil
+	}
+	// Names such as a with group b-c and a-b with group c give the same claim and volumes.
+	caches := &v1alpha1.LocalModelNamespaceCacheList{}
+	if err := v.reader().List(ctx, caches, client.InNamespace(cache.Namespace)); err != nil {
+		return err
+	}
+	for i := range caches.Items {
+		other := &caches.Items[i]
+		if other.Name == cache.Name {
+			continue
+		}
+		if name := localmodelcache.SharedClaimName(claims, localmodelcache.NamespaceCacheClaimNames(other)); name != "" {
+			return fmt.Errorf("PersistentVolumeClaim %s/%s is that of LocalModelNamespaceCache %s: use another name for this cache",
+				cache.Namespace, name, other.Name)
+		}
 	}
 	disabled, err := v.volumeManagementDisabled(ctx)
 	if err != nil || disabled {
@@ -163,11 +179,15 @@ func (v *LocalModelNamespaceCacheValidator) validateClaimsFree(ctx context.Conte
 		} else if err != nil {
 			return err
 		}
-		switch claim.Spec.VolumeName {
-		case localmodelcache.NamespaceCacheVolumeName(key):
-		case localmodelcache.ClusterCacheVolumeName(key):
+		// A user's claim has no such annotation.
+		owner := claim.Annotations[constants.LocalModelAnnotationKey]
+		switch volume := claim.Spec.VolumeName; {
+		case volume == localmodelcache.NamespaceCacheVolumeName(key) && (owner == "" || owner == cache.Name):
+		case !claim.DeletionTimestamp.IsZero():
+			return fmt.Errorf("PersistentVolumeClaim %s already exists and is being deleted: try again when it is gone", key)
+		case volume == localmodelcache.ClusterCacheVolumeName(key):
 			return fmt.Errorf("PersistentVolumeClaim %s already exists and belongs to LocalModelCache %s: mount that claim, or use another name for this cache",
-				key, claim.Annotations[constants.LocalModelAnnotationKey])
+				key, owner)
 		default:
 			return fmt.Errorf("PersistentVolumeClaim %s already exists and does not belong to this cache: delete it, or use another name for this cache", key)
 		}

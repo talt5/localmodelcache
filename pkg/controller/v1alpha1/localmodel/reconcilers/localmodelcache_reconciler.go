@@ -226,6 +226,15 @@ func (c *LocalModelReconciler) deletedClaimFunc(ctx context.Context, obj client.
 	})
 }
 
+// namespaceCacheFunc reconciles the caches that yielded a claim to a LocalModelNamespaceCache, which
+// may be gone without ever having had it.
+func (c *LocalModelReconciler) namespaceCacheFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	names := localmodelcache.NamespaceCacheClaimNames(obj.(*v1alpha1.LocalModelNamespaceCache))
+	return c.requestsFor(ctx, func(model *v1alpha1.LocalModelCache) bool {
+		return localmodelcache.SharedClaimName(localmodelcache.ClusterCacheClaimNames(model), names) != ""
+	})
+}
+
 func (c *LocalModelReconciler) requestsFor(ctx context.Context, include func(*v1alpha1.LocalModelCache) bool) []reconcile.Request {
 	models := &v1alpha1.LocalModelCacheList{}
 	if err := c.List(ctx, models); err != nil {
@@ -264,6 +273,7 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.PersistentVolume{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(c.deletedClaimFunc), builder.WithPredicates(DeletedPredicate())).
+		Watches(&v1alpha1.LocalModelNamespaceCache{}, handler.EnqueueRequestsFromMapFunc(c.namespaceCacheFunc), builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		WatchesMetadata(&corev1.Namespace{}, handler.EnqueueRequestsFromMapFunc(c.namespaceFunc), builder.WithPredicates(NamespaceChangedPredicate())).
 		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFunc), builder.WithPredicates(NodeChangedPredicate())).
 		Watches(&v1alpha1.LocalModelNodeGroup{}, handler.EnqueueRequestsFromMapFunc(c.nodeGroupFunc), builder.WithPredicates(predicate.GenerationChangedPredicate{})).

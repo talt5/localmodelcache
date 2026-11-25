@@ -105,6 +105,12 @@ func TestEventsReconcileTheAffectedCaches(t *testing.T) {
 		"deleted claim of something else": {func() []string {
 			return requestNames(c.deletedClaimFunc(t.Context(), &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "data", Namespace: "team-a"}}))
 		}, []string{}},
+		"namespace cache with the claim of a cache": {func() []string {
+			return requestNames(c.namespaceCacheFunc(t.Context(), &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "other", Namespace: "team-a"},
+				Spec:       v1alpha1.LocalModelNamespaceCacheSpec{NodeGroups: []string{"gpu", "cpu"}},
+			}))
+		}, []string{"other"}},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -177,11 +183,11 @@ func TestYieldClaim(t *testing.T) {
 		"nobody else":             {nil, false},
 		"other namespace":         {[]client.Object{elsewhere}, false},
 		"cache is being deleted":  {[]client.Object{deleted}, false},
-		"claim is already ours":   {[]client.Object{cache, claim("team-a.one-gpu")}, false},
+		"claim is already ours":   {[]client.Object{cache, claim(localmodelcache.ClusterCacheVolumeName(key))}, false},
 		"claim was deleted":       {[]client.Object{cache}, true},
 		"claim is of other cache": {[]client.Object{cache, claim("one-gpu-team-a")}, true},
 	} {
-		err := newLocalModelReconciler(t, tc.objects...).yieldClaim(t.Context(), "team-a.one-gpu", key)
+		err := newLocalModelReconciler(t, tc.objects...).yieldClaim(t.Context(), localmodelcache.ClusterCacheVolumeName(key), key)
 		if (err != nil) != tc.yields {
 			t.Errorf("%s: yieldClaim() = %v, want error %v", name, err, tc.yields)
 		}

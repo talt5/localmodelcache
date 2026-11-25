@@ -23,11 +23,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 	"github.com/talt5/localmodelcache/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/localmodelcache"
 )
 
 func claimValidator(g gomega.Gomega, objects ...client.Object) LocalModelNamespaceCacheValidator {
@@ -51,7 +53,14 @@ func testClaim(namespace, volume string) *corev1.PersistentVolumeClaim {
 	}
 }
 
+var clusterVolume = localmodelcache.ClusterCacheVolumeName(types.NamespacedName{Namespace: "default", Name: "iris-gpu1"})
+
 func TestExistingClaims(t *testing.T) {
+	terminating := testClaim("default", clusterVolume)
+	terminating.Finalizers = []string{"kubernetes.io/pvc-protection"}
+	terminating.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
+	ofOther := testClaim("default", "iris-gpu1-default")
+	ofOther.Annotations[constants.LocalModelAnnotationKey] = "iris-gpu"
 	disabled := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: constants.LocalModelConfigMapName},
 		Data:       map[string]string{"localModel": `{"disableVolumeManagement": true}`},
@@ -65,7 +74,9 @@ func TestExistingClaims(t *testing.T) {
 		"left by a cache of the same name":     {objects: []client.Object{testClaim("default", "iris-gpu1-default")}},
 		"of a user, without volume management": {objects: []client.Object{testClaim("default", ""), disabled}},
 		"of a user":                            {objects: []client.Object{testClaim("default", "")}, wantErr: "default/iris-gpu1 already exists and does not belong to this cache"},
-		"of a LocalModelCache":                 {objects: []client.Object{testClaim("default", "default.iris-gpu1")}, wantErr: "default/iris-gpu1 already exists and belongs to LocalModelCache iris"},
+		"left by another namespace cache":      {objects: []client.Object{ofOther}, wantErr: "does not belong to this cache"},
+		"of a LocalModelCache, terminating":    {objects: []client.Object{terminating}, wantErr: "is being deleted: try again"},
+		"of a LocalModelCache":                 {objects: []client.Object{testClaim("default", clusterVolume)}, wantErr: "default/iris-gpu1 already exists and belongs to LocalModelCache iris"},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -97,11 +108,31 @@ func TestExistingClaims(t *testing.T) {
 }
 
 func TestDeleteWhilePodsMountTheClaimOfALocalModelCache(t *testing.T) {
-	for volume, denied := range map[string]bool{"default.iris-gpu1": false, "iris-gpu1-default": true, "": true} {
+	for volume, denied := range map[string]bool{clusterVolume: false, "iris-gpu1-default": true, "": true} {
 		g := gomega.NewWithT(t)
 		validator := claimValidator(g, testClaim("default", volume), makeTestPodMountingClaim("default", "iris-gpu1", corev1.PodRunning))
 		cache := makeTestLocalModelNamespaceCache()
 		_, err := validator.ValidateDelete(t.Context(), &cache)
 		g.Expect(err != nil).To(gomega.Equal(denied), "volume %q: %v", volume, err)
 	}
+}
+
+func TestClaimOfAnotherNamespaceCache(t *testing.T) {
+	g := gomega.NewWithT(t)
+	other := makeTestLocalModelNamespaceCache()
+	other.Name, other.Spec.NodeGroups = "iris-gpu", []string{"large"}
+	validator := claimValidator(g, &other, &v1alpha1.LocalModelNodeGroup{ObjectMeta: metav1.ObjectMeta{Name: "gpu-large"}, Spec: makeTestLocalModelNodeGroup("").Spec})
+	cache := makeTestLocalModelNamespaceCache()
+	_, err := validator.ValidateCreate(t.Context(), &cache)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	clashing := cache.DeepCopy()
+	clashing.Spec.NodeGroups = []string{"gpu1", "gpu-large"}
+	want := gomega.MatchError(gomega.ContainSubstring("PersistentVolumeClaim default/iris-gpu-large is that of LocalModelNamespaceCache iris-gpu"))
+	_, err = validator.ValidateCreate(t.Context(), clashing)
+	g.Expect(err).To(want)
+	_, err = validator.ValidateUpdate(t.Context(), &cache, clashing)
+	g.Expect(err).To(want)
+	clashing.Namespace = "elsewhere"
+	_, err = validator.ValidateCreate(t.Context(), clashing)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 }

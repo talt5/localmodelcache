@@ -34,6 +34,7 @@ import (
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 	"github.com/talt5/localmodelcache/pkg/constants"
+	"github.com/talt5/localmodelcache/pkg/localmodelcache"
 )
 
 var _ = Describe("LocalModelCache claims in namespaces", func() {
@@ -153,11 +154,11 @@ var _ = Describe("LocalModelCache claims in namespaces", func() {
 			}, timeout, interval).Should(BeTrue())
 		}
 		removed(&corev1.PersistentVolumeClaim{}, key)
-		removed(&corev1.PersistentVolume{}, types.NamespacedName{Name: key.Namespace + "." + key.Name})
+		removed(&corev1.PersistentVolume{}, types.NamespacedName{Name: localmodelcache.ClusterCacheVolumeName(key)})
 	}
 	releaseBoth := func(key types.NamespacedName) {
 		release(&corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name}})
-		release(&corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: key.Namespace + "." + key.Name}})
+		release(&corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: localmodelcache.ClusterCacheVolumeName(key)}})
 	}
 
 	BeforeEach(func() {
@@ -178,7 +179,7 @@ var _ = Describe("LocalModelCache claims in namespaces", func() {
 			key := claimKey(cache, namespace, groupA)
 			claim := expectExists(key)
 			Expect(metav1.IsControlledBy(claim, cache)).To(BeTrue())
-			Expect(claim.Spec.VolumeName).To(Equal(namespace + "." + key.Name))
+			Expect(claim.Spec.VolumeName).To(Equal(localmodelcache.ClusterCacheVolumeName(key)))
 			volume := &corev1.PersistentVolume{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: claim.Spec.VolumeName}, volume)).To(Succeed())
 			Expect(metav1.IsControlledBy(volume, cache)).To(BeTrue())
@@ -269,6 +270,10 @@ var _ = Describe("LocalModelCache claims in namespaces", func() {
 			Spec:       v1alpha1.LocalModelNamespaceCacheSpec{SourceModelUri: uri, ModelSize: resource.MustParse("1Gi"), NodeGroups: []string{groupA}},
 		}
 		Expect(k8sClient.Create(ctx, namespaceCache)).To(Succeed())
+		DeferCleanup(func(ctx context.Context) {
+			_ = k8sClient.Delete(ctx, namespaceCache)
+			release(namespaceCache)
+		})
 		taken := expectExists(key)
 
 		cache := newCache(nil, groupA)
@@ -288,7 +293,7 @@ var _ = Describe("LocalModelCache claims in namespaces", func() {
 		Expect(client.IgnoreNotFound(k8sClient.Delete(ctx, taken))).To(Succeed())
 		release(&corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name}})
 		expectClaims(cache, claimKey(cache, one, groupA), claimKey(cache, two, groupA))
-		Expect(expectExists(key).Spec.VolumeName).To(Equal(one + "." + key.Name))
+		Expect(expectExists(key).Spec.VolumeName).To(Equal(localmodelcache.ClusterCacheVolumeName(key)))
 	})
 
 	It("Should leave a namespace that is being deleted alone", func() {

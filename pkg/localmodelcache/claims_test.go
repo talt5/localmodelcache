@@ -22,6 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
@@ -67,4 +69,21 @@ func TestPodMountsClaim(t *testing.T) {
 			assert.Equal(t, tt.want, PodMountsClaim(tt.pod, "llama-gpu"))
 		})
 	}
+}
+
+// Dots and dashes in names must not give two claims the same volume.
+func TestVolumeNamesDoNotClash(t *testing.T) {
+	key := func(namespace, name string) types.NamespacedName {
+		return types.NamespacedName{Namespace: namespace, Name: name}
+	}
+	names := []string{
+		ClusterCacheVolumeName(key("team-a", "qwen3-gpu-x")),
+		ClusterCacheVolumeName(key("x", "team-a.qwen3-gpu")),
+		ClusterCacheVolumeName(key("a", "qwen3-gpu-x-team")),
+		ClusterCacheVolumeName(key("download", "qwen3-gpu")),
+		NamespaceCacheVolumeName(key("x", "team-a.qwen3-gpu")),
+		NamespaceCacheVolumeName(key("team-a", "qwen3-gpu-x")),
+		ClaimName("qwen3", "gpu") + "-download",
+	}
+	assert.Len(t, sets.New(names...), len(names))
 }

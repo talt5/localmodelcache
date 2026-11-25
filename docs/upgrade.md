@@ -6,7 +6,14 @@ Upgrade the CRD chart first, then `localmodelcache`. Caches and their files stay
 
 A `LocalModelCache` now creates claims in the namespaces labelled `local.cache.ai/models: enabled`.
 See [Share a model between namespaces](model-cache.md#share-a-model-between-namespaces). Nothing
-changes until you label a namespace.
+changes for existing caches until you label a namespace.
+
+These are now refused, when a cache is created or gets another node group. Existing caches stay:
+
+- a `LocalModelNamespaceCache` while a PVC it would create exists. Create the cache first, or use
+  another name. With `disableVolumeManagement` your own PVCs are not checked.
+- a cache whose claim name, `<cache>-<node group>`, equals that of another cache of the same kind (and
+  namespace), such as `a` with the group `b-c` and `a-b` with the group `c`.
 
 ## From v0.1 to v0.2
 
