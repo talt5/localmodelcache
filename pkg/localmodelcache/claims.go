@@ -62,8 +62,8 @@ func ClusterCacheVolumeName(claim types.NamespacedName) string {
 	return claim.Name + "-" + claim.Namespace + "-" + hex.EncodeToString(hash[:])[:16]
 }
 
-// SharedClaimName returns a claim name that is in both lists, or "".
-func SharedClaimName(a, b []string) string {
+// SharedName returns a name that is in both lists, or "".
+func SharedName(a, b []string) string {
 	for _, name := range a {
 		if slices.Contains(b, name) {
 			return name
@@ -76,6 +76,32 @@ func SharedClaimName(a, b []string) string {
 // LocalModelNamespaceCache.
 func NamespaceCacheVolumeName(claim types.NamespacedName) string {
 	return claim.Name + "-" + claim.Namespace
+}
+
+// NamespaceCacheVolumeNames returns the PersistentVolumes of a LocalModelNamespaceCache in the
+// namespace with these claims: those that workloads mount and those of its downloads.
+func NamespaceCacheVolumeNames(namespace string, claims []string) []string {
+	volumes := make([]string, 0, 2*len(claims))
+	for _, claim := range claims {
+		volume := NamespaceCacheVolumeName(types.NamespacedName{Namespace: namespace, Name: claim})
+		volumes = append(volumes, volume, DownloadVolumeName(volume))
+	}
+	return volumes
+}
+
+// ClusterCacheDownloadVolumeNames returns the PersistentVolumes of the downloads of a
+// LocalModelCache with these claims.
+func ClusterCacheDownloadVolumeNames(claims []string) []string {
+	volumes := make([]string, 0, len(claims))
+	for _, claim := range claims {
+		volumes = append(volumes, DownloadVolumeName(claim))
+	}
+	return volumes
+}
+
+// DownloadVolumeName returns the PersistentVolume for downloads that belongs to a name.
+func DownloadVolumeName(name string) string {
+	return name + "-download"
 }
 
 // FindPodMountingClaim returns a Pod in the namespace that mounts one of the claims, and that

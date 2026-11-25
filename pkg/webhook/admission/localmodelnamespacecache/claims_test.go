@@ -76,7 +76,8 @@ func TestExistingClaims(t *testing.T) {
 		"of a user":                            {objects: []client.Object{testClaim("default", "")}, wantErr: "default/iris-gpu1 already exists and does not belong to this cache"},
 		"left by another namespace cache":      {objects: []client.Object{ofOther}, wantErr: "does not belong to this cache"},
 		"of a LocalModelCache, terminating":    {objects: []client.Object{terminating}, wantErr: "is being deleted: try again"},
-		"of a LocalModelCache":                 {objects: []client.Object{testClaim("default", clusterVolume)}, wantErr: "default/iris-gpu1 already exists and belongs to LocalModelCache iris"},
+		"of a LocalModelCache":                 {objects: []client.Object{testClaim("default", clusterVolume), &v1alpha1.LocalModelCache{ObjectMeta: metav1.ObjectMeta{Name: "iris"}}}, wantErr: "default/iris-gpu1 already exists and belongs to LocalModelCache iris"},
+		"of a LocalModelCache that is gone":    {objects: []client.Object{testClaim("default", clusterVolume)}, wantErr: "does not belong to this cache: delete it"},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -135,4 +136,37 @@ func TestClaimOfAnotherNamespaceCache(t *testing.T) {
 	clashing.Namespace = "elsewhere"
 	_, err = validator.ValidateCreate(t.Context(), clashing)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+func TestVolumeOfAnotherCache(t *testing.T) {
+	cache := func(namespace, name, group string) *v1alpha1.LocalModelNamespaceCache {
+		c := makeTestLocalModelNamespaceCache()
+		c.Namespace, c.Name, c.Spec.NodeGroups = namespace, name, []string{group}
+		return &c
+	}
+	tests := map[string]struct {
+		other client.Object
+		cache *v1alpha1.LocalModelNamespaceCache
+		want  string
+	}{
+		"group and namespace": {cache("prod-east", "llama", "gpu1"), cache("east", "llama", "gpu1-prod"), "PersistentVolume llama-gpu1-prod-east is that of LocalModelNamespaceCache prod-east/llama"},
+		"download volume":     {cache("x", "llama", "gpu1"), cache("x-download", "llama", "gpu1"), "PersistentVolume llama-gpu1-x-download is that of LocalModelNamespaceCache x/llama"},
+		"cluster cache": {&v1alpha1.LocalModelCache{
+			ObjectMeta: metav1.ObjectMeta{Name: "llama"}, Spec: v1alpha1.LocalModelCacheSpec{NodeGroups: []string{"gpu1"}},
+		}, cache("download", "llama", "gpu1"), "PersistentVolume llama-gpu1-download is that of LocalModelCache llama"},
+		"same names, other namespace": {cache("a", "llama", "gpu1"), cache("b", "llama", "gpu1"), ""},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			group := makeTestLocalModelNodeGroup("gpu1-prod")
+			validator := claimValidator(g, tc.other, &group)
+			_, err := validator.ValidateCreate(t.Context(), tc.cache)
+			if tc.want == "" {
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				return
+			}
+			g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(tc.want)))
+		})
+	}
 }

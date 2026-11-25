@@ -156,7 +156,12 @@ for workloads.
 Deleting the cache, or a change of its selector or node groups, is refused while a running Pod
 mounts a claim that it would delete. Nothing refuses to remove the label of a namespace: its claims
 stay in `Terminating` until the Pods that mount them finish, and new Pods there cannot use them.
-Running Pods keep the files, since the cache still exists.
+Running Pods keep the files, since the cache still exists. A rolling update there waits for a Pod that
+cannot start, so after you restore the label, scale the Deployment to zero and back.
+
+If you delete a volume, or create a claim of the cache yourself and its namespace loses the label, the
+volume can wait in `Terminating` for its claim and the status leaves the claim out. Stop the Pods and
+delete the claim: the controller creates both again.
 
 ### `LocalModelCache` or `LocalModelNamespaceCache`
 

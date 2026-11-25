@@ -144,28 +144,15 @@ func (v *LocalModelNamespaceCacheValidator) ValidateDelete(ctx context.Context, 
 	return nil, v.validateNotInUse(ctx, localModelNamespaceCache, localmodelcache.NamespaceCacheClaimNames(localModelNamespaceCache))
 }
 
-// validateClaimsFree returns an error if one of the claims is that of another
-// LocalModelNamespaceCache, or exists and is not bound to the volume of
-// the cache, so the controller could not offer it. A claim left by an earlier cache of the same
-// name is.
+// validateClaimsFree returns an error if the controller could not offer one of the claims, because
+// another cache has it or its volumes, or because it exists and is not bound to the volume of the
+// cache. A claim left by an earlier cache of the same name is.
 func (v *LocalModelNamespaceCacheValidator) validateClaimsFree(ctx context.Context, cache *v1alpha1.LocalModelNamespaceCache, claims []string) error {
 	if len(claims) == 0 {
 		return nil
 	}
-	// Names such as a with group b-c and a-b with group c give the same claim and volumes.
-	caches := &v1alpha1.LocalModelNamespaceCacheList{}
-	if err := v.reader().List(ctx, caches, client.InNamespace(cache.Namespace)); err != nil {
+	if err := v.validateUniqueVolumes(ctx, cache, claims); err != nil {
 		return err
-	}
-	for i := range caches.Items {
-		other := &caches.Items[i]
-		if other.Name == cache.Name {
-			continue
-		}
-		if name := localmodelcache.SharedClaimName(claims, localmodelcache.NamespaceCacheClaimNames(other)); name != "" {
-			return fmt.Errorf("PersistentVolumeClaim %s/%s is that of LocalModelNamespaceCache %s: use another name for this cache",
-				cache.Namespace, name, other.Name)
-		}
 	}
 	disabled, err := v.volumeManagementDisabled(ctx)
 	if err != nil || disabled {
@@ -185,11 +172,55 @@ func (v *LocalModelNamespaceCacheValidator) validateClaimsFree(ctx context.Conte
 		case volume == localmodelcache.NamespaceCacheVolumeName(key) && (owner == "" || owner == cache.Name):
 		case !claim.DeletionTimestamp.IsZero():
 			return fmt.Errorf("PersistentVolumeClaim %s already exists and is being deleted: try again when it is gone", key)
-		case volume == localmodelcache.ClusterCacheVolumeName(key):
+		case volume == localmodelcache.ClusterCacheVolumeName(key) && v.clusterCacheExists(ctx, owner):
 			return fmt.Errorf("PersistentVolumeClaim %s already exists and belongs to LocalModelCache %s: mount that claim, or use another name for this cache",
 				key, owner)
 		default:
 			return fmt.Errorf("PersistentVolumeClaim %s already exists and does not belong to this cache: delete it, or use another name for this cache", key)
+		}
+	}
+	return nil
+}
+
+// clusterCacheExists chooses the wording of an error, so it needs no certainty.
+func (v *LocalModelNamespaceCacheValidator) clusterCacheExists(ctx context.Context, name string) bool {
+	return v.Get(ctx, types.NamespacedName{Name: name}, &v1alpha1.LocalModelCache{}) == nil
+}
+
+// validateUniqueVolumes denies a cache with a claim or volume that another cache has too. Names of
+// caches, node groups and namespaces can be joined to the same text: cache a with group b-c and
+// cache a-b with group c, or group b in namespace c-d and group b-c in namespace d.
+func (v *LocalModelNamespaceCacheValidator) validateUniqueVolumes(ctx context.Context, cache *v1alpha1.LocalModelNamespaceCache, claims []string) error {
+	volumes := localmodelcache.NamespaceCacheVolumeNames(cache.Namespace, claims)
+	caches := &v1alpha1.LocalModelNamespaceCacheList{}
+	if err := v.reader().List(ctx, caches); err != nil {
+		return err
+	}
+	for i := range caches.Items {
+		other := &caches.Items[i]
+		if other.Namespace == cache.Namespace && other.Name == cache.Name {
+			continue
+		}
+		otherClaims := localmodelcache.NamespaceCacheClaimNames(other)
+		if other.Namespace == cache.Namespace {
+			if name := localmodelcache.SharedName(claims, otherClaims); name != "" {
+				return fmt.Errorf("PersistentVolumeClaim %s/%s is that of LocalModelNamespaceCache %s: use another name for this cache",
+					cache.Namespace, name, other.Name)
+			}
+		}
+		if name := localmodelcache.SharedName(volumes, localmodelcache.NamespaceCacheVolumeNames(other.Namespace, otherClaims)); name != "" {
+			return fmt.Errorf("PersistentVolume %s is that of LocalModelNamespaceCache %s/%s: use another name for this cache",
+				name, other.Namespace, other.Name)
+		}
+	}
+	clusterCaches := &v1alpha1.LocalModelCacheList{}
+	if err := v.reader().List(ctx, clusterCaches); err != nil {
+		return err
+	}
+	for i := range clusterCaches.Items {
+		other := &clusterCaches.Items[i]
+		if name := localmodelcache.SharedName(volumes, localmodelcache.ClusterCacheDownloadVolumeNames(localmodelcache.ClusterCacheClaimNames(other))); name != "" {
+			return fmt.Errorf("PersistentVolume %s is that of LocalModelCache %s: use another name for this cache", name, other.Name)
 		}
 	}
 	return nil

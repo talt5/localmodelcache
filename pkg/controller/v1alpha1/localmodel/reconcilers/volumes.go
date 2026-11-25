@@ -49,6 +49,9 @@ type cacheVolumes struct {
 	// owner is the LocalModelCache or LocalModelNamespaceCache.
 	owner client.Object
 
+	// yields, if set, returns the cache that a missing workload claim is left to, or "".
+	yields func(ctx context.Context, volume string, claim types.NamespacedName) (string, error)
+
 	// kept are the volumes and claims that prune leaves alone.
 	keptVolumes sets.Set[string]
 	keptClaims  sets.Set[types.NamespacedName]
@@ -75,6 +78,17 @@ func (v *cacheVolumes) ensureServing(ctx context.Context, cached client.Reader, 
 	if v.inOrder(ctx, cached, volume, spec, claim) {
 		return nil
 	}
+	if v.yields != nil {
+		other, err := v.yields(ctx, volume, claim)
+		if err != nil {
+			return err
+		}
+		if other != "" {
+			// The volume has no use without the claim.
+			v.keptVolumes.Delete(volume)
+			return fmt.Errorf("PersistentVolumeClaim %s belongs to LocalModelNamespaceCache %s", claim, other)
+		}
+	}
 	return v.ensure(ctx, volume, spec, claim, &nodeGroup.Spec.PersistentVolumeClaimSpec)
 }
 
@@ -89,6 +103,7 @@ func (v *cacheVolumes) inOrder(ctx context.Context, cached client.Reader, name s
 		claim.Spec.VolumeName == name &&
 		ref != nil && ref.Namespace == claimKey.Namespace && ref.Name == claimKey.Name && (ref.UID == "" || ref.UID == claim.UID) &&
 		nodePath(volume.Spec.PersistentVolumeSource) == nodePath(spec.PersistentVolumeSource) &&
+		!v.adoptable(volume) && !v.adoptable(claim) &&
 		!v.mark(volume.DeepCopy()) && (!v.created(claim) || !v.mark(claim.DeepCopy()))
 }
 
@@ -128,8 +143,7 @@ func (v *cacheVolumes) ensure(ctx context.Context, name string, pvSpec *corev1.P
 		}
 		claim.Spec.VolumeName = name
 		v.mark(claim)
-		// Only a claim in the cache's namespace, or of a cluster-scoped cache, can be owned.
-		if ns := v.owner.GetNamespace(); ns == "" || ns == claimKey.Namespace {
+		if v.canOwn(claim) {
 			if err := controllerutil.SetControllerReference(v.owner, claim, v.scheme); err != nil {
 				return err
 			}
@@ -138,18 +152,26 @@ func (v *cacheVolumes) ensure(ctx context.Context, name string, pvSpec *corev1.P
 		if claim, err = claims.Create(ctx, claim, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("create PersistentVolumeClaim %s: %w", claimKey, err)
 		}
-	} else if v.created(claim) && v.mark(claim) {
+	} else if adopted, err := v.adopt(claim); err != nil {
+		return err
+	} else if (v.created(claim) && v.mark(claim)) || adopted {
 		if claim, err = claims.Update(ctx, claim, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("update PersistentVolumeClaim %s: %w", claimKey, err)
 		}
 	}
 
 	// A volume stays tied to the UID of its first claim. Point it at the claim that replaced it.
-	marked := v.mark(volume)
+	changed, err := v.adopt(volume)
+	if err != nil {
+		return err
+	}
+	if v.mark(volume) {
+		changed = true
+	}
 	if ref := volume.Spec.ClaimRef; ref.UID != "" && ref.UID != claim.UID {
 		v.log.Info("Rebind PV to its recreated PVC", "name", name)
 		ref.UID, ref.ResourceVersion = claim.UID, ""
-	} else if !marked {
+	} else if !changed {
 		return nil
 	}
 	if _, err := v.clientset.CoreV1().PersistentVolumes().Update(ctx, volume, metav1.UpdateOptions{}); err != nil {
@@ -172,9 +194,8 @@ func (v *cacheVolumes) ensureVolume(ctx context.Context, name string, spec *core
 		volume = &corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: name}, Spec: *spec.DeepCopy()}
 		volume.Spec.ClaimRef = claimRef
 		v.mark(volume)
-		// A PersistentVolume is cluster-scoped, so a namespaced cache cannot own it. The cache's
-		// finalizer deletes it.
-		if v.owner.GetNamespace() == "" {
+		// The finalizer of a namespaced cache deletes it.
+		if v.canOwn(volume) {
 			if err := controllerutil.SetControllerReference(v.owner, volume, v.scheme); err != nil {
 				return nil, err
 			}
@@ -208,10 +229,32 @@ func (v *cacheVolumes) ensureVolume(ctx context.Context, name string, spec *core
 	return volume, nil
 }
 
+// canOwn reports whether the cache can own the object: a namespaced cache owns only objects of its
+// namespace.
+func (v *cacheVolumes) canOwn(obj client.Object) bool {
+	ns := v.owner.GetNamespace()
+	return ns == "" || ns == obj.GetNamespace()
+}
+
+// adoptable reports whether the object was left by an earlier cache of the same name that was
+// deleted without its dependents. Nothing would ever delete it.
+func (v *cacheVolumes) adoptable(obj client.Object) bool {
+	return v.canOwn(obj) && metav1.GetControllerOf(obj) == nil && cacheOf(obj) == client.ObjectKeyFromObject(v.owner)
+}
+
+// adopt makes the cache the owner of an adoptable object and reports whether it did.
+func (v *cacheVolumes) adopt(obj client.Object) (bool, error) {
+	if !v.adoptable(obj) {
+		return false, nil
+	}
+	v.log.Info("Adopt the object of an earlier cache", "name", obj.GetName(), "namespace", obj.GetNamespace())
+	return true, controllerutil.SetControllerReference(v.owner, obj, v.scheme)
+}
+
 // created reports whether an existing claim was created for the cache, rather than by a user who
 // bound a claim of the same name to the volume.
 func (v *cacheVolumes) created(claim *corev1.PersistentVolumeClaim) bool {
-	if ns := v.owner.GetNamespace(); ns != "" && ns != claim.Namespace {
+	if !v.canOwn(claim) {
 		return true // In the job namespace, where the cache cannot own it.
 	}
 	return metav1.IsControlledBy(claim, v.owner)
@@ -247,15 +290,20 @@ func (v *cacheVolumes) mark(obj client.Object) bool {
 	return changed
 }
 
-// prune deletes the cache's volumes and claims that were not kept.
+// prune deletes the cache's volumes and claims that were not kept, and those it would adopt.
 func (v *cacheVolumes) prune(ctx context.Context, reader client.Reader) error {
-	volumes, claims, err := listVolumes(ctx, reader, client.MatchingLabels{constants.LocalModelUIDLabelKey: string(v.owner.GetUID())})
+	volumes, claims, err := listVolumes(ctx, reader, client.HasLabels{constants.LocalModelUIDLabelKey})
 	if err != nil {
 		return err
 	}
-	volumes = slices.DeleteFunc(volumes, func(volume corev1.PersistentVolume) bool { return v.keptVolumes.Has(volume.Name) })
+	ours := func(obj client.Object) bool {
+		return obj.GetLabels()[constants.LocalModelUIDLabelKey] == string(v.owner.GetUID()) || v.adoptable(obj)
+	}
+	volumes = slices.DeleteFunc(volumes, func(volume corev1.PersistentVolume) bool {
+		return !ours(&volume) || v.keptVolumes.Has(volume.Name)
+	})
 	claims = slices.DeleteFunc(claims, func(claim corev1.PersistentVolumeClaim) bool {
-		return v.keptClaims.Has(client.ObjectKeyFromObject(&claim))
+		return !ours(&claim) || v.keptClaims.Has(client.ObjectKeyFromObject(&claim))
 	})
 	return deleteVolumes(ctx, v.clientset, v.log, volumes, claims)
 }

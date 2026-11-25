@@ -45,6 +45,7 @@ import (
 // LocalModelReconciler reconciles cluster-scoped LocalModelCache resources
 type LocalModelReconciler struct {
 	client.Client
+	APIReader client.Reader
 	Clientset *kubernetes.Clientset
 	Log       logr.Logger
 	Scheme    *runtime.Scheme
@@ -95,6 +96,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	var errs []error
 	volumes := newCacheVolumes(c.Clientset, c.Scheme, c.Log, localModel)
+	volumes.yields = c.yieldClaim
 	for _, name := range localModel.Spec.NodeGroups {
 		volumes.keep(clusterVolumeNames(localModel, name, localModelConfig))
 		for i := range namespaces {
@@ -117,11 +119,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			}
 			for j := range nodeGroups {
 				pvName, claim := clusterServingVolumeNames(localModel, nodeGroups[j].Name, namespaces[i].Name)
-				err := c.yieldClaim(ctx, pvName, claim)
-				if err == nil {
-					err = volumes.ensureServing(ctx, c.Client, &nodeGroups[j], subPath, pvName, claim)
-				}
-				if err != nil {
+				if err := volumes.ensureServing(ctx, c.Client, &nodeGroups[j], subPath, pvName, claim); err != nil {
 					errs = append(errs, err)
 					continue
 				}
@@ -129,6 +127,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			}
 		}
 		slices.Sort(claims)
+		claims = slices.Compact(claims) // A node group can be listed twice.
 	}
 	errs = append(errs,
 		volumes.prune(ctx, c.Client),
@@ -159,33 +158,33 @@ func clusterServingVolumeNames(localModel *v1alpha1.LocalModelCache, nodeGroup, 
 	return localmodelcache.ClusterCacheVolumeName(claim), claim
 }
 
-// yieldClaim returns an error if a claim that the cache does not have yet is that of a
-// LocalModelNamespaceCache. When a user deletes such a claim, it must not come back with another
-// model.
-func (c *LocalModelReconciler) yieldClaim(ctx context.Context, volume string, key types.NamespacedName) error {
+// yieldClaim returns the LocalModelNamespaceCache that names a claim which the cache does not have,
+// or "". When a user deletes the claim of that cache, it must not come back with another model.
+func (c *LocalModelReconciler) yieldClaim(ctx context.Context, volume string, key types.NamespacedName) (string, error) {
 	claim := &corev1.PersistentVolumeClaim{}
-	if err := c.Get(ctx, key, claim); client.IgnoreNotFound(err) != nil {
-		return err
-	} else if err == nil && claim.Spec.VolumeName == volume {
-		return nil
+	// The informer may still show a claim that is gone.
+	if err := c.APIReader.Get(ctx, key, claim); client.IgnoreNotFound(err) != nil {
+		return "", err
+	} else if err == nil && claim.DeletionTimestamp.IsZero() && claim.Spec.VolumeName == volume {
+		return "", nil
 	}
 	caches := &v1alpha1.LocalModelNamespaceCacheList{}
 	if err := c.List(ctx, caches, client.InNamespace(key.Namespace)); err != nil {
-		return err
+		return "", err
 	}
 	for i := range caches.Items {
 		cache := &caches.Items[i]
 		if cache.DeletionTimestamp.IsZero() && slices.Contains(localmodelcache.NamespaceCacheClaimNames(cache), key.Name) {
-			return fmt.Errorf("PersistentVolumeClaim %s belongs to LocalModelNamespaceCache %s", key, cache.Name)
+			return cache.Name, nil
 		}
 	}
-	return nil
+	return "", nil
 }
 
 // clusterVolumeNames returns the PV and the PVC that download Jobs mount for a node group.
 func clusterVolumeNames(localModel *v1alpha1.LocalModelCache, nodeGroup string, config *localmodelcache.LocalModelConfig) (string, types.NamespacedName) {
 	name := localmodelcache.ClaimName(localModel.Name, nodeGroup)
-	return name + "-download", types.NamespacedName{Namespace: config.JobNamespace, Name: name}
+	return localmodelcache.DownloadVolumeName(name), types.NamespacedName{Namespace: config.JobNamespace, Name: name}
 }
 
 // nodeFunc reconciles the caches whose status a change to the node can affect.
@@ -231,7 +230,7 @@ func (c *LocalModelReconciler) deletedClaimFunc(ctx context.Context, obj client.
 func (c *LocalModelReconciler) namespaceCacheFunc(ctx context.Context, obj client.Object) []reconcile.Request {
 	names := localmodelcache.NamespaceCacheClaimNames(obj.(*v1alpha1.LocalModelNamespaceCache))
 	return c.requestsFor(ctx, func(model *v1alpha1.LocalModelCache) bool {
-		return localmodelcache.SharedClaimName(localmodelcache.ClusterCacheClaimNames(model), names) != ""
+		return localmodelcache.SharedName(localmodelcache.ClusterCacheClaimNames(model), names) != ""
 	})
 }
 
@@ -268,6 +267,9 @@ func (c *LocalModelReconciler) localmodelNodeFunc(ctx context.Context, obj clien
 }
 
 func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if c.APIReader == nil {
+		c.APIReader = mgr.GetAPIReader()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.LocalModelCache{}).
 		Owns(&corev1.PersistentVolume{}).

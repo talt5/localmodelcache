@@ -45,10 +45,12 @@ func newLocalModelReconciler(t *testing.T, objects ...client.Object) *LocalModel
 	if err := corev1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
 	return &LocalModelReconciler{
-		Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build(),
-		Log:    logr.Discard(),
-		Scheme: scheme,
+		Client:    fakeClient,
+		APIReader: fakeClient,
+		Log:       logr.Discard(),
+		Scheme:    scheme,
 	}
 }
 
@@ -176,6 +178,9 @@ func TestYieldClaim(t *testing.T) {
 			Spec:       corev1.PersistentVolumeClaimSpec{VolumeName: volume},
 		}
 	}
+	terminating := claim(localmodelcache.ClusterCacheVolumeName(key))
+	terminating.Finalizers = []string{"kubernetes.io/pvc-protection"}
+	terminating.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
 	for name, tc := range map[string]struct {
 		objects []client.Object
 		yields  bool
@@ -184,12 +189,13 @@ func TestYieldClaim(t *testing.T) {
 		"other namespace":         {[]client.Object{elsewhere}, false},
 		"cache is being deleted":  {[]client.Object{deleted}, false},
 		"claim is already ours":   {[]client.Object{cache, claim(localmodelcache.ClusterCacheVolumeName(key))}, false},
+		"claim is terminating":    {[]client.Object{cache, terminating}, true},
 		"claim was deleted":       {[]client.Object{cache}, true},
 		"claim is of other cache": {[]client.Object{cache, claim("one-gpu-team-a")}, true},
 	} {
-		err := newLocalModelReconciler(t, tc.objects...).yieldClaim(t.Context(), localmodelcache.ClusterCacheVolumeName(key), key)
-		if (err != nil) != tc.yields {
-			t.Errorf("%s: yieldClaim() = %v, want error %v", name, err, tc.yields)
+		other, err := newLocalModelReconciler(t, tc.objects...).yieldClaim(t.Context(), localmodelcache.ClusterCacheVolumeName(key), key)
+		if err != nil || (other != "") != tc.yields {
+			t.Errorf("%s: yieldClaim() = %q, %v, want to yield %v", name, other, err, tc.yields)
 		}
 	}
 }

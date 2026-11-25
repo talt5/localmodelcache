@@ -296,6 +296,78 @@ var _ = Describe("LocalModelCache claims in namespaces", func() {
 		Expect(expectExists(key).Spec.VolumeName).To(Equal(localmodelcache.ClusterCacheVolumeName(key)))
 	})
 
+	It("Should adopt what a cache of the same name left", func() {
+		one, two := newNamespace("one", true), newNamespace("two", true)
+		cache := newCache(nil, groupA)
+		keys := []types.NamespacedName{claimKey(cache, one, groupA), claimKey(cache, two, groupA)}
+		expectClaims(cache, keys...)
+		// As kubectl delete --cascade=orphan does. Without a garbage collector nothing else would.
+		Expect(k8sClient.Delete(ctx, cache)).To(Succeed())
+		for _, key := range keys {
+			for _, obj := range []client.Object{
+				&corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name}},
+				&corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: localmodelcache.ClusterCacheVolumeName(key)}},
+			} {
+				Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj); err != nil {
+						return err
+					}
+					obj.SetOwnerReferences(nil)
+					return k8sClient.Update(ctx, obj)
+				})).To(Succeed())
+			}
+		}
+		// The new cache selects only one of the namespaces.
+		recreated := newCache(names(one), groupA)
+		expectClaims(recreated, keys[0])
+		Eventually(func(g Gomega) {
+			claim, volume := &corev1.PersistentVolumeClaim{}, &corev1.PersistentVolume{}
+			g.Expect(k8sClient.Get(ctx, keys[0], claim)).To(Succeed())
+			g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: localmodelcache.ClusterCacheVolumeName(keys[0])}, volume)).To(Succeed())
+			for _, obj := range []client.Object{claim, volume} {
+				g.Expect(metav1.IsControlledBy(obj, recreated)).To(BeTrue())
+				g.Expect(obj.GetLabels()).To(HaveKeyWithValue(constants.LocalModelUIDLabelKey, string(recreated.UID)))
+			}
+		}, timeout, interval).Should(Succeed())
+		expectRemoved(keys[1])
+	})
+
+	It("Should yield a deleted claim and drop its volume", func() {
+		one := newNamespace("one", true)
+		cache := newCache(nil, groupA)
+		key := claimKey(cache, one, groupA)
+		expectClaims(cache, key)
+		namespaceCache := &v1alpha1.LocalModelNamespaceCache{
+			ObjectMeta: metav1.ObjectMeta{Namespace: one, Name: cache.Name},
+			Spec:       v1alpha1.LocalModelNamespaceCacheSpec{SourceModelUri: uri, ModelSize: resource.MustParse("1Gi"), NodeGroups: []string{groupA}},
+		}
+		Expect(k8sClient.Create(ctx, namespaceCache)).To(Succeed())
+		DeferCleanup(func(ctx context.Context) {
+			_ = k8sClient.Delete(ctx, namespaceCache)
+			release(namespaceCache)
+		})
+		// Let the informers see the namespace cache.
+		Consistently(func() string { return expectExists(key).Spec.VolumeName }, time.Second, interval).
+			Should(Equal(localmodelcache.ClusterCacheVolumeName(key)))
+
+		Expect(k8sClient.Delete(ctx, expectExists(key))).To(Succeed())
+		release(&corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name}})
+		Eventually(func() string { return expectExists(key).Spec.VolumeName }, timeout, interval).
+			Should(Equal(localmodelcache.NamespaceCacheVolumeName(key)))
+		expectClaims(cache)
+		Eventually(func() bool {
+			volume := &corev1.PersistentVolume{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: localmodelcache.ClusterCacheVolumeName(key)}, volume)
+			return apierr.IsNotFound(err) || (err == nil && !volume.DeletionTimestamp.IsZero())
+		}, timeout, interval).Should(BeTrue())
+	})
+
+	It("Should list the claim of a repeated node group once", func() {
+		one := newNamespace("one", true)
+		cache := newCache(nil, groupA, groupA)
+		expectClaims(cache, claimKey(cache, one, groupA))
+	})
+
 	It("Should leave a namespace that is being deleted alone", func() {
 		one := newNamespace("one", true)
 		cache := newCache(nil, groupA)

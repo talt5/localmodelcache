@@ -153,8 +153,19 @@ func (v *LocalModelCacheValidator) validateUniqueClaims(ctx context.Context, cac
 		if other.Name == cache.Name {
 			continue
 		}
-		if name := localmodelcache.SharedClaimName(claims, localmodelcache.ClusterCacheClaimNames(other)); name != "" {
+		if name := localmodelcache.SharedName(claims, localmodelcache.ClusterCacheClaimNames(other)); name != "" {
 			return fmt.Errorf("PersistentVolumeClaim %s is that of LocalModelCache %s: use another name for this cache", name, other.Name)
+		}
+	}
+	namespaceCaches := &v1alpha1.LocalModelNamespaceCacheList{}
+	if err := v.reader().List(ctx, namespaceCaches); err != nil {
+		return err
+	}
+	for i := range namespaceCaches.Items {
+		other := &namespaceCaches.Items[i]
+		volumes := localmodelcache.NamespaceCacheVolumeNames(other.Namespace, localmodelcache.NamespaceCacheClaimNames(other))
+		if name := localmodelcache.SharedName(localmodelcache.ClusterCacheDownloadVolumeNames(claims), volumes); name != "" {
+			return fmt.Errorf("PersistentVolume %s is that of LocalModelNamespaceCache %s/%s: use another name for this cache", name, other.Namespace, other.Name)
 		}
 	}
 	return nil
@@ -228,15 +239,27 @@ func (v *LocalModelCacheValidator) validateNotInUse(ctx context.Context, cache *
 	group.SetLimit(maxConcurrentPodLists)
 	for namespace, names := range claims {
 		group.Go(func() error {
-			pod, claim, err := localmodelcache.FindPodMountingClaim(ctx, v.reader(), namespace, names)
-			if err != nil {
-				return fmt.Errorf("list Pods in namespace %s: %w", namespace, err)
+			for {
+				pod, name, err := localmodelcache.FindPodMountingClaim(ctx, v.reader(), namespace, names)
+				if err != nil {
+					return fmt.Errorf("list Pods in namespace %s: %w", namespace, err)
+				}
+				if pod == nil {
+					return nil
+				}
+				// The claim may be that of something else. The volume of the cache then has no claim.
+				key := types.NamespacedName{Namespace: namespace, Name: name}
+				claim := &corev1.PersistentVolumeClaim{}
+				err = v.reader().Get(ctx, key, claim)
+				if client.IgnoreNotFound(err) != nil {
+					return err
+				}
+				if volume := claim.Spec.VolumeName; err != nil || volume == "" || volume == localmodelcache.ClusterCacheVolumeName(key) {
+					return fmt.Errorf("LocalModelCache %s is in use: Pod %s/%s mounts PersistentVolumeClaim %s. Delete the workload first",
+						cache.Name, namespace, pod.Name, name)
+				}
+				names = slices.DeleteFunc(names, func(other string) bool { return other == name })
 			}
-			if pod != nil {
-				return fmt.Errorf("LocalModelCache %s is in use: Pod %s/%s mounts PersistentVolumeClaim %s. Delete the workload first",
-					cache.Name, namespace, pod.Name, claim)
-			}
-			return nil
 		})
 	}
 	return group.Wait()

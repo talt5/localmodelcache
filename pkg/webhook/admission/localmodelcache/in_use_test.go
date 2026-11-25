@@ -68,7 +68,15 @@ func TestClaimsInUse(t *testing.T) {
 	terminating.Finalizers = []string{"kubernetes.io/pv-protection"}
 	terminating.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
 
+	foreign := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "iris-gpu1"},
+		Spec:       corev1.PersistentVolumeClaimSpec{VolumeName: "iris-gpu1-team-a"},
+	}
+	own := foreign.DeepCopy()
+	own.Spec.VolumeName = servingVolume
+
 	tests := map[string]struct {
+		claim        *corev1.PersistentVolumeClaim
 		pod          *corev1.Pod
 		volume       *corev1.PersistentVolume // team-a's by default
 		unlabelled   bool
@@ -84,6 +92,8 @@ func TestClaimsInUse(t *testing.T) {
 			volume: testVolume("iris-gpu1-download", "jobs", "iris-gpu1"),
 			change: func(s *v1alpha1.LocalModelCacheSpec) { s.NodeGroups = []string{"gpu2"} }, wantUpdateOK: true,
 		},
+		"claim of another cache":          {pod: running, claim: foreign, change: func(s *v1alpha1.LocalModelCacheSpec) { s.NodeGroups = []string{"gpu2"} }, wantUpdateOK: true},
+		"claim of the cache":              {pod: running, claim: own, change: func(s *v1alpha1.LocalModelCacheSpec) { s.NodeGroups = []string{"gpu2"} }, wantDenied: true},
 		"selector drops namespace":        {pod: running, change: func(s *v1alpha1.LocalModelCacheSpec) { s.NamespaceSelector = named("team-b") }, wantDenied: true},
 		"selector keeps namespace":        {pod: running, change: func(s *v1alpha1.LocalModelCacheSpec) { s.NamespaceSelector = named("team-a") }, wantDenied: true, wantUpdateOK: true},
 		"empty selector keeps it":         {pod: running, change: func(s *v1alpha1.LocalModelCacheSpec) { s.NamespaceSelector = &metav1.LabelSelector{} }, wantDenied: true, wantUpdateOK: true},
@@ -110,6 +120,9 @@ func TestClaimsInUse(t *testing.T) {
 				tc.volume = testVolume(servingVolume, "team-a", "iris-gpu1")
 			}
 			objects = append(objects, tc.volume.DeepCopy())
+			if tc.claim != nil {
+				objects = append(objects, tc.claim.DeepCopy())
+			}
 			if tc.pod != nil {
 				objects = append(objects, tc.pod.DeepCopy())
 			}
@@ -198,4 +211,18 @@ func TestClaimOfAnotherLocalModelCache(t *testing.T) {
 	} {
 		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("PersistentVolumeClaim iris-gpu-large is that of LocalModelCache iris-gpu")))
 	}
+}
+
+func TestDownloadVolumeOfANamespaceCache(t *testing.T) {
+	g := gomega.NewWithT(t)
+	scheme := runtime.NewScheme()
+	g.Expect(v1alpha1.AddToScheme(scheme)).To(gomega.Succeed())
+	other := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "download", Name: "iris"},
+		Spec:       v1alpha1.LocalModelNamespaceCacheSpec{NodeGroups: []string{"gpu1"}},
+	}
+	validator := LocalModelCacheValidator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(other).Build()}
+	cache := makeTestLocalModelCache()
+	_, err := validator.ValidateCreate(t.Context(), &cache)
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("PersistentVolume iris-gpu1-download is that of LocalModelNamespaceCache download/iris")))
 }

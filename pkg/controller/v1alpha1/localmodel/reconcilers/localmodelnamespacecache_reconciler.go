@@ -122,7 +122,9 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 				errs = append(errs, err)
 				continue
 			}
-			claims = append(claims, claim.Name)
+			if !slices.Contains(claims, claim.Name) { // A node group can be listed twice.
+				claims = append(claims, claim.Name)
+			}
 		}
 	}
 	errs = append(errs,
@@ -179,7 +181,8 @@ func servingVolumeNames(localModel *v1alpha1.LocalModelNamespaceCache, nodeGroup
 
 // namespaceDownloadVolumeNames returns the PV and the PVC that download Jobs mount for a node group.
 func namespaceDownloadVolumeNames(localModel *v1alpha1.LocalModelNamespaceCache, nodeGroup string, config *localmodelcache.LocalModelConfig) (string, types.NamespacedName) {
-	name := localModel.Name + "-" + nodeGroup + "-" + localModel.Namespace + "-download"
+	volume, _ := servingVolumeNames(localModel, nodeGroup)
+	name := localmodelcache.DownloadVolumeName(volume)
 	return name, types.NamespacedName{Namespace: config.JobNamespace, Name: name}
 }
 
