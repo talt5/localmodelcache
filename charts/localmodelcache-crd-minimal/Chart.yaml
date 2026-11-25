@@ -1,7 +1,7 @@
 apiVersion: v2
 name: localmodelcache-crd-minimal
-version: v0.2.1
-appVersion: v0.2.1
+version: v0.3.0
+appVersion: v0.3.0
 description: Helm chart for deploying LocalModel CRDs (minimal version)
 type: application
 keywords:
