@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"slices"
 
-	corev1 "k8s.io/api/core/v1"
 	apivalidation "k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -134,22 +133,14 @@ func (v *LocalModelNamespaceCacheValidator) ValidateDelete(ctx context.Context, 
 
 // validateNotInUse returns an error while a Pod in the cache's namespace mounts one of the claims.
 func (v *LocalModelNamespaceCacheValidator) validateNotInUse(ctx context.Context, cache *v1alpha1.LocalModelNamespaceCache, claims []string) error {
-	if len(claims) == 0 {
-		return nil
-	}
-	pods := &corev1.PodList{}
-	if err := v.reader().List(ctx, pods, client.InNamespace(cache.Namespace)); err != nil {
+	pod, claim, err := localmodelcache.FindPodMountingClaim(ctx, v.reader(), cache.Namespace, claims)
+	if err != nil {
 		localModelNamespaceCacheValidatorLogger.Error(err, "Unable to list Pods", "namespace", cache.Namespace)
 		return err
 	}
-	for i := range pods.Items {
-		pod := &pods.Items[i]
-		for _, claim := range claims {
-			if localmodelcache.PodMountsClaim(pod, claim) {
-				return fmt.Errorf("LocalModelNamespaceCache %s/%s is in use: Pod %s mounts PersistentVolumeClaim %s. Delete the workload first",
-					cache.Namespace, cache.Name, pod.Name, claim)
-			}
-		}
+	if pod != nil {
+		return fmt.Errorf("LocalModelNamespaceCache %s/%s is in use: Pod %s mounts PersistentVolumeClaim %s. Delete the workload first",
+			cache.Namespace, cache.Name, pod.Name, claim)
 	}
 	return nil
 }

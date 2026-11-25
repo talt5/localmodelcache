@@ -23,6 +23,7 @@ limitations under the License.
 // +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnamespacecaches/finalizers,verbs=update
 // +kubebuilder:rbac:groups=local.cache.ai,resources=localmodelnodes,verbs=get;list;watch;create;patch;delete
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get
+// +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete

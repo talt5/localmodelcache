@@ -29,15 +29,15 @@ type LocalModelCacheStatus struct {
 	// +optional
 	ModelCopies *ModelCopies `json:"copies,omitempty"`
 	// SubPath is the directory, relative to the root of the cache's volume, that holds the
-	// model files: models/<storage key>. Mount it with volumeMounts[].subPath. It is empty for
-	// a node-local LocalModelNamespaceCache whose claims the controller creates, since the root
-	// of each claim already is that directory.
+	// model files: models/<storage key>. Mount it with volumeMounts[].subPath from a volume of
+	// your own or from spec.pvcRef. The root of each claim that the controller creates already is
+	// that directory, so a node-local LocalModelNamespaceCache with such claims leaves it empty.
 	// +optional
 	SubPath string `json:"subPath,omitempty"`
-	// PersistentVolumeClaims lists the claims in the cache's namespace that expose the model to
-	// workloads: <cache>-<node group> for each node group of a node-local
-	// LocalModelNamespaceCache, or spec.pvcRef in shared-PVC mode. It is empty for a
-	// cluster-scoped LocalModelCache, which only pre-loads the nodes.
+	// PersistentVolumeClaims lists the claims that expose the model to workloads. For a
+	// LocalModelNamespaceCache they are in its namespace: <cache>-<node group> for each node
+	// group, or spec.pvcRef in shared-PVC mode. For a LocalModelCache they are written as
+	// <namespace>/<cache>-<node group>, for each namespace it selects.
 	// +optional
 	PersistentVolumeClaims []string `json:"persistentVolumeClaims,omitempty"`
 

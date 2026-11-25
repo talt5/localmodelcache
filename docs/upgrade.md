@@ -1,5 +1,13 @@
 # Upgrade
 
+## From v0.2 to v0.3
+
+Upgrade the CRD chart first, then `localmodelcache`. Caches and their files stay.
+
+A `LocalModelCache` now creates claims in the namespaces labelled `local.cache.ai/models: enabled`.
+See [Share a model between namespaces](model-cache.md#share-a-model-between-namespaces). Nothing
+changes until you label a namespace.
+
 ## From v0.1 to v0.2
 
 Nothing upgrades in place: v0.2 changes the API group, namespaces and every object name. Helm

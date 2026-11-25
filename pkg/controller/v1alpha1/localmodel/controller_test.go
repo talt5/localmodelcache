@@ -161,7 +161,7 @@ var _ = Describe("CachedModel controller", func() {
 				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
 				return err == nil && cachedModel.Status.ModelCopies != nil
 			}, timeout, interval).Should(BeTrue())
-			// A cluster-scoped cache reports where the files are, but exposes no claims.
+			// No namespace has the default label, so there are no claims for workloads.
 			Expect(cachedModel.Status.SubPath).To(Equal(v1alpha1.GetStorageSubPath(sourceModelUri, nil)))
 			Expect(cachedModel.Status.PersistentVolumeClaims).To(BeEmpty())
 

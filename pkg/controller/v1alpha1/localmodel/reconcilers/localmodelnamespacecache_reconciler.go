@@ -111,14 +111,20 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 
 	// The root of the claims that workloads mount is the model's folder. Users who manage the
 	// volumes themselves need its path instead.
+	storageSubPath := v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri, localModel.Spec.Storage)
 	var claims []string
 	var subPath string
 	if localModelConfig.DisableVolumeManagement {
-		subPath = v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri, localModel.Spec.Storage)
+		subPath = storageSubPath
 	} else {
-		var servingErr error
-		claims, servingErr = ensureServingVolumes(ctx, volumes, localModel, nodeGroups)
-		errs = append(errs, servingErr)
+		for i := range nodeGroups {
+			pvName, claim := servingVolumeNames(localModel, nodeGroups[i].Name)
+			if err := volumes.ensureServing(ctx, c.Client, &nodeGroups[i], storageSubPath, pvName, claim); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			claims = append(claims, claim.Name)
+		}
 	}
 	errs = append(errs,
 		volumes.prune(ctx, c.Client),
@@ -166,28 +172,9 @@ func (c *LocalModelNamespaceCacheReconciler) finalizeNodeLocal(ctx context.Conte
 	return client.IgnoreNotFound(c.Patch(ctx, localModel, patch))
 }
 
-// ensureServingVolumes creates the PV and PVC that workloads mount for each node group and
-// returns the claims. A claim that cannot be offered is left out, with an error.
-func ensureServingVolumes(ctx context.Context, volumes *cacheVolumes, localModel *v1alpha1.LocalModelNamespaceCache, nodeGroups []v1alpha1.LocalModelNodeGroup) ([]string, error) {
-	var claims []string
-	var errs []error
-	for i := range nodeGroups {
-		spec, err := servingVolumeSpec(&nodeGroups[i], v1alpha1.GetStorageSubPath(localModel.Spec.SourceModelUri, localModel.Spec.Storage))
-		if err == nil {
-			pvName, claim := servingVolumeNames(localModel, nodeGroups[i].Name)
-			if err = volumes.ensure(ctx, pvName, spec, claim, &nodeGroups[i].Spec.PersistentVolumeClaimSpec); err == nil {
-				claims = append(claims, claim.Name)
-				continue
-			}
-		}
-		errs = append(errs, err)
-	}
-	return claims, errors.Join(errs...)
-}
-
 // servingVolumeNames returns the PV and the PVC that workloads mount for a node group.
 func servingVolumeNames(localModel *v1alpha1.LocalModelNamespaceCache, nodeGroup string) (string, types.NamespacedName) {
-	claim := types.NamespacedName{Namespace: localModel.Namespace, Name: localModel.Name + "-" + nodeGroup}
+	claim := types.NamespacedName{Namespace: localModel.Namespace, Name: localmodelcache.ClaimName(localModel.Name, nodeGroup)}
 	return claim.Name + "-" + claim.Namespace, claim
 }
 

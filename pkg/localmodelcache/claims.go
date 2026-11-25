@@ -17,20 +17,64 @@ limitations under the License.
 package localmodelcache
 
 import (
+	"context"
+
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 )
 
+// ClaimName returns the PersistentVolumeClaim that exposes a cache on a node group to workloads.
+func ClaimName(cache, nodeGroup string) string {
+	return cache + "-" + nodeGroup
+}
+
 // NamespaceCacheClaimNames returns the PersistentVolumeClaims that expose a node-local
-// LocalModelNamespaceCache to the workloads in its namespace: <cache>-<node group> for each
-// node group, in spec order.
+// LocalModelNamespaceCache to the workloads in its namespace, in the order of its node groups.
 func NamespaceCacheClaimNames(cache *v1alpha1.LocalModelNamespaceCache) []string {
-	claims := make([]string, 0, len(cache.Spec.NodeGroups))
-	for _, nodeGroupName := range cache.Spec.NodeGroups {
-		claims = append(claims, cache.Name+"-"+nodeGroupName)
+	return claimNames(cache.Name, cache.Spec.NodeGroups)
+}
+
+// ClusterCacheClaimNames returns the PersistentVolumeClaims that expose a LocalModelCache in each
+// namespace it selects, in the order of its node groups.
+func ClusterCacheClaimNames(cache *v1alpha1.LocalModelCache) []string {
+	return claimNames(cache.Name, cache.Spec.NodeGroups)
+}
+
+func claimNames(cache string, nodeGroups []string) []string {
+	claims := make([]string, 0, len(nodeGroups))
+	for _, nodeGroup := range nodeGroups {
+		claims = append(claims, ClaimName(cache, nodeGroup))
 	}
 	return claims
+}
+
+// ClusterCacheVolumeName returns the PersistentVolume behind a claim of a LocalModelCache. It is
+// never that of a LocalModelNamespaceCache, or two caches of the same name would fight over it.
+func ClusterCacheVolumeName(claim types.NamespacedName) string {
+	return claim.Namespace + "." + claim.Name
+}
+
+// FindPodMountingClaim returns a Pod in the namespace that mounts one of the claims, and that
+// claim, or nil.
+func FindPodMountingClaim(ctx context.Context, reader client.Reader, namespace string, claims []string) (*corev1.Pod, string, error) {
+	if len(claims) == 0 {
+		return nil, "", nil
+	}
+	pods := &corev1.PodList{}
+	if err := reader.List(ctx, pods, client.InNamespace(namespace)); err != nil {
+		return nil, "", err
+	}
+	for i := range pods.Items {
+		for _, claim := range claims {
+			if PodMountsClaim(&pods.Items[i], claim) {
+				return &pods.Items[i], claim, nil
+			}
+		}
+	}
+	return nil, "", nil
 }
 
 // PodMountsClaim reports whether pod references claimName and may still read it. The rule is

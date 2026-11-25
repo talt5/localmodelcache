@@ -65,6 +65,33 @@ func newCacheVolumes(clientset kubernetes.Interface, scheme *runtime.Scheme, log
 	}
 }
 
+// ensureServing creates the volume and the claim that workloads mount for a node group. It makes no
+// API calls when they are in order, since a cache can have claims in many namespaces.
+func (v *cacheVolumes) ensureServing(ctx context.Context, cached client.Reader, nodeGroup *v1alpha1.LocalModelNodeGroup, subPath, volume string, claim types.NamespacedName) error {
+	spec, err := servingVolumeSpec(nodeGroup, subPath)
+	if err != nil {
+		return err
+	}
+	if v.inOrder(ctx, cached, volume, spec, claim) {
+		return nil
+	}
+	return v.ensure(ctx, volume, spec, claim, &nodeGroup.Spec.PersistentVolumeClaimSpec)
+}
+
+// inOrder reports whether ensure would change nothing and succeed.
+func (v *cacheVolumes) inOrder(ctx context.Context, cached client.Reader, name string, spec *corev1.PersistentVolumeSpec, claimKey types.NamespacedName) bool {
+	claim, volume := &corev1.PersistentVolumeClaim{}, &corev1.PersistentVolume{}
+	if cached.Get(ctx, claimKey, claim) != nil || cached.Get(ctx, types.NamespacedName{Name: name}, volume) != nil {
+		return false
+	}
+	ref := volume.Spec.ClaimRef
+	return claim.DeletionTimestamp.IsZero() && volume.DeletionTimestamp.IsZero() &&
+		claim.Spec.VolumeName == name &&
+		ref != nil && ref.Namespace == claimKey.Namespace && ref.Name == claimKey.Name && (ref.UID == "" || ref.UID == claim.UID) &&
+		nodePath(volume.Spec.PersistentVolumeSource) == nodePath(spec.PersistentVolumeSource) &&
+		!v.mark(volume.DeepCopy()) && (!v.created(claim) || !v.mark(claim.DeepCopy()))
+}
+
 // keep records a volume and its claim as part of the cache's spec.
 func (v *cacheVolumes) keep(volume string, claim types.NamespacedName) {
 	v.keptVolumes.Insert(volume)

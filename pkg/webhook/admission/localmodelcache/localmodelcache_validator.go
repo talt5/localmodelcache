@@ -19,12 +19,19 @@ package localmodelcache
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
 	"github.com/talt5/localmodelcache/pkg/localmodelcache"
 )
 
@@ -40,7 +47,7 @@ var localModelCacheValidatorLogger = logf.Log.WithName("localmodelcache-v1alpha1
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type LocalModelCacheValidator struct {
 	client.Client
-	// Reader lists caches for the storage limit. Set it to the manager's APIReader.
+	// Reader lists caches for the storage limit, and volumes and Pods for the in-use checks. Set it to the manager's APIReader.
 	Reader client.Reader
 }
 
@@ -51,6 +58,9 @@ var _ admission.Validator[*v1alpha1.LocalModelCache] = &LocalModelCacheValidator
 func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, localModelCache *v1alpha1.LocalModelCache) (admission.Warnings, error) {
 	localModelCacheValidatorLogger.Info("validate create", "name", localModelCache.Name)
 	if err := localmodelcache.ValidateModelSize(nil, localModelCache.Spec.ModelSize); err != nil {
+		return nil, err
+	}
+	if err := validateNamespaceSelector(localModelCache); err != nil {
 		return nil, err
 	}
 	localModelCacheWithSameStorageURI, err := v.validateUniqueStorageURI(ctx, localModelCache)
@@ -76,6 +86,9 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldCache,
 	if err := localmodelcache.ValidateStorageParameters(oldCache.Spec.Storage, localModelCache.Spec.Storage); err != nil {
 		return nil, err
 	}
+	if err := validateNamespaceSelector(localModelCache); err != nil {
+		return nil, err
+	}
 	localModelCacheWithSameStorageURI, err := v.validateUniqueStorageURI(ctx, localModelCache)
 	if err != nil {
 		localModelCacheValidatorLogger.Error(err, "Unable to check LocalModelCache with the same storage URI")
@@ -84,17 +97,104 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldCache,
 	if localModelCacheWithSameStorageURI != nil {
 		return admission.Warnings{}, fmt.Errorf("LocalModelCache %s has the same StorageURI %s", localModelCacheWithSameStorageURI.Name, localModelCacheWithSameStorageURI.Spec.SourceModelUri)
 	}
+	if err := v.validateRemovedClaimsNotInUse(ctx, oldCache, localModelCache); err != nil {
+		return nil, err
+	}
 	oldUsage := localmodelcache.CacheUsageOf(oldCache)
 	return nil, localmodelcache.CheckStorageLimit(ctx, v.reader(), localModelCache.UID, &oldUsage, localmodelcache.CacheUsageOf(localModelCache))
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-// A cluster-scoped cache exposes no claims to workloads: they mount the claims of a
-// LocalModelNamespaceCache, whose own delete check protects them, and the node agent keeps a
-// model folder while any cache still references its source URI.
-func (v *LocalModelCacheValidator) ValidateDelete(_ context.Context, localModelCache *v1alpha1.LocalModelCache) (admission.Warnings, error) {
+// ValidateDelete denies deleting a cache while a Pod mounts one of its claims. The node agent
+// removes a model folder once no cache references its source, which would pull the files out from
+// under the running Pod.
+func (v *LocalModelCacheValidator) ValidateDelete(ctx context.Context, localModelCache *v1alpha1.LocalModelCache) (admission.Warnings, error) {
 	localModelCacheValidatorLogger.Info("validate delete", "name", localModelCache.Name)
-	return nil, nil
+	volumes, err := v.servingVolumes(ctx, localModelCache)
+	if err != nil {
+		return nil, err
+	}
+	return nil, v.validateNotInUse(ctx, localModelCache, volumes)
+}
+
+func validateNamespaceSelector(cache *v1alpha1.LocalModelCache) error {
+	if _, err := cache.Spec.WorkloadNamespaceSelector(); err != nil {
+		return fmt.Errorf("namespaceSelector is invalid: %w", err)
+	}
+	return nil
+}
+
+// validateRemovedClaimsNotInUse denies a change of the node groups or the namespace selector while
+// a Pod mounts a claim that the controller would delete.
+func (v *LocalModelCacheValidator) validateRemovedClaimsNotInUse(ctx context.Context, oldCache, newCache *v1alpha1.LocalModelCache) error {
+	if equality.Semantic.DeepEqual(oldCache.Spec.NodeGroups, newCache.Spec.NodeGroups) &&
+		equality.Semantic.DeepEqual(oldCache.Spec.NamespaceSelector, newCache.Spec.NamespaceSelector) {
+		return nil
+	}
+	selector, err := newCache.Spec.WorkloadNamespaceSelector()
+	if err != nil {
+		return err
+	}
+	volumes, err := v.servingVolumes(ctx, newCache)
+	if err != nil {
+		return err
+	}
+	claimNames := localmodelcache.ClusterCacheClaimNames(newCache)
+	selected := map[string]bool{}
+	var removed []corev1.PersistentVolume
+	for i := range volumes {
+		// One that is already being deleted is not removed by this change.
+		if !volumes[i].DeletionTimestamp.IsZero() {
+			continue
+		}
+		ref := volumes[i].Spec.ClaimRef
+		if _, ok := selected[ref.Namespace]; !ok {
+			namespace := &corev1.Namespace{}
+			err := v.reader().Get(ctx, client.ObjectKey{Name: ref.Namespace}, namespace)
+			if client.IgnoreNotFound(err) != nil {
+				return err
+			}
+			selected[ref.Namespace] = err == nil && selector.Matches(labels.Set(namespace.Labels))
+		}
+		if !selected[ref.Namespace] || !slices.Contains(claimNames, ref.Name) {
+			removed = append(removed, volumes[i])
+		}
+	}
+	return v.validateNotInUse(ctx, newCache, removed)
+}
+
+// servingVolumes returns the volumes of the cache that workloads mount, not those of its download
+// Jobs. Unlike the claims, they carry the cache's label even if a user recreated the claim.
+func (v *LocalModelCacheValidator) servingVolumes(ctx context.Context, cache *v1alpha1.LocalModelCache) ([]corev1.PersistentVolume, error) {
+	volumes := &corev1.PersistentVolumeList{}
+	if err := v.reader().List(ctx, volumes, client.MatchingLabels{constants.LocalModelUIDLabelKey: string(cache.UID)}); err != nil {
+		localModelCacheValidatorLogger.Error(err, "Unable to list PersistentVolumes")
+		return nil, err
+	}
+	return slices.DeleteFunc(volumes.Items, func(volume corev1.PersistentVolume) bool {
+		ref := volume.Spec.ClaimRef
+		return ref == nil || volume.Name != localmodelcache.ClusterCacheVolumeName(types.NamespacedName{Namespace: ref.Namespace, Name: ref.Name})
+	}), nil
+}
+
+// validateNotInUse returns an error while a Pod mounts the claim of one of the volumes.
+func (v *LocalModelCacheValidator) validateNotInUse(ctx context.Context, cache *v1alpha1.LocalModelCache, volumes []corev1.PersistentVolume) error {
+	claims := map[string][]string{}
+	for i := range volumes {
+		ref := volumes[i].Spec.ClaimRef
+		claims[ref.Namespace] = append(claims[ref.Namespace], ref.Name)
+	}
+	for _, namespace := range slices.Sorted(maps.Keys(claims)) {
+		pod, claim, err := localmodelcache.FindPodMountingClaim(ctx, v.reader(), namespace, claims[namespace])
+		if err != nil {
+			localModelCacheValidatorLogger.Error(err, "Unable to list Pods", "namespace", namespace)
+			return err
+		}
+		if pod != nil {
+			return fmt.Errorf("LocalModelCache %s is in use: Pod %s/%s mounts PersistentVolumeClaim %s. Delete the workload first",
+				cache.Name, namespace, pod.Name, claim)
+		}
+	}
+	return nil
 }
 
 // Checks if there are other LocalModelCache with the same storage URI and parameters

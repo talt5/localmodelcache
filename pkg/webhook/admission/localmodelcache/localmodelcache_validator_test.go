@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -58,12 +59,13 @@ func makeTestLocalModelCacheWithSameStorageURI() v1alpha1.LocalModelCache {
 	return localModelCache
 }
 
-// A cluster-scoped cache exposes no claims to workloads, so nothing blocks its deletion.
+// A cache without claims in use can be deleted.
 func TestDeleteLocalModelCacheIsAllowed(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	lmc := makeTestLocalModelCache()
 	s := runtime.NewScheme()
 	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+	g.Expect(corev1.AddToScheme(s)).To(gomega.Succeed())
 	fakeClient := fake.NewClientBuilder().WithObjects(&lmc).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{Client: fakeClient}
 	warnings, err := validator.ValidateDelete(t.Context(), &lmc)

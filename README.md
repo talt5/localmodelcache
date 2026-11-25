@@ -84,7 +84,7 @@ The API group is `local.cache.ai/v1alpha1`.
 | Resource | Scope | What it does |
 | --- | --- | --- |
 | `LocalModelNodeGroup` | cluster | A set of nodes, and the local volume on each of them, that holds cached models. |
-| `LocalModelCache` | cluster | Downloads a model to every node of its node groups. |
+| `LocalModelCache` | cluster | Downloads a model to the nodes of its node groups, and gives workloads a PVC to mount in every namespace it selects. |
 | `LocalModelNamespaceCache` | namespace | Downloads a model to the nodes of its node groups, or into a ReadWriteMany PVC you provide, and gives workloads in its namespace a PVC to mount. |
 | `ClusterStorageContainer` | cluster | Replaces the container that downloads models from a given URI scheme. |
 | `KernelCacheNodeGroup` | cluster | The nodes that get kernel cache images. |
