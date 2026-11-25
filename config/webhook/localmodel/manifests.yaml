@@ -12,6 +12,8 @@ webhooks:
         path: /validate-local-cache-ai-v1alpha1-localmodelcache
     failurePolicy: Fail
     name: localmodelcache-validator.webhook.local.cache.ai
+    # It looks for Pods in every namespace that has a claim of the cache.
+    timeoutSeconds: 30
     sideEffects: None
     admissionReviewVersions: ["v1beta1"]
     rules:

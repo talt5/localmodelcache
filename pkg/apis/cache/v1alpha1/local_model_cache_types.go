@@ -25,6 +25,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/talt5/localmodelcache/pkg/constants"
 )
 
 // GetStorageKey returns the name of the folder that holds a model, which caches with the same
@@ -76,6 +79,12 @@ type LocalModelCacheSpec struct {
 	// group of nodes to cache the model on.
 	// +kubebuilder:validation:MinItems=1
 	NodeGroups []string `json:"nodeGroups" validate:"required"`
+	// NamespaceSelector selects the namespaces whose workloads may mount the model. The controller
+	// creates the claim <cache>-<node group> in each of them, for each node group. Left out, it
+	// selects the namespaces labelled local.cache.ai/models=enabled. An empty selector selects
+	// every namespace.
+	// +optional
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
 	// ServiceAccountName specifies the service account to use for credential lookup.
 	// The service account must exist in the download job namespace (localModel.jobNamespace).
 	// +optional
@@ -118,6 +127,14 @@ type LocalModelCacheList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []LocalModelCache `json:"items" validate:"required"`
+}
+
+// WorkloadNamespaceSelector returns the selector of the namespaces that get a claim.
+func (spec *LocalModelCacheSpec) WorkloadNamespaceSelector() (labels.Selector, error) {
+	if spec.NamespaceSelector == nil {
+		return labels.SelectorFromSet(labels.Set{constants.ModelsNamespaceLabelKey: constants.ModelsNamespaceLabelValue}), nil
+	}
+	return metav1.LabelSelectorAsSelector(spec.NamespaceSelector)
 }
 
 // MatchStorageURI checks if storageUri matches the sourceModelUri or is a subdirectory of it

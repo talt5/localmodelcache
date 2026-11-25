@@ -164,6 +164,7 @@ func TestUnableToCreateLocalModelNamespaceCacheWithMissingNodeGroup(t *testing.T
 	g := gomega.NewGomegaWithT(t)
 	lmnc := makeTestLocalModelNamespaceCache()
 	s := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(s)).To(gomega.Succeed())
 	err := v1alpha1.AddToScheme(s)
 	if err != nil {
 		t.Errorf("unable to add scheme : %v", err)
@@ -182,6 +183,7 @@ func TestValidateCreate_LocalModelNamespaceCacheWithValidNodeGroups(t *testing.T
 	lmnc := makeTestLocalModelNamespaceCache()
 	nodeGroup := makeTestLocalModelNodeGroup("gpu1")
 	s := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(s)).To(gomega.Succeed())
 	err := v1alpha1.AddToScheme(s)
 	if err != nil {
 		t.Errorf("unable to add scheme : %v", err)
@@ -199,6 +201,7 @@ func TestValidateUpdate_LocalModelNamespaceCacheWithMissingNodeGroup(t *testing.
 	newLmnc := makeTestLocalModelNamespaceCache()
 	newLmnc.Spec.NodeGroups = []string{"nonexistent-nodegroup"}
 	s := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(s)).To(gomega.Succeed())
 	err := v1alpha1.AddToScheme(s)
 	if err != nil {
 		t.Errorf("unable to add scheme : %v", err)
@@ -219,6 +222,7 @@ func TestValidateUpdate_LocalModelNamespaceCacheWithValidNodeGroups(t *testing.T
 	newLmnc := makeTestLocalModelNamespaceCache()
 	nodeGroup := makeTestLocalModelNodeGroup("gpu1")
 	s := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(s)).To(gomega.Succeed())
 	err := v1alpha1.AddToScheme(s)
 	if err != nil {
 		t.Errorf("unable to add scheme : %v", err)
@@ -380,6 +384,7 @@ func TestValidateUpdate_SharedPVCSkipsDestinationConflict(t *testing.T) {
 func TestLocalModelNamespaceCacheValidatorEnforcesStorageLimit(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	s := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(s)).To(gomega.Succeed())
 	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
 	nodeGroup := v1alpha1.LocalModelNodeGroup{
 		ObjectMeta: metav1.ObjectMeta{Name: "gpu1"},

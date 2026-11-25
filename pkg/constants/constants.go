@@ -54,6 +54,12 @@ var (
 // into: Pods owned by a Deployment through its ReplicaSet.
 const KernelCacheWorkloadKind = "Deployment"
 
+// Namespaces with this label get the claims of every LocalModelCache without a namespaceSelector.
+const (
+	ModelsNamespaceLabelKey   = APIGroupName + "/models"
+	ModelsNamespaceLabelValue = "enabled"
+)
+
 // Internal annotations
 var (
 	InternalAnnotationsPrefix = "internal." + APIGroupName

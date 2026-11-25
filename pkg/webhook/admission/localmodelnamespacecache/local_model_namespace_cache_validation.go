@@ -23,12 +23,15 @@ import (
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	apivalidation "k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
+	"github.com/talt5/localmodelcache/pkg/constants"
 	"github.com/talt5/localmodelcache/pkg/localmodelcache"
 )
 
@@ -44,7 +47,7 @@ var localModelNamespaceCacheValidatorLogger = logf.Log.WithName("localmodelnames
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type LocalModelNamespaceCacheValidator struct {
 	client.Client
-	// Reader lists Pods for the in-use check on delete and caches for the storage limit. Set it
+	// Reader reads claims and Pods for the checks on claims, and caches for the storage limit. Set it
 	// to the manager's APIReader.
 	Reader client.Reader
 }
@@ -71,6 +74,10 @@ func (v *LocalModelNamespaceCacheValidator) ValidateCreate(ctx context.Context, 
 	}
 
 	if err := v.validateNodeGroups(ctx, localModelNamespaceCache.Spec.NodeGroups); err != nil {
+		return nil, err
+	}
+
+	if err := v.validateClaimsFree(ctx, localModelNamespaceCache, localmodelcache.NamespaceCacheClaimNames(localModelNamespaceCache)); err != nil {
 		return nil, err
 	}
 
@@ -109,6 +116,11 @@ func (v *LocalModelNamespaceCacheValidator) ValidateUpdate(ctx context.Context, 
 	if err := v.validateNodeGroups(ctx, without(localModelNamespaceCache.Spec.NodeGroups, oldCache.Spec.NodeGroups)); err != nil {
 		return nil, err
 	}
+	// Claims the cache already names are the controller's concern: the cache must stay editable.
+	added := without(localmodelcache.NamespaceCacheClaimNames(localModelNamespaceCache), localmodelcache.NamespaceCacheClaimNames(oldCache))
+	if err := v.validateClaimsFree(ctx, localModelNamespaceCache, added); err != nil {
+		return nil, err
+	}
 	// The controller deletes the claim of a removed node group and the model on its nodes.
 	removed := without(localmodelcache.NamespaceCacheClaimNames(oldCache), localmodelcache.NamespaceCacheClaimNames(localModelNamespaceCache))
 	if err := v.validateNotInUse(ctx, localModelNamespaceCache, removed); err != nil {
@@ -132,24 +144,107 @@ func (v *LocalModelNamespaceCacheValidator) ValidateDelete(ctx context.Context, 
 	return nil, v.validateNotInUse(ctx, localModelNamespaceCache, localmodelcache.NamespaceCacheClaimNames(localModelNamespaceCache))
 }
 
-// validateNotInUse returns an error while a Pod in the cache's namespace mounts one of the claims.
-func (v *LocalModelNamespaceCacheValidator) validateNotInUse(ctx context.Context, cache *v1alpha1.LocalModelNamespaceCache, claims []string) error {
+// validateClaimsFree returns an error if the controller could not offer one of the claims, because
+// another cache has it or its volumes, or because it exists and is not bound to the volume of the
+// cache. A claim left by an earlier cache of the same name is.
+func (v *LocalModelNamespaceCacheValidator) validateClaimsFree(ctx context.Context, cache *v1alpha1.LocalModelNamespaceCache, claims []string) error {
 	if len(claims) == 0 {
 		return nil
 	}
-	pods := &corev1.PodList{}
-	if err := v.reader().List(ctx, pods, client.InNamespace(cache.Namespace)); err != nil {
+	config, err := localmodelcache.ReadLocalModelConfig(ctx, v.reader())
+	if err != nil {
+		return err
+	}
+	if err := v.validateUniqueObjects(ctx, cache, config.JobNamespace, claims); err != nil {
+		return err
+	}
+	if config.DisableVolumeManagement {
+		return nil // The claims are the users' own.
+	}
+	for _, name := range claims {
+		key := types.NamespacedName{Namespace: cache.Namespace, Name: name}
+		claim := &corev1.PersistentVolumeClaim{}
+		if err := v.reader().Get(ctx, key, claim); apierr.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		// A user's claim has no such annotation.
+		owner := claim.Annotations[constants.LocalModelAnnotationKey]
+		switch volume := claim.Spec.VolumeName; {
+		case volume == localmodelcache.NamespaceCacheVolumeName(key) && (owner == "" || owner == cache.Name):
+		case !claim.DeletionTimestamp.IsZero():
+			return fmt.Errorf("PersistentVolumeClaim %s already exists and is being deleted: try again when it is gone", key)
+		case volume == localmodelcache.ClusterCacheVolumeName(key) && v.clusterCacheExists(ctx, owner):
+			return fmt.Errorf("PersistentVolumeClaim %s already exists and belongs to LocalModelCache %s: mount that claim, or use another name for this cache",
+				key, owner)
+		default:
+			return fmt.Errorf("PersistentVolumeClaim %s already exists and does not belong to this cache: delete it, or use another name for this cache", key)
+		}
+	}
+	return nil
+}
+
+// clusterCacheExists chooses the wording of an error, so it needs no certainty.
+func (v *LocalModelNamespaceCacheValidator) clusterCacheExists(ctx context.Context, name string) bool {
+	return v.Get(ctx, types.NamespacedName{Name: name}, &v1alpha1.LocalModelCache{}) == nil
+}
+
+// validateUniqueObjects denies a cache with a claim or volume that another cache has too. Names of
+// caches, node groups and namespaces can be joined to the same text: cache a with group b-c and
+// cache a-b with group c, or group b in namespace c-d and group b-c in namespace d.
+func (v *LocalModelNamespaceCacheValidator) validateUniqueObjects(ctx context.Context, cache *v1alpha1.LocalModelNamespaceCache, jobNamespace string, claims []string) error {
+	objects := localmodelcache.NamespaceCacheObjects(cache.Namespace, jobNamespace, claims)
+	caches := &v1alpha1.LocalModelNamespaceCacheList{}
+	if err := v.reader().List(ctx, caches); err != nil {
+		return err
+	}
+	for i := range caches.Items {
+		other := &caches.Items[i]
+		if other.Namespace == cache.Namespace && other.Name == cache.Name {
+			continue
+		}
+		otherObjects := localmodelcache.NamespaceCacheObjects(other.Namespace, jobNamespace, localmodelcache.NamespaceCacheClaimNames(other))
+		if name := localmodelcache.SharedName(objects, otherObjects); name != "" {
+			return fmt.Errorf("%s is that of LocalModelNamespaceCache %s/%s: use another name for this cache", name, other.Namespace, other.Name)
+		}
+	}
+	clusterCaches := &v1alpha1.LocalModelCacheList{}
+	if err := v.reader().List(ctx, clusterCaches); err != nil {
+		return err
+	}
+	for i := range clusterCaches.Items {
+		other := &clusterCaches.Items[i]
+		if name := localmodelcache.SharedName(objects, localmodelcache.ClusterCacheObjects(jobNamespace, localmodelcache.ClusterCacheClaimNames(other))); name != "" {
+			return fmt.Errorf("%s is that of LocalModelCache %s: use another name for this cache", name, other.Name)
+		}
+	}
+	return nil
+}
+
+// validateNotInUse returns an error while a Pod in the cache's namespace mounts one of the claims.
+// A claim that a LocalModelCache created does not count: it stays.
+func (v *LocalModelNamespaceCacheValidator) validateNotInUse(ctx context.Context, cache *v1alpha1.LocalModelNamespaceCache, names []string) error {
+	claims := make([]string, 0, len(names))
+	for _, name := range names {
+		key := types.NamespacedName{Namespace: cache.Namespace, Name: name}
+		claim := &corev1.PersistentVolumeClaim{}
+		err := v.reader().Get(ctx, key, claim)
+		if client.IgnoreNotFound(err) != nil {
+			return err
+		}
+		if err != nil || claim.Spec.VolumeName != localmodelcache.ClusterCacheVolumeName(key) {
+			claims = append(claims, name)
+		}
+	}
+	pod, claim, err := localmodelcache.FindPodMountingClaim(ctx, v.reader(), cache.Namespace, claims)
+	if err != nil {
 		localModelNamespaceCacheValidatorLogger.Error(err, "Unable to list Pods", "namespace", cache.Namespace)
 		return err
 	}
-	for i := range pods.Items {
-		pod := &pods.Items[i]
-		for _, claim := range claims {
-			if localmodelcache.PodMountsClaim(pod, claim) {
-				return fmt.Errorf("LocalModelNamespaceCache %s/%s is in use: Pod %s mounts PersistentVolumeClaim %s. Delete the workload first",
-					cache.Namespace, cache.Name, pod.Name, claim)
-			}
-		}
+	if pod != nil {
+		return fmt.Errorf("LocalModelNamespaceCache %s/%s is in use: Pod %s mounts PersistentVolumeClaim %s. Delete the workload first",
+			cache.Namespace, cache.Name, pod.Name, claim)
 	}
 	return nil
 }

@@ -114,67 +114,87 @@ claim. A node that leaves the group, for example because it lost its label, is n
 but keeps its files until the cache is deleted. The whole example is in
 [docs/samples/vllm-node-local.yaml](samples/vllm-node-local.yaml).
 
-## `LocalModelCache` or `LocalModelNamespaceCache`
+## Share a model between namespaces
 
-A PVC belongs to one namespace, so the cluster-scoped `LocalModelCache` only downloads models:
+`LocalModelCache` is cluster-scoped. The controller creates the PVC `<cache>-<node group>` in every
+namespace that `namespaceSelector` selects, also in namespaces created or labelled later:
+
+```yaml
+apiVersion: local.cache.ai/v1alpha1
+kind: LocalModelCache
+metadata:
+  name: qwen3
+spec:
+  sourceModelUri: hf://Qwen/Qwen3-0.6B
+  modelSize: 2Gi
+  nodeGroups: [gpu]
+  # namespaceSelector:          # the default
+  #   matchLabels:
+  #     local.cache.ai/models: enabled
+```
+
+```sh
+kubectl label namespace team-a team-b local.cache.ai/models=enabled
+kubectl get localmodelcache qwen3 -o jsonpath='{.status.persistentVolumeClaims}'
+# ["team-a/qwen3-gpu","team-b/qwen3-gpu"]
+```
+
+Mount `qwen3-gpu` as above: at any directory, without a `subPath` and with `readOnly: true`. The
+namespaces share one copy of the model on each node. The whole example is in
+[docs/samples/vllm-cluster-cache.yaml](samples/vllm-cluster-cache.yaml).
+
+| `namespaceSelector` | Namespaces |
+| --- | --- |
+| left out | those labelled `local.cache.ai/models: enabled`, for every such cache |
+| `matchExpressions: [{key: kubernetes.io/metadata.name, operator: In, values: [team-a, team-b]}]` | a fixed list |
+| `matchExpressions: [{key: kubernetes.io/metadata.name, operator: DoesNotExist}]` | none: only download |
+| `{}` | all, including those of the system |
+
+Whoever may label namespaces decides who can read the models. The job namespace never gets a claim
+for workloads.
+
+Deleting the cache, or a change of its selector or node groups, is refused while a running Pod
+mounts a claim that it would delete. Nothing refuses to remove the label of a namespace: its claims
+stay in `Terminating` until the Pods that mount them finish, and new Pods there cannot use them.
+Running Pods keep the files, since the cache still exists. A rolling update there waits for a Pod that
+cannot start, so after you restore the label, scale the Deployment to zero and back.
+
+If you delete a volume, or create a claim of the cache yourself and its namespace loses the label, the
+volume can wait in `Terminating` for its claim and the status leaves the claim out. Stop the Pods and
+delete the claim: the controller creates both again.
+
+### `LocalModelCache` or `LocalModelNamespaceCache`
 
 | | `LocalModelCache` | `LocalModelNamespaceCache` |
 | --- | --- | --- |
 | Scope | cluster | namespace |
-| Downloads to the node group | yes | yes |
-| Creates a PVC for workloads | no | yes |
-| Refuses deletion while Pods use the model | no | yes, with `nodeGroups` |
+| PVCs for workloads | in the selected namespaces | in its own namespace |
 | Shared PVC (`pvcRef`) | no | yes |
 
-If a few namespaces use a model, create a `LocalModelNamespaceCache` in each. To pre-load a model
-centrally as well, create a `LocalModelCache` with the same `sourceModelUri`. Caches with the
-same source, which is `sourceModelUri` and `storage.parameters`, share one folder on each node. The
-files stay until the last of them is deleted.
+Caches with the same source, which is `sourceModelUri` and `storage.parameters`, share one folder on
+each node. The files stay until the last of them is deleted.
 
-To use a `LocalModelCache` alone, create the PV and PVC yourself in each namespace. Take
-`<status.subPath>` from `kubectl get localmodelcache <name> -o jsonpath='{.status.subPath}'`:
+A claim belongs to the cache that created it. A `LocalModelNamespaceCache` is refused while a claim
+it would create exists, either one of a `LocalModelCache` or your own. A `LocalModelCache` is
+accepted, leaves such claims alone and creates its own when the name is free. So do not reuse the
+name of a `LocalModelCache` for a `LocalModelNamespaceCache`.
 
-```yaml
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: qwen3-team-a   # unique per namespace
-spec:
-  accessModes: [ReadOnlyMany]
-  capacity:
-    storage: 10Gi
-  storageClassName: local-storage
-  persistentVolumeReclaimPolicy: Retain
-  claimRef:
-    namespace: team-a
-    name: qwen3
-  hostPath:
-    path: /mnt/models/<status.subPath>   # /var/mnt/models/<status.subPath> on OpenShift
-    type: Directory
-  nodeAffinity:
-    required:
-      nodeSelectorTerms:
-        - matchExpressions:
-            - key: local.cache.ai/node
-              operator: In
-              values: [worker]
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: qwen3
-  namespace: team-a
-spec:
-  accessModes: [ReadOnlyMany]
-  storageClassName: local-storage
-  volumeName: qwen3-team-a
-  resources:
-    requests:
-      storage: 10Gi
-```
+### Move from `LocalModelNamespaceCache`
 
-Mount this claim with `readOnly: true` too. Nothing protects it: deleting the `LocalModelCache`
-removes the files under running Pods, unless another cache uses the same URI.
+Claims of caches with the same name and node group have the same name, so the `LocalModelCache`
+creates its claim when the other is gone. The files stay all the time.
+
+1. Create the `LocalModelCache` with the same name and source, and label the namespaces.
+2. In one namespace at a time, stop the workload and delete the `LocalModelNamespaceCache`.
+3. Wait until the status of the `LocalModelCache` lists the claim, then start the workload.
+
+### Your own volumes
+
+With `disableVolumeManagement`, or for a claim of another name, create a `hostPath` PV and a PVC
+yourself. The path is the node group's path followed by `status.subPath`. Give the PV the node
+affinity of the node group, `type: Directory` and a `claimRef` to your claim, and mount the claim
+with `readOnly: true`. Nothing protects it: deleting the last cache of the model removes the files
+under running Pods.
 
 ## Shared PVC instead of node disks
 

@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/talt5/localmodelcache/pkg/constants"
 	"github.com/talt5/localmodelcache/pkg/types"
@@ -60,6 +61,16 @@ type LocalModelConfig struct {
 func GetConfigMap(ctx context.Context, clientset kubernetes.Interface) (*corev1.ConfigMap, error) {
 	return clientset.CoreV1().ConfigMaps(constants.SystemNamespace).Get(
 		ctx, constants.LocalModelConfigMapName, metav1.GetOptions{})
+}
+
+// ReadLocalModelConfig reads the settings. A missing ConfigMap yields the zero config.
+func ReadLocalModelConfig(ctx context.Context, reader client.Reader) (*LocalModelConfig, error) {
+	configMap := &corev1.ConfigMap{}
+	key := client.ObjectKey{Namespace: constants.SystemNamespace, Name: constants.LocalModelConfigMapName}
+	if err := reader.Get(ctx, key, configMap); client.IgnoreNotFound(err) != nil {
+		return nil, err
+	}
+	return NewLocalModelConfig(configMap)
 }
 
 // NewLocalModelConfig parses the localModel key. A missing key yields the zero config.

@@ -49,3 +49,23 @@ func LocalModelNodeChangedPredicate() predicate.Funcs {
 		},
 	}
 }
+
+// NamespaceChangedPredicate passes the Namespace events that change which caches select it, or
+// whether claims can be created in it.
+func NamespaceChangedPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return !reflect.DeepEqual(e.ObjectOld.GetLabels(), e.ObjectNew.GetLabels()) ||
+				e.ObjectOld.GetDeletionTimestamp().IsZero() != e.ObjectNew.GetDeletionTimestamp().IsZero()
+		},
+	}
+}
+
+// DeletedPredicate passes only deletions.
+func DeletedPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		CreateFunc:  func(event.CreateEvent) bool { return false },
+		UpdateFunc:  func(event.UpdateEvent) bool { return false },
+		GenericFunc: func(event.GenericEvent) bool { return false },
+	}
+}

@@ -1,0 +1,95 @@
+# Cache a model once on the nodes of a group and serve it from several namespaces.
+#
+# Needs the LocalModelNodeGroup gpu of vllm-node-local.yaml. The LocalModelCache creates the PVC
+# qwen3-gpu in every namespace with the label below. Deploy once every node has the model:
+#
+#   kubectl get localmodelcache qwen3 -o jsonpath='{.status.copies}'
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-a
+  labels:
+    local.cache.ai/models: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-b
+  labels:
+    local.cache.ai/models: enabled
+---
+apiVersion: local.cache.ai/v1alpha1
+kind: LocalModelCache
+metadata:
+  name: qwen3
+spec:
+  sourceModelUri: hf://Qwen/Qwen3-0.6B
+  modelSize: 2Gi
+  nodeGroups: [gpu]
+  # The default. Set it to select other namespaces.
+  namespaceSelector:
+    matchLabels:
+      local.cache.ai/models: enabled
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qwen3
+  namespace: team-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qwen3
+  template:
+    metadata:
+      labels:
+        app: qwen3
+    spec:
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          args: ["--model", "/models/qwen3", "--served-model-name", "qwen3"]
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            - name: model
+              mountPath: /models/qwen3
+              readOnly: true
+      volumes:
+        - name: model
+          persistentVolumeClaim:
+            claimName: qwen3-gpu
+            readOnly: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qwen3
+  namespace: team-b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qwen3
+  template:
+    metadata:
+      labels:
+        app: qwen3
+    spec:
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          args: ["--model", "/models/qwen3", "--served-model-name", "qwen3"]
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            - name: model
+              mountPath: /models/qwen3
+              readOnly: true
+      volumes:
+        - name: model
+          persistentVolumeClaim:
+            claimName: qwen3-gpu
+            readOnly: true
