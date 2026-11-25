@@ -197,6 +197,7 @@ func TestClaimOfAnotherLocalModelCache(t *testing.T) {
 	g := gomega.NewWithT(t)
 	scheme := runtime.NewScheme()
 	g.Expect(v1alpha1.AddToScheme(scheme)).To(gomega.Succeed())
+	g.Expect(corev1.AddToScheme(scheme)).To(gomega.Succeed())
 	other := makeTestLocalModelCacheWithDifferentStorageURI()
 	other.Name, other.Spec.NodeGroups = "iris-gpu", []string{"large"}
 	validator := LocalModelCacheValidator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&other).Build()}
@@ -209,7 +210,7 @@ func TestClaimOfAnotherLocalModelCache(t *testing.T) {
 		func() error { _, err := validator.ValidateCreate(t.Context(), clashing); return err }(),
 		func() error { _, err := validator.ValidateUpdate(t.Context(), &cache, clashing); return err }(),
 	} {
-		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("PersistentVolumeClaim iris-gpu-large is that of LocalModelCache iris-gpu")))
+		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("/iris-gpu-large is that of LocalModelCache iris-gpu")))
 	}
 }
 
@@ -217,6 +218,7 @@ func TestDownloadVolumeOfANamespaceCache(t *testing.T) {
 	g := gomega.NewWithT(t)
 	scheme := runtime.NewScheme()
 	g.Expect(v1alpha1.AddToScheme(scheme)).To(gomega.Succeed())
+	g.Expect(corev1.AddToScheme(scheme)).To(gomega.Succeed())
 	other := &v1alpha1.LocalModelNamespaceCache{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "download", Name: "iris"},
 		Spec:       v1alpha1.LocalModelNamespaceCacheSpec{NodeGroups: []string{"gpu1"}},
@@ -225,4 +227,34 @@ func TestDownloadVolumeOfANamespaceCache(t *testing.T) {
 	cache := makeTestLocalModelCache()
 	_, err := validator.ValidateCreate(t.Context(), &cache)
 	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("PersistentVolume iris-gpu1-download is that of LocalModelNamespaceCache download/iris")))
+}
+
+func TestDownloadClaimOfANamespaceCache(t *testing.T) {
+	scheme := runtime.NewScheme()
+	g := gomega.NewWithT(t)
+	g.Expect(v1alpha1.AddToScheme(scheme)).To(gomega.Succeed())
+	g.Expect(corev1.AddToScheme(scheme)).To(gomega.Succeed())
+	config := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Namespace: constants.SystemNamespace, Name: constants.LocalModelConfigMapName},
+		Data:       map[string]string{"localModel": `{"jobNamespace": "jobs"}`},
+	}
+	for _, tc := range []struct{ namespace, name, group, cacheName, cacheGroup, want string }{
+		{"ns", "m", "g", "m-g-ns", "download", "PersistentVolumeClaim jobs/m-g-ns-download is that of LocalModelNamespaceCache ns/m"},
+		{"jobs", "m", "g", "m", "g", "PersistentVolumeClaim jobs/m-g is that of LocalModelNamespaceCache jobs/m"},
+		{"ns", "m", "g", "m", "g", ""},
+	} {
+		other := &v1alpha1.LocalModelNamespaceCache{
+			ObjectMeta: metav1.ObjectMeta{Namespace: tc.namespace, Name: tc.name},
+			Spec:       v1alpha1.LocalModelNamespaceCacheSpec{NodeGroups: []string{tc.group}},
+		}
+		validator := LocalModelCacheValidator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(other, config).Build()}
+		cache := makeTestLocalModelCache()
+		cache.Name, cache.Spec.NodeGroups = tc.cacheName, []string{tc.cacheGroup}
+		_, err := validator.ValidateCreate(t.Context(), &cache)
+		if tc.want == "" {
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+		} else {
+			g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(tc.want)))
+		}
+	}
 }

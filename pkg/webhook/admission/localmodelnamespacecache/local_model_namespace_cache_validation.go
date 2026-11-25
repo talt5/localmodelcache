@@ -151,12 +151,15 @@ func (v *LocalModelNamespaceCacheValidator) validateClaimsFree(ctx context.Conte
 	if len(claims) == 0 {
 		return nil
 	}
-	if err := v.validateUniqueVolumes(ctx, cache, claims); err != nil {
+	config, err := localmodelcache.ReadLocalModelConfig(ctx, v.reader())
+	if err != nil {
 		return err
 	}
-	disabled, err := v.volumeManagementDisabled(ctx)
-	if err != nil || disabled {
-		return err // The claims are the users' own.
+	if err := v.validateUniqueObjects(ctx, cache, config.JobNamespace, claims); err != nil {
+		return err
+	}
+	if config.DisableVolumeManagement {
+		return nil // The claims are the users' own.
 	}
 	for _, name := range claims {
 		key := types.NamespacedName{Namespace: cache.Namespace, Name: name}
@@ -187,11 +190,11 @@ func (v *LocalModelNamespaceCacheValidator) clusterCacheExists(ctx context.Conte
 	return v.Get(ctx, types.NamespacedName{Name: name}, &v1alpha1.LocalModelCache{}) == nil
 }
 
-// validateUniqueVolumes denies a cache with a claim or volume that another cache has too. Names of
+// validateUniqueObjects denies a cache with a claim or volume that another cache has too. Names of
 // caches, node groups and namespaces can be joined to the same text: cache a with group b-c and
 // cache a-b with group c, or group b in namespace c-d and group b-c in namespace d.
-func (v *LocalModelNamespaceCacheValidator) validateUniqueVolumes(ctx context.Context, cache *v1alpha1.LocalModelNamespaceCache, claims []string) error {
-	volumes := localmodelcache.NamespaceCacheVolumeNames(cache.Namespace, claims)
+func (v *LocalModelNamespaceCacheValidator) validateUniqueObjects(ctx context.Context, cache *v1alpha1.LocalModelNamespaceCache, jobNamespace string, claims []string) error {
+	objects := localmodelcache.NamespaceCacheObjects(cache.Namespace, jobNamespace, claims)
 	caches := &v1alpha1.LocalModelNamespaceCacheList{}
 	if err := v.reader().List(ctx, caches); err != nil {
 		return err
@@ -201,16 +204,9 @@ func (v *LocalModelNamespaceCacheValidator) validateUniqueVolumes(ctx context.Co
 		if other.Namespace == cache.Namespace && other.Name == cache.Name {
 			continue
 		}
-		otherClaims := localmodelcache.NamespaceCacheClaimNames(other)
-		if other.Namespace == cache.Namespace {
-			if name := localmodelcache.SharedName(claims, otherClaims); name != "" {
-				return fmt.Errorf("PersistentVolumeClaim %s/%s is that of LocalModelNamespaceCache %s: use another name for this cache",
-					cache.Namespace, name, other.Name)
-			}
-		}
-		if name := localmodelcache.SharedName(volumes, localmodelcache.NamespaceCacheVolumeNames(other.Namespace, otherClaims)); name != "" {
-			return fmt.Errorf("PersistentVolume %s is that of LocalModelNamespaceCache %s/%s: use another name for this cache",
-				name, other.Namespace, other.Name)
+		otherObjects := localmodelcache.NamespaceCacheObjects(other.Namespace, jobNamespace, localmodelcache.NamespaceCacheClaimNames(other))
+		if name := localmodelcache.SharedName(objects, otherObjects); name != "" {
+			return fmt.Errorf("%s is that of LocalModelNamespaceCache %s/%s: use another name for this cache", name, other.Namespace, other.Name)
 		}
 	}
 	clusterCaches := &v1alpha1.LocalModelCacheList{}
@@ -219,24 +215,11 @@ func (v *LocalModelNamespaceCacheValidator) validateUniqueVolumes(ctx context.Co
 	}
 	for i := range clusterCaches.Items {
 		other := &clusterCaches.Items[i]
-		if name := localmodelcache.SharedName(volumes, localmodelcache.ClusterCacheDownloadVolumeNames(localmodelcache.ClusterCacheClaimNames(other))); name != "" {
-			return fmt.Errorf("PersistentVolume %s is that of LocalModelCache %s: use another name for this cache", name, other.Name)
+		if name := localmodelcache.SharedName(objects, localmodelcache.ClusterCacheObjects(jobNamespace, localmodelcache.ClusterCacheClaimNames(other))); name != "" {
+			return fmt.Errorf("%s is that of LocalModelCache %s: use another name for this cache", name, other.Name)
 		}
 	}
 	return nil
-}
-
-func (v *LocalModelNamespaceCacheValidator) volumeManagementDisabled(ctx context.Context) (bool, error) {
-	configMap := &corev1.ConfigMap{}
-	key := types.NamespacedName{Namespace: constants.SystemNamespace, Name: constants.LocalModelConfigMapName}
-	if err := v.reader().Get(ctx, key, configMap); err != nil {
-		return false, client.IgnoreNotFound(err)
-	}
-	config, err := localmodelcache.NewLocalModelConfig(configMap)
-	if err != nil {
-		return false, err
-	}
-	return config.DisableVolumeManagement, nil
 }
 
 // validateNotInUse returns an error while a Pod in the cache's namespace mounts one of the claims.

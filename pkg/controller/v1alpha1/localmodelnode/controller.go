@@ -135,9 +135,9 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 		nodeGroupName = nodeGroup.Name
 	}
 
-	pvcName := modelInfo.ModelName + "-" + nodeGroupName
+	pvcName := localmodelcache.ClaimName(modelInfo.ModelName, nodeGroupName)
 	if modelInfo.Namespace != "" {
-		pvcName += "-" + modelInfo.Namespace + "-download"
+		pvcName = localmodelcache.DownloadVolumeName(localmodelcache.NamespaceCacheVolumeName(types.NamespacedName{Namespace: modelInfo.Namespace, Name: pvcName}))
 	}
 	c.Log.Info("Using PVC name to create download job", "current node", nodeName, "node group", nodeGroupName, "PVC name", pvcName)
 

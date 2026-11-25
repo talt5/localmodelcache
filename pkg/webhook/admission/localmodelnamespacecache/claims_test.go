@@ -128,7 +128,7 @@ func TestClaimOfAnotherNamespaceCache(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	clashing := cache.DeepCopy()
 	clashing.Spec.NodeGroups = []string{"gpu1", "gpu-large"}
-	want := gomega.MatchError(gomega.ContainSubstring("PersistentVolumeClaim default/iris-gpu-large is that of LocalModelNamespaceCache iris-gpu"))
+	want := gomega.MatchError(gomega.ContainSubstring("PersistentVolumeClaim default/iris-gpu-large is that of LocalModelNamespaceCache default/iris-gpu"))
 	_, err = validator.ValidateCreate(t.Context(), clashing)
 	g.Expect(err).To(want)
 	_, err = validator.ValidateUpdate(t.Context(), &cache, clashing)
@@ -154,6 +154,9 @@ func TestVolumeOfAnotherCache(t *testing.T) {
 		"cluster cache": {&v1alpha1.LocalModelCache{
 			ObjectMeta: metav1.ObjectMeta{Name: "llama"}, Spec: v1alpha1.LocalModelCacheSpec{NodeGroups: []string{"gpu1"}},
 		}, cache("download", "llama", "gpu1"), "PersistentVolume llama-gpu1-download is that of LocalModelCache llama"},
+		"download claim of a cluster cache": {&v1alpha1.LocalModelCache{
+			ObjectMeta: metav1.ObjectMeta{Name: "llama-gpu1-ns"}, Spec: v1alpha1.LocalModelCacheSpec{NodeGroups: []string{"download"}},
+		}, cache("ns", "llama", "gpu1"), "/llama-gpu1-ns-download is that of LocalModelCache llama-gpu1-ns"},
 		"same names, other namespace": {cache("a", "llama", "gpu1"), cache("b", "llama", "gpu1"), ""},
 	}
 	for name, tc := range tests {

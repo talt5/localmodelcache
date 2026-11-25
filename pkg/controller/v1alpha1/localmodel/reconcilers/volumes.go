@@ -49,6 +49,8 @@ type cacheVolumes struct {
 	// owner is the LocalModelCache or LocalModelNamespaceCache.
 	owner client.Object
 
+	// leftovers, if set, has the leftoverIndex.
+	leftovers client.Reader
 	// yields, if set, returns the cache that a missing workload claim is left to, or "".
 	yields func(ctx context.Context, volume string, claim types.NamespacedName) (string, error)
 
@@ -242,6 +244,18 @@ func (v *cacheVolumes) adoptable(obj client.Object) bool {
 	return v.canOwn(obj) && metav1.GetControllerOf(obj) == nil && cacheOf(obj) == client.ObjectKeyFromObject(v.owner)
 }
 
+// leftoverIndex finds the objects that a LocalModelCache of a name would adopt, without going
+// through those of all caches.
+const leftoverIndex = "localmodelcache-leftover"
+
+func indexLeftover(obj client.Object) []string {
+	key := cacheOf(obj)
+	if key.Name == "" || key.Namespace != "" || metav1.GetControllerOf(obj) != nil || obj.GetLabels()[constants.LocalModelUIDLabelKey] == "" {
+		return nil
+	}
+	return []string{key.Name}
+}
+
 // adopt makes the cache the owner of an adoptable object and reports whether it did.
 func (v *cacheVolumes) adopt(obj client.Object) (bool, error) {
 	if !v.adoptable(obj) {
@@ -292,18 +306,21 @@ func (v *cacheVolumes) mark(obj client.Object) bool {
 
 // prune deletes the cache's volumes and claims that were not kept, and those it would adopt.
 func (v *cacheVolumes) prune(ctx context.Context, reader client.Reader) error {
-	volumes, claims, err := listVolumes(ctx, reader, client.HasLabels{constants.LocalModelUIDLabelKey})
+	volumes, claims, err := listVolumes(ctx, reader, client.MatchingLabels{constants.LocalModelUIDLabelKey: string(v.owner.GetUID())})
 	if err != nil {
 		return err
 	}
-	ours := func(obj client.Object) bool {
-		return obj.GetLabels()[constants.LocalModelUIDLabelKey] == string(v.owner.GetUID()) || v.adoptable(obj)
+	if v.leftovers != nil {
+		leftVolumes, leftClaims, err := listVolumes(ctx, v.leftovers, client.MatchingFields{leftoverIndex: v.owner.GetName()})
+		if err != nil {
+			return err
+		}
+		// Deleting one that is in both lists twice does no harm.
+		volumes, claims = append(volumes, leftVolumes...), append(claims, leftClaims...)
 	}
-	volumes = slices.DeleteFunc(volumes, func(volume corev1.PersistentVolume) bool {
-		return !ours(&volume) || v.keptVolumes.Has(volume.Name)
-	})
+	volumes = slices.DeleteFunc(volumes, func(volume corev1.PersistentVolume) bool { return v.keptVolumes.Has(volume.Name) })
 	claims = slices.DeleteFunc(claims, func(claim corev1.PersistentVolumeClaim) bool {
-		return !ours(&claim) || v.keptClaims.Has(client.ObjectKeyFromObject(&claim))
+		return v.keptClaims.Has(client.ObjectKeyFromObject(&claim))
 	})
 	return deleteVolumes(ctx, v.clientset, v.log, volumes, claims)
 }

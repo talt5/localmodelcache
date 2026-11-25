@@ -125,6 +125,7 @@ func TestValidateUpdate_LocalModelCacheWithUniqueStorageURI(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	existingLmc := makeTestLocalModelCache()
 	s := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(s)).To(gomega.Succeed())
 	err := v1alpha1.AddToScheme(s)
 	if err != nil {
 		t.Errorf("unable to add scheme : %v", err)
@@ -161,6 +162,7 @@ func TestValidateUpdate_DeletionBypass(t *testing.T) {
 func TestLocalModelCacheValidatorEnforcesStorageLimit(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	s := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(s)).To(gomega.Succeed())
 	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
 	nodeGroup := v1alpha1.LocalModelNodeGroup{
 		ObjectMeta: metav1.ObjectMeta{Name: "gpu1"},
@@ -209,6 +211,7 @@ func TestLocalModelCacheValidatorRejectsNegativeModelSize(t *testing.T) {
 func TestLocalModelCacheValidatorSource(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	s := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(s)).To(gomega.Succeed())
 	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
 	with := func(name, endpoint string) *v1alpha1.LocalModelCache {
 		cache := makeTestLocalModelCache()

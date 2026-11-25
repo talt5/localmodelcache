@@ -76,7 +76,7 @@ func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, localMode
 	if localModelCacheWithSameStorageURI != nil {
 		return admission.Warnings{}, fmt.Errorf("LocalModelCache %s has the same StorageURI %s", localModelCacheWithSameStorageURI.Name, localModelCacheWithSameStorageURI.Spec.SourceModelUri)
 	}
-	if err := v.validateUniqueClaims(ctx, localModelCache, claims); err != nil {
+	if err := v.validateUniqueObjects(ctx, localModelCache, claims); err != nil {
 		return nil, err
 	}
 	return nil, localmodelcache.CheckStorageLimit(ctx, v.reader(), "", nil, localmodelcache.CacheUsageOf(localModelCache))
@@ -109,7 +109,7 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldCache,
 	added := slices.DeleteFunc(localmodelcache.ClusterCacheClaimNames(localModelCache), func(name string) bool {
 		return slices.Contains(localmodelcache.ClusterCacheClaimNames(oldCache), name)
 	})
-	if err := v.validateUniqueClaims(ctx, localModelCache, added); err != nil {
+	if err := v.validateUniqueObjects(ctx, localModelCache, added); err != nil {
 		return nil, err
 	}
 	if err := v.validateRemovedClaimsNotInUse(ctx, oldCache, localModelCache); err != nil {
@@ -138,12 +138,17 @@ func validateNamespaceSelector(cache *v1alpha1.LocalModelCache) error {
 	return nil
 }
 
-// validateUniqueClaims denies a cache with a claim that another LocalModelCache has too, such as
+// validateUniqueObjects denies a cache with a claim or volume that another cache has too, such as
 // those of cache a with group b-c and cache a-b with group c.
-func (v *LocalModelCacheValidator) validateUniqueClaims(ctx context.Context, cache *v1alpha1.LocalModelCache, claims []string) error {
+func (v *LocalModelCacheValidator) validateUniqueObjects(ctx context.Context, cache *v1alpha1.LocalModelCache, claims []string) error {
 	if len(claims) == 0 {
 		return nil
 	}
+	config, err := localmodelcache.ReadLocalModelConfig(ctx, v.reader())
+	if err != nil {
+		return err
+	}
+	objects := localmodelcache.ClusterCacheObjects(config.JobNamespace, claims)
 	caches := &v1alpha1.LocalModelCacheList{}
 	if err := v.reader().List(ctx, caches); err != nil {
 		return err
@@ -153,8 +158,8 @@ func (v *LocalModelCacheValidator) validateUniqueClaims(ctx context.Context, cac
 		if other.Name == cache.Name {
 			continue
 		}
-		if name := localmodelcache.SharedName(claims, localmodelcache.ClusterCacheClaimNames(other)); name != "" {
-			return fmt.Errorf("PersistentVolumeClaim %s is that of LocalModelCache %s: use another name for this cache", name, other.Name)
+		if name := localmodelcache.SharedName(objects, localmodelcache.ClusterCacheObjects(config.JobNamespace, localmodelcache.ClusterCacheClaimNames(other))); name != "" {
+			return fmt.Errorf("%s is that of LocalModelCache %s: use another name for this cache", name, other.Name)
 		}
 	}
 	namespaceCaches := &v1alpha1.LocalModelNamespaceCacheList{}
@@ -163,9 +168,9 @@ func (v *LocalModelCacheValidator) validateUniqueClaims(ctx context.Context, cac
 	}
 	for i := range namespaceCaches.Items {
 		other := &namespaceCaches.Items[i]
-		volumes := localmodelcache.NamespaceCacheVolumeNames(other.Namespace, localmodelcache.NamespaceCacheClaimNames(other))
-		if name := localmodelcache.SharedName(localmodelcache.ClusterCacheDownloadVolumeNames(claims), volumes); name != "" {
-			return fmt.Errorf("PersistentVolume %s is that of LocalModelNamespaceCache %s/%s: use another name for this cache", name, other.Namespace, other.Name)
+		otherObjects := localmodelcache.NamespaceCacheObjects(other.Namespace, config.JobNamespace, localmodelcache.NamespaceCacheClaimNames(other))
+		if name := localmodelcache.SharedName(objects, otherObjects); name != "" {
+			return fmt.Errorf("%s is that of LocalModelNamespaceCache %s/%s: use another name for this cache", name, other.Namespace, other.Name)
 		}
 	}
 	return nil

@@ -96,6 +96,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	var errs []error
 	volumes := newCacheVolumes(c.Clientset, c.Scheme, c.Log, localModel)
+	volumes.leftovers = c.Client
 	volumes.yields = c.yieldClaim
 	for _, name := range localModel.Spec.NodeGroups {
 		volumes.keep(clusterVolumeNames(localModel, name, localModelConfig))
@@ -269,6 +270,11 @@ func (c *LocalModelReconciler) localmodelNodeFunc(ctx context.Context, obj clien
 func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if c.APIReader == nil {
 		c.APIReader = mgr.GetAPIReader()
+	}
+	for _, obj := range []client.Object{&corev1.PersistentVolume{}, &corev1.PersistentVolumeClaim{}} {
+		if err := mgr.GetFieldIndexer().IndexField(context.Background(), obj, leftoverIndex, indexLeftover); err != nil {
+			return err
+		}
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.LocalModelCache{}).

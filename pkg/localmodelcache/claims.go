@@ -78,25 +78,36 @@ func NamespaceCacheVolumeName(claim types.NamespacedName) string {
 	return claim.Name + "-" + claim.Namespace
 }
 
-// NamespaceCacheVolumeNames returns the PersistentVolumes of a LocalModelNamespaceCache in the
-// namespace with these claims: those that workloads mount and those of its downloads.
-func NamespaceCacheVolumeNames(namespace string, claims []string) []string {
-	volumes := make([]string, 0, 2*len(claims))
+// NamespaceCacheObjects describes the claims and volumes of a LocalModelNamespaceCache in the
+// namespace with these claims, those of its downloads included.
+func NamespaceCacheObjects(namespace, jobNamespace string, claims []string) []string {
+	objects := make([]string, 0, 4*len(claims))
 	for _, claim := range claims {
 		volume := NamespaceCacheVolumeName(types.NamespacedName{Namespace: namespace, Name: claim})
-		volumes = append(volumes, volume, DownloadVolumeName(volume))
+		download := DownloadVolumeName(volume)
+		objects = append(objects, describeClaim(namespace, claim), describeVolume(volume),
+			describeClaim(jobNamespace, download), describeVolume(download))
 	}
-	return volumes
+	return objects
 }
 
-// ClusterCacheDownloadVolumeNames returns the PersistentVolumes of the downloads of a
-// LocalModelCache with these claims.
-func ClusterCacheDownloadVolumeNames(claims []string) []string {
-	volumes := make([]string, 0, len(claims))
+// ClusterCacheObjects describes the claims and volumes of a LocalModelCache with these claims.
+// Those in the namespaces it selects are left out: their volumes have unique names, and the cache
+// waits for the claims.
+func ClusterCacheObjects(jobNamespace string, claims []string) []string {
+	objects := make([]string, 0, 2*len(claims))
 	for _, claim := range claims {
-		volumes = append(volumes, DownloadVolumeName(claim))
+		objects = append(objects, describeClaim(jobNamespace, claim), describeVolume(DownloadVolumeName(claim)))
 	}
-	return volumes
+	return objects
+}
+
+func describeClaim(namespace, name string) string {
+	return "PersistentVolumeClaim " + namespace + "/" + name
+}
+
+func describeVolume(name string) string {
+	return "PersistentVolume " + name
 }
 
 // DownloadVolumeName returns the PersistentVolume for downloads that belongs to a name.
