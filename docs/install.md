@@ -7,10 +7,15 @@ The webhooks need [cert-manager](https://cert-manager.io). Install it first, for
 
 Label each node that stores models with `local.cache.ai/node=worker`. The node agent runs only there.
 
-Outside OpenShift, prepare the host path, `/mnt/models` by default, on those nodes. The node agent (UID
-65532) and the download Jobs (UID 1000) must both be able to write to it and to delete files in it. On a
-test cluster, `mkdir -p /mnt/models/models && chmod -R 2777 /mnt/models` is enough. The job namespace
-must not enforce the `restricted` Pod Security Standard.
+Outside OpenShift, prepare the host path, `/mnt/models` by default, on those nodes. The node agent and
+the download Jobs run as UID and GID 1000, so give it to them:
+
+```sh
+mkdir -p /mnt/models/models && chown 1000:1000 /mnt/models /mnt/models/models
+```
+
+A custom download container must also run as UID 1000, or the node agent cannot delete what it
+downloads. The job namespace must not enforce the `restricted` Pod Security Standard.
 
 ## Helm
 

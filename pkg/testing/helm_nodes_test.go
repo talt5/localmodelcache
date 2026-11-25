@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -93,5 +94,34 @@ func TestDefaultHostPathIsTheDocumentedOne(t *testing.T) {
 			require.NotNil(t, match)
 			require.Equal(t, string(match[1]), agent.Spec.Template.Spec.Volumes[0].HostPath.Path, name)
 		}
+	}
+}
+
+// The agent deletes the files that download Jobs create, whose folders only their user can write.
+func TestNodeAgentRunsAsTheUserOfDownloadJobs(t *testing.T) {
+	dockerfile, err := os.ReadFile("../../python/storage-initializer.Dockerfile")
+	require.NoError(t, err)
+	users := regexp.MustCompile(`(?m)^USER (\d+)$`).FindAllSubmatch(dockerfile, -1)
+	require.NotEmpty(t, users)
+	want := string(users[len(users)-1][1])
+
+	manifest, err := os.ReadFile("../../config/localmodelnodes/manager.yaml")
+	require.NoError(t, err)
+	agent := &appsv1.DaemonSet{}
+	require.NoError(t, yaml.Unmarshal(manifest, agent))
+	agents := map[string]*appsv1.DaemonSet{"kustomize": agent}
+	if helm, err := exec.LookPath("helm"); err == nil {
+		var config *localmodelcache.LocalModelConfig
+		agents["chart"], config = renderNodes(t, helm)
+		require.NotNil(t, config.FSGroup)
+		require.Equal(t, config.FSGroup, agents["chart"].Spec.Template.Spec.SecurityContext.RunAsGroup)
+		agents["chart on OpenShift"], _ = renderNodes(t, helm, "openshift.enabled=true")
+	}
+	for name, agent := range agents {
+		security := agent.Spec.Template.Spec.SecurityContext
+		require.NotNil(t, security.RunAsUser, name)
+		require.Equal(t, want, strconv.FormatInt(*security.RunAsUser, 10), name)
+		require.NotNil(t, security.RunAsGroup, name)
+		require.NotNil(t, security.RunAsNonRoot, name)
 	}
 }
