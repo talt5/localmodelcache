@@ -60,6 +60,8 @@ const (
 	reasonCacheReady                 = "CacheReady"
 	reasonPreparationFailed          = "PreparationFailed"
 	runtimeImagePrefetchRequeueDelay = 3 * time.Second
+	// verificationRetryDelay is how soon a cache that could not be verified is tried again.
+	verificationRetryDelay = time.Minute
 )
 
 func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -107,7 +109,10 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if statusErr := r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, 0, reasonVerificationFailed, err.Error(), mountType); statusErr != nil {
 			return ctrl.Result{}, errors.Join(statusErr, err)
 		}
-		return ctrl.Result{}, err
+		// Usually the registry is unreachable. The rate limiter would back off to about 16
+		// minutes, and the cache would stay unusable that long after the registry is back.
+		r.Log.Error(err, "Unable to verify the KernelCache artifact", "kernelCache", client.ObjectKeyFromObject(kernelCache))
+		return ctrl.Result{RequeueAfter: verificationRetryDelay}, nil
 	}
 	if !verified {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, 0, reasonVerificationFailed, "kernel cache artifact verification failed", mountType)
