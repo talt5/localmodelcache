@@ -29,6 +29,8 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+
+	logging "github.com/sirupsen/logrus"
 )
 
 const (
@@ -149,6 +151,11 @@ func CaptureRoots(roots []RootOptions) (*Document, error) {
 				return nil
 			}
 			digest, err := fileDigest(rootFS, filepath.FromSlash(relative))
+			if errors.Is(err, fs.ErrPermission) {
+				// A runtime that runs as another user can write files only it can read.
+				logging.Warnf("Skipping cache file the capture cannot read: %s", relative)
+				return nil
+			}
 			if err != nil {
 				return err
 			}

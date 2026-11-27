@@ -55,7 +55,7 @@ func TestInjectKernelCacheMountResolvesOptionalContainerPath(t *testing.T) {
 		{
 			name:      "uses fallback",
 			mountType: "",
-			wantPath:  "/root/.cache/vllm",
+			wantPath:  "/var/cache/vllm",
 		},
 	}
 
@@ -90,6 +90,51 @@ func TestInjectKernelCacheMountResolvesOptionalContainerPath(t *testing.T) {
 			})
 			require.Len(t, pod.Spec.InitContainers, 1)
 			require.Contains(t, pod.Spec.InitContainers[0].Args, test.wantPath)
+		})
+	}
+}
+
+// vLLM derives its cache from HOME unless VLLM_CACHE_ROOT is set, and the image or platform
+// sets HOME (OpenShift runs images with HOME=/). The mount pins vLLM to the mounted path.
+func TestInjectKernelCacheMountPinsVLLMCacheRoot(t *testing.T) {
+	tests := []struct {
+		name      string
+		env       []corev1.EnvVar
+		cachePath v1alpha1.KernelCachePath
+		wantEnv   []corev1.EnvVar
+	}{
+		{
+			name:      "sets the default path",
+			cachePath: v1alpha1.KernelCachePath{OCIPath: "io.vllm.cache"},
+			wantEnv:   []corev1.EnvVar{{Name: "VLLM_CACHE_ROOT", Value: "/var/cache/vllm"}},
+		},
+		{
+			name:      "keeps the runtime's own value",
+			env:       []corev1.EnvVar{{Name: "VLLM_CACHE_ROOT", Value: "/runtime/cache"}},
+			cachePath: v1alpha1.KernelCachePath{OCIPath: "io.vllm.cache"},
+			wantEnv:   []corev1.EnvVar{{Name: "VLLM_CACHE_ROOT", Value: "/runtime/cache"}},
+		},
+		{
+			name:      "leaves a Triton cache alone",
+			cachePath: v1alpha1.KernelCachePath{ContainerPath: "/cache/triton", OCIPath: "io.triton.cache"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "model-pod", Namespace: "team"},
+				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "vllm", Env: test.env}}},
+			}
+			cache := &v1alpha1.KernelCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "manual-cache", Namespace: "team"},
+				Spec: v1alpha1.KernelCacheSpec{Artifact: v1alpha1.KernelCacheArtifact{
+					ImageReference: "registry.example/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					CachePaths:     []v1alpha1.KernelCachePath{test.cachePath},
+				}},
+			}
+
+			require.NoError(t, injectKernelCacheMount(pod, cache, &kernelcacheconfig.KernelCacheConfig{}))
+			require.Equal(t, test.wantEnv, pod.Spec.Containers[0].Env)
 		})
 	}
 }
@@ -145,4 +190,36 @@ func TestKernelCacheLinkerCanRunAgain(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(source, "torch", "rank_0", "model"), filepath.Clean(destination))
 	require.FileExists(t, filepath.Join(target, "torch", "new"))
+}
+
+// Inductor opens the lock files it captured for writing. Links to them would point into the
+// read-only image volume and fail with EROFS, so the linker leaves them out.
+func TestKernelCacheLinkerSkipsLockFiles(t *testing.T) {
+	if output, err := exec.CommandContext(t.Context(), "cp", "--version").CombinedOutput(); err != nil || !strings.Contains(string(output), "GNU") {
+		t.Skip("the linker image has GNU cp")
+	}
+	source, target := t.TempDir(), filepath.Join(t.TempDir(), "cache")
+	require.NoError(t, os.MkdirAll(filepath.Join(source, "inductor", "locks"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(source, "inductor", "locks", "kernel.lock"), nil, 0o400))
+	require.NoError(t, os.WriteFile(filepath.Join(source, "inductor", "kernel.py"), []byte("captured"), 0o400))
+	link := func() {
+		t.Helper()
+		output, err := exec.CommandContext(t.Context(), "/bin/sh", "-c", kernelCacheLinkerScript, kernelCacheLinkerName, source, target).CombinedOutput() // #nosec G204 -- fixed script
+		require.NoError(t, err, string(output))
+	}
+	link()
+
+	require.NoFileExists(t, filepath.Join(target, "inductor", "locks", "kernel.lock"))
+	require.DirExists(t, filepath.Join(target, "inductor", "locks"))
+	_, err := os.Readlink(filepath.Join(target, "inductor", "kernel.py"))
+	require.NoError(t, err, "cache content stays linked")
+	lock, err := os.OpenFile(filepath.Join(target, "inductor", "locks", "kernel.lock"), os.O_RDWR|os.O_CREATE, 0o600) // #nosec G304 -- test directory
+	require.NoError(t, err)
+	require.NoError(t, lock.Close())
+
+	// A node reboot runs the linker again. Lock files are made on demand, so it may drop the
+	// runtime's own, but it never leaves a link into the source.
+	link()
+	_, err = os.Readlink(filepath.Join(target, "inductor", "locks", "kernel.lock"))
+	require.Error(t, err)
 }

@@ -338,6 +338,7 @@ func addCacheMount(podSpec *corev1.PodSpec, sidecar *corev1.Container, index int
 	}
 
 	container := &podSpec.Containers[containerIndex]
+	kernelcacheutil.PinVLLMCacheRoot(container, cachePath.OCIPath, cachePath.ContainerPath)
 	mount := corev1.VolumeMount{Name: volume.Name, MountPath: cachePath.ContainerPath}
 	reusedMount := false
 

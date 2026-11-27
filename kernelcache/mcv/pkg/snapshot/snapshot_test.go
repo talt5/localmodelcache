@@ -298,3 +298,28 @@ func TestCompareRejectsLegacySnapshotWithoutFileState(t *testing.T) {
 		})
 	}
 }
+
+// A runtime that runs as another user can leave files the capture sidecar cannot read, such as
+// the 0600 modelinfos of a vLLM that runs as root. The snapshot skips them and keeps the rest.
+func TestCaptureRootsSkipsUnreadableFiles(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every file")
+	}
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "modelinfos"), 0o750))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "torch_compile_cache", "hash"), 0o750))
+	unreadable := filepath.Join(root, "modelinfos", "model.json")
+	require.NoError(t, os.WriteFile(unreadable, []byte("{}"), 0o600))
+	require.NoError(t, os.Chmod(unreadable, 0o000))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "torch_compile_cache", "hash", "kernel.bin"), []byte("kernel"), 0o600))
+
+	document, err := CaptureRoots([]RootOptions{{Source: root}})
+	require.NoError(t, err)
+	require.Len(t, document.Roots, 1)
+	paths := make([]string, 0, len(document.Roots[0].Files))
+	for _, file := range document.Roots[0].Files {
+		paths = append(paths, file.Path)
+	}
+	require.Equal(t, []string{"torch_compile_cache/hash/kernel.bin"}, paths)
+	require.Contains(t, document.Roots[0].Directories, "modelinfos")
+}

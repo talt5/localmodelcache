@@ -76,6 +76,8 @@ localmodelcache:
       jobTTLSecondsAfterFinished: 86400
     registry:
       endpoint: ''
+      # -- Push and pull cache images over plain HTTP, for a test registry without TLS. It excludes caConfigMapRef and the serviceAccountToken auth type, and the nodes' container runtime must allow the registry too.
+      insecure: false
       caConfigMapRef:
         name: ''
         key: ''

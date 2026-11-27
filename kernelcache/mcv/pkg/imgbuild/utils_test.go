@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateDockerfile(t *testing.T) {
@@ -115,4 +116,16 @@ func TestCleanupWithTimeout(t *testing.T) {
 	// should complete quickly unless CleanupMCVDirs is slow
 	assert.NoError(t, err)
 	assert.Less(t, duration.Milliseconds(), int64(5000))
+}
+
+// A runtime that compiled nothing, such as vLLM's CPU build or --enforce-eager, leaves only
+// metadata. The error says that no kernels were found rather than naming a cache type.
+func TestPrepareBuildContextWithoutKernels(t *testing.T) {
+	cacheDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(cacheDir, "modelinfos"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(cacheDir, "modelinfos", "model.json"), []byte("{}"), 0o600))
+
+	_, err := prepareBuildContextAt(t.TempDir(), cacheDir)
+	require.ErrorContains(t, err, "no compiled kernels found")
+	require.ErrorContains(t, err, "modelinfos")
 }

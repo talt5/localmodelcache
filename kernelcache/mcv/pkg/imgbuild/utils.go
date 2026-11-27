@@ -76,10 +76,24 @@ func prepareBuildContext(buildType, cacheDir string) (*buildContext, error) {
 	return prepareBuildContextAt(filepath.Join(constants.MCVBuildDir, buildType), cacheDir)
 }
 
+// noKernelsError explains a cache directory without a vLLM, Triton or Habana cache. A runtime
+// that compiled nothing there, such as vLLM's CPU build, leaves only metadata behind.
+func noKernelsError(cacheDir string) error {
+	entries, err := os.ReadDir(cacheDir)
+	if err != nil || len(entries) == 0 {
+		return errors.New("no compiled kernels found: the cache directory is empty")
+	}
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	return fmt.Errorf("no compiled kernels found: no vLLM, Triton or Habana cache among %s", strings.Join(names, ", "))
+}
+
 func prepareBuildContextAt(buildRoot, cacheDir string) (*buildContext, error) {
 	caches := cache.DetectCaches(cacheDir)
 	if len(caches) == 0 {
-		return nil, errors.New("failed to detect cache type")
+		return nil, noKernelsError(cacheDir)
 	}
 	logging.Infof("Detected cache components: %v", cache.CacheTypes(caches))
 

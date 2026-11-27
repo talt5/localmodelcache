@@ -53,6 +53,9 @@ while [ "$#" -gt 0 ]; do
     mkdir -p "$target"
     # -f: after a node reboot the links of the first run are still there.
     cp -srf "$source"/. "$target"/
+    # Runtimes open their lock files for writing, which a link into the read-only image
+    # volume refuses (EROFS). They create the locks again on demand.
+    find "$target" -type l -name '*.lock' -exec rm -f {} +
     echo "kernel-cache-linker: completed $target"
 done
 echo "kernel-cache-linker: cache materialization completed"`
@@ -258,6 +261,7 @@ func injectKernelCacheMount(pod *corev1.Pod, kernelCache *v1alpha1.KernelCache, 
 		if err != nil {
 			return err
 		}
+		kernelcacheutil.PinVLLMCacheRoot(container, cachePath.OCIPath, cachePath.ContainerPath)
 		if err := addKernelCacheVolumeMount(&linker, targetMount, false); err != nil {
 			return err
 		}
