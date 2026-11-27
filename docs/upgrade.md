@@ -1,5 +1,17 @@
 # Upgrade
 
+## From v0.3.0 to v0.3.1
+
+Upgrade the `localmodelcache` chart. The CRDs did not change.
+
+A Pod that opts into the kernel cache and sets no `VLLM_CACHE_ROOT` now gets it, set to
+`/var/cache/vllm`, which its cache is captured from and restored to. Kernel caches captured before
+keep their path.
+
+While the controller is down, such Pods now start without the kernel cache instead of being
+refused. The capture sidecar now has resource requests and limits, `kernelcache.mcvResources`,
+which count against namespace quotas.
+
 ## From v0.2 to v0.3
 
 Upgrade the CRD chart first, then `localmodelcache`. Caches and their files stay.
