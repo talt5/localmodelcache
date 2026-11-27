@@ -135,3 +135,27 @@ func TestChartKernelCacheTrustBundleFollowsTheReleaseNamespace(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "pki/ca", config.ArtifactSecurity.Cert.TrustBundle)
 }
+
+// A registry without TLS, such as a test registry, needs registry.insecure in the controller's
+// ConfigMap. The chart passes it through and leaves it off by default.
+func TestChartKernelCacheRegistryInsecure(t *testing.T) {
+	helm, err := exec.LookPath("helm")
+	if err != nil {
+		t.Skip("helm is not installed")
+	}
+	for name, test := range map[string]struct {
+		sets []string
+		want bool
+	}{
+		"default":  {want: false},
+		"insecure": {sets: []string{"localmodelcache.kernelcache.registry.endpoint=registry.local:5000", "localmodelcache.kernelcache.registry.insecure=true"}, want: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			configMap := &corev1.ConfigMap{}
+			require.True(t, findObject(t, renderInNamespace(t, helm, constants.SystemNamespace, test.sets...), "ConfigMap", "localmodelcache-config", configMap))
+			config, err := kernelcacheconfig.NewKernelCacheConfig(configMap)
+			require.NoError(t, err)
+			require.Equal(t, test.want, config.Registry.Insecure)
+		})
+	}
+}

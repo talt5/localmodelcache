@@ -57,6 +57,7 @@ $ helm install localmodelcache oci://ghcr.io/talt5/charts/localmodelcache --vers
 | localmodelcache.kernelcache.registry.caConfigMapRef.key | string | `""` |  |
 | localmodelcache.kernelcache.registry.caConfigMapRef.name | string | `""` |  |
 | localmodelcache.kernelcache.registry.endpoint | string | `""` |  |
+| localmodelcache.kernelcache.registry.insecure | bool | `false` | Push and pull cache images over plain HTTP, for a test registry without TLS. It excludes caConfigMapRef and the serviceAccountToken auth type, and the nodes' container runtime must allow the registry too. |
 | localmodelcache.kernelcache.runtimeImagePrefetch.enabled | bool | `false` |  |
 | localmodelcache.kernelcache.runtimeImagePrefetch.jobTTLSecondsAfterFinished | int | `86400` |  |
 | localmodelcache.kernelcachenode.controller.extraArgs | list | `[]` | Additional container arguments. |
