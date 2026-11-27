@@ -63,7 +63,8 @@ webhooks:
         name: $(webhookServiceName)
         namespace: $(systemNamespace)
         path: /mutate-kernelcache-pods
-    failurePolicy: Fail
+    # The kernel cache only saves time: while the controller is down, Pods start without it.
+    failurePolicy: Ignore
     name: kernelcache-pod-mutator.webhook.local.cache.ai
     sideEffects: None
     reinvocationPolicy: IfNeeded

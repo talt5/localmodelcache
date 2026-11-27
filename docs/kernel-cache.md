@@ -58,8 +58,18 @@ work on OpenShift: images run there with `HOME=/` and often cannot enter `/root`
 
 ## Limits and cleanup
 
-A Pod that cannot use or capture a cache starts without it, with an admission warning. One reason is
-a volume of its own at a parent of the cache path, such as `/var/cache`.
+A Pod that cannot use or capture a cache starts without it, with an admission warning. Reasons
+include:
+
+- a volume of its own at a parent of the cache path, such as `/var/cache`;
+- an invalid `local.cache.ai/kernelcache-sidecar-injection` value;
+- a cache whose registry does not answer. The node would have to reach the registry before the Pod
+  starts, even when it has the image.
+
+While the controller is down, Pods start without the kernel cache and without a warning.
+
+The capture sidecar requests `mcvResources` of the `kernelcache` settings, by default 100m CPU and
+256Mi of memory with limits of 1 CPU and 1Gi, so that namespaces with a `ResourceQuota` accept it.
 
 The capture sidecar runs as UID 1000, or as the namespace's UID on OpenShift. It leaves out the
 files it cannot read, such as those a runtime that runs as root writes with mode `0600`. vLLM's

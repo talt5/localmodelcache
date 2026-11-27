@@ -44,6 +44,7 @@ $ helm install localmodelcache oci://ghcr.io/talt5/charts/localmodelcache --vers
 | localmodelcache.kernelcache.jobTTLSecondsAfterFinished | int | `600` |  |
 | localmodelcache.kernelcache.mcvCaptureReadinessTimeoutSeconds | int | `600` |  |
 | localmodelcache.kernelcache.mcvImage | string | `"ghcr.io/talt5/localmodelcache-mcv"` |  |
+| localmodelcache.kernelcache.mcvResources | object | `{"limits":{"cpu":"1","memory":"1Gi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resources of the capture sidecar. A namespace with a ResourceQuota refuses Pods whose containers set none. |
 | localmodelcache.kernelcache.mcvTag | string | `""` |  |
 | localmodelcache.kernelcache.prefetchImage | string | `"registry.access.redhat.com/ubi9/ubi-minimal:latest"` |  |
 | localmodelcache.kernelcache.prefetchTag | string | `""` |  |

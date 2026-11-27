@@ -267,10 +267,11 @@ func main() {
 	setupLog.Info("registering KernelCache pod mutating webhook")
 	mgr.GetWebhookServer().Register("/mutate-kernelcache-pods", &webhook.Admission{
 		Handler: &kernelcachewebhook.PodMutator{
-			Client:    mgr.GetClient(),
-			Reader:    mgr.GetAPIReader(),
-			Clientset: clientSet,
-			Decoder:   admission.NewDecoder(mgr.GetScheme()),
+			Client:        mgr.GetClient(),
+			Reader:        mgr.GetAPIReader(),
+			Clientset:     clientSet,
+			Decoder:       admission.NewDecoder(mgr.GetScheme()),
+			RegistryProbe: &kernelcachewebhook.RegistryProbe{},
 		},
 	})
 	mgr.GetWebhookServer().Register("/validate-kernelcachecapture-status", &webhook.Admission{

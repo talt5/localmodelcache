@@ -43,6 +43,7 @@ func TestKernelCacheWebhookMatchConditionSelectsOptedInPods(t *testing.T) {
 		Kind     string `json:"kind"`
 		Webhooks []struct {
 			Name            string `json:"name"`
+			FailurePolicy   string `json:"failurePolicy"`
 			MatchConditions []struct {
 				Expression string `json:"expression"`
 			} `json:"matchConditions"`
@@ -66,6 +67,8 @@ func TestKernelCacheWebhookMatchConditionSelectsOptedInPods(t *testing.T) {
 				continue
 			}
 			found = true
+			// The kernel cache only saves time: when the controller is down, Pods start without it.
+			require.Equal(t, "Ignore", webhook.FailurePolicy)
 			require.NotEmpty(t, webhook.MatchConditions)
 			for _, condition := range webhook.MatchConditions {
 				require.NotContains(t, condition.Expression, constants.KernelCacheSidecarInjectionAnnotationKey)

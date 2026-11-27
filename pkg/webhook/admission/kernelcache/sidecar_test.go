@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -524,6 +525,36 @@ func TestSidecarManifestsAndExistingMount(t *testing.T) {
 	require.NoError(t, addCacheMount(&podSpec, &manifests.Containers[0], 0, cfg.CachePaths[0], manifests.Volumes[0]))
 	require.Len(t, podSpec.Volumes, 1)
 	require.Equal(t, corev1.VolumeMount{Name: "existing", MountPath: "/workspace/cache/0", SubPath: "vllm"}, manifests.Containers[0].VolumeMounts[0])
+}
+
+// A namespace with a ResourceQuota refuses Pods with a container that sets no requests or limits.
+func TestSidecarManifestsSetResources(t *testing.T) {
+	custom := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("200m"), corev1.ResourceMemory: resource.MustParse("512Mi")},
+		Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("2"), corev1.ResourceMemory: resource.MustParse("2Gi")},
+	}
+	for name, test := range map[string]struct {
+		configured *corev1.ResourceRequirements
+		want       corev1.ResourceRequirements
+	}{
+		"default":    {want: kernelcacheconfig.DefaultMCVResources()},
+		"configured": {configured: &custom, want: custom},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := &kernelcacheconfig.KernelCacheConfig{
+				MCVImage: "example/mcv:test", TargetImage: "registry.example/cache:capture-id",
+				CachePaths:         []v1alpha1.KernelCachePath{{ContainerName: "main", ContainerPath: "/cache", OCIPath: "io.vllm.cache"}},
+				ReporterSecretName: reporter.SecretName("capture"),
+				CaptureName:        "capture",
+				CaptureNamespace:   "team",
+				CaptureSessionID:   "session-id",
+				MCVResources:       test.configured,
+			}
+			manifests, err := getSidecarManifestsWithConfigs(cfg, captureconfig.ReadinessConfig{URL: "http://127.0.0.1:8080/", MCVCaptureReadinessTimeoutSeconds: 600}, captureconfig.RuntimeInfo{})
+			require.NoError(t, err)
+			require.Equal(t, test.want, manifests.Containers[0].Resources)
+		})
+	}
 }
 
 // The capture watches the mounted path, so vLLM must write there whatever HOME is.

@@ -113,5 +113,6 @@ data:
       "abandonedCapturePolicy": "{{ .Values.localmodelcache.kernelcache.abandonedCapturePolicy }}",
       "jobTTLSecondsAfterFinished": {{ .Values.localmodelcache.kernelcache.jobTTLSecondsAfterFinished }},
       "mcvCaptureReadinessTimeoutSeconds": {{ .Values.localmodelcache.kernelcache.mcvCaptureReadinessTimeoutSeconds }},
+      "mcvResources": {{ .Values.localmodelcache.kernelcache.mcvResources | toJson }},
       "reconcileIntervalSeconds": {{ .Values.localmodelcache.kernelcache.reconcileIntervalSeconds }}
     }

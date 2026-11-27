@@ -983,7 +983,7 @@ webhooks:
       name: localmodel-webhook-server-service
       namespace: localmodelcache
       path: /mutate-kernelcache-pods
-  failurePolicy: Fail
+  failurePolicy: Ignore
   matchConditions:
   - expression: has(object.metadata.annotations) && 'local.cache.ai/kernelcache-supported'
       in object.metadata.annotations && object.metadata.annotations['local.cache.ai/kernelcache-supported']

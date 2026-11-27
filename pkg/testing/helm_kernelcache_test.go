@@ -136,6 +136,33 @@ func TestChartKernelCacheTrustBundleFollowsTheReleaseNamespace(t *testing.T) {
 	require.Equal(t, "pki/ca", config.ArtifactSecurity.Cert.TrustBundle)
 }
 
+// The chart's capture sidecar resources are the controller's defaults.
+func TestChartKernelCacheMCVResources(t *testing.T) {
+	helm, err := exec.LookPath("helm")
+	if err != nil {
+		t.Skip("helm is not installed")
+	}
+	configMap := &corev1.ConfigMap{}
+	require.True(t, findObject(t, renderInNamespace(t, helm, constants.SystemNamespace), "ConfigMap", "localmodelcache-config", configMap))
+	config, err := kernelcacheconfig.NewKernelCacheConfig(configMap)
+	require.NoError(t, err)
+	want, got := kernelcacheconfig.DefaultMCVResources(), config.MCVResourceRequirements()
+	for _, lists := range [][2]corev1.ResourceList{{want.Requests, got.Requests}, {want.Limits, got.Limits}} {
+		require.Len(t, lists[1], len(lists[0]))
+		for name, quantity := range lists[0] {
+			require.Zero(t, quantity.Cmp(lists[1][name]), "%s: chart %v, controller %v", name, lists[1][name], quantity)
+		}
+	}
+
+	configMap = &corev1.ConfigMap{}
+	require.True(t, findObject(t, renderInNamespace(t, helm, constants.SystemNamespace, "localmodelcache.kernelcache.mcvResources.limits.memory=4Gi"),
+		"ConfigMap", "localmodelcache-config", configMap))
+	config, err = kernelcacheconfig.NewKernelCacheConfig(configMap)
+	require.NoError(t, err)
+	limits := config.MCVResourceRequirements().Limits
+	require.Equal(t, "4Gi", limits.Memory().String())
+}
+
 // A registry without TLS, such as a test registry, needs registry.insecure in the controller's
 // ConfigMap. The chart passes it through and leaves it off by default.
 func TestChartKernelCacheRegistryInsecure(t *testing.T) {

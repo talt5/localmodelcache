@@ -347,6 +347,22 @@ func TestNewKernelCacheConfigUsesConfiguredMCVCaptureReadinessTimeout(t *testing
 	g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(int64(900)))
 }
 
+func TestNewKernelCacheConfigReadsMCVResources(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	config, err := NewKernelCacheConfig(&corev1.ConfigMap{})
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(config.MCVResourceRequirements()).To(gomega.Equal(DefaultMCVResources()))
+
+	config, err = NewKernelCacheConfig(&corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigKeyName: `{"mcvResources": {"requests": {"cpu": "200m"}, "limits": {"cpu": "2", "memory": "2Gi"}}}`,
+	}})
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	resources := config.MCVResourceRequirements()
+	g.Expect(resources.Requests.Cpu().String()).To(gomega.Equal("200m"))
+	g.Expect(resources.Limits.Memory().String()).To(gomega.Equal("2Gi"))
+	g.Expect(config.DeepCopy().MCVResources).To(gomega.Equal(config.MCVResources))
+}
+
 func TestNewKernelCacheConfigUsesConfiguredValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	configMap := &corev1.ConfigMap{Data: map[string]string{
