@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
 	"github.com/talt5/localmodelcache/pkg/constants"
@@ -65,18 +66,21 @@ type KernelCacheRuntimeImagePrefetchConfig struct {
 // KernelCacheConfig contains the shared KernelCache configuration loaded from
 // the kernelcache entry of the localmodelcache-config ConfigMap.
 type KernelCacheConfig struct {
-	Enabled                           bool                                  `json:"enabled"`
-	DefaultSidecarInjection           bool                                  `json:"defaultSidecarInjection"`
-	DefaultMountType                  string                                `json:"defaultMountType,omitempty"`
-	DefaultNodeGroup                  string                                `json:"defaultNodeGroup,omitempty"`
-	JobNamespace                      string                                `json:"jobNamespace"`
-	MCVImage                          string                                `json:"mcvImage,omitempty"`
-	MCVCaptureReadinessTimeoutSeconds int64                                 `json:"mcvCaptureReadinessTimeoutSeconds,omitempty"`
-	PrefetchImage                     string                                `json:"prefetchImage,omitempty"`
-	RuntimeImagePrefetch              KernelCacheRuntimeImagePrefetchConfig `json:"runtimeImagePrefetch,omitempty"`
-	JobTTLSecondsAfterFinished        *int32                                `json:"jobTTLSecondsAfterFinished,omitempty"`
-	ReconcileIntervalSeconds          *int64                                `json:"reconcileIntervalSeconds,omitempty"`
-	AbandonedCapturePolicy            string                                `json:"abandonedCapturePolicy,omitempty"`
+	Enabled                           bool   `json:"enabled"`
+	DefaultSidecarInjection           bool   `json:"defaultSidecarInjection"`
+	DefaultMountType                  string `json:"defaultMountType,omitempty"`
+	DefaultNodeGroup                  string `json:"defaultNodeGroup,omitempty"`
+	JobNamespace                      string `json:"jobNamespace"`
+	MCVImage                          string `json:"mcvImage,omitempty"`
+	MCVCaptureReadinessTimeoutSeconds int64  `json:"mcvCaptureReadinessTimeoutSeconds,omitempty"`
+	// MCVResources are the resources of the capture sidecar. A namespace with a ResourceQuota
+	// refuses Pods whose containers set none, so the sidecar always has them.
+	MCVResources               *corev1.ResourceRequirements          `json:"mcvResources,omitempty"`
+	PrefetchImage              string                                `json:"prefetchImage,omitempty"`
+	RuntimeImagePrefetch       KernelCacheRuntimeImagePrefetchConfig `json:"runtimeImagePrefetch,omitempty"`
+	JobTTLSecondsAfterFinished *int32                                `json:"jobTTLSecondsAfterFinished,omitempty"`
+	ReconcileIntervalSeconds   *int64                                `json:"reconcileIntervalSeconds,omitempty"`
+	AbandonedCapturePolicy     string                                `json:"abandonedCapturePolicy,omitempty"`
 	// Registry configures the OCI registry used by capture and prefetch operations.
 	Registry KernelCacheRegistryConfig `json:"registry,omitempty"`
 	// ArtifactSecurity controls signing of completed capture artifacts.
@@ -242,6 +246,9 @@ func (c *KernelCacheConfig) DeepCopy() *KernelCacheConfig {
 		value := *c.ReconcileIntervalSeconds
 		out.ReconcileIntervalSeconds = &value
 	}
+	if c.MCVResources != nil {
+		out.MCVResources = c.MCVResources.DeepCopy()
+	}
 	if c.Registry.CAConfigMapRef != nil {
 		value := *c.Registry.CAConfigMapRef
 		out.Registry.CAConfigMapRef = &value
@@ -255,6 +262,22 @@ func (c *KernelCacheConfig) DeepCopy() *KernelCacheConfig {
 		out.Registry.Auth.PullRoleRef = &value
 	}
 	return &out
+}
+
+// DefaultMCVResources are the capture sidecar's resources when mcvResources is not set.
+func DefaultMCVResources() corev1.ResourceRequirements {
+	return corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m"), corev1.ResourceMemory: resource.MustParse("256Mi")},
+		Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1"), corev1.ResourceMemory: resource.MustParse("1Gi")},
+	}
+}
+
+// MCVResourceRequirements returns the capture sidecar's resources.
+func (c *KernelCacheConfig) MCVResourceRequirements() corev1.ResourceRequirements {
+	if c.MCVResources == nil {
+		return DefaultMCVResources()
+	}
+	return *c.MCVResources.DeepCopy()
 }
 
 func defaultTrustBundle() string {

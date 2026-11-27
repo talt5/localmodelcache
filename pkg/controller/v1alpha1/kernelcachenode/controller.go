@@ -52,6 +52,8 @@ const (
 	defaultReconcileInterval = 5 * time.Minute
 	cacheImageCheckInterval  = time.Hour
 	missingImageMessage      = "OCI artifact is not present in Node.status.images"
+	// kubeletDefaultNodeStatusMaxImages is the kubelet's default nodeStatusMaxImages.
+	kubeletDefaultNodeStatusMaxImages = 50
 )
 
 // KernelCacheNodeReconciler reports cache preparation status for one node.

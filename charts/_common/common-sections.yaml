@@ -92,4 +92,12 @@ localmodelcache:
     abandonedCapturePolicy: 'retain'
     jobTTLSecondsAfterFinished: 600
     mcvCaptureReadinessTimeoutSeconds: 600
+    # -- Resources of the capture sidecar. A namespace with a ResourceQuota refuses Pods whose containers set none.
+    mcvResources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 1Gi
     reconcileIntervalSeconds: 300

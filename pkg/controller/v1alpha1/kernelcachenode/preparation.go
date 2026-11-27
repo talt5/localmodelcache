@@ -168,6 +168,11 @@ func cacheImageValidationState(
 	if nodeContainsImage(node, cacheInfo.ImageReference) {
 		return v1alpha1.KernelCacheNodePreparationStateReady, "OCI artifact is present on the node"
 	}
+	// The kubelet lists only its largest images, 50 by default, and cache images are small.
+	// A full list proves nothing about an image that is not in it.
+	if node != nil && len(node.Status.Images) >= kubeletDefaultNodeStatusMaxImages {
+		return cacheInfo.State, cacheInfo.Message
+	}
 	return v1alpha1.KernelCacheNodePreparationStatePending, missingImageMessage
 }
 

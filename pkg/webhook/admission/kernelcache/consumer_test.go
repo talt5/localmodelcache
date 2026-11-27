@@ -94,6 +94,28 @@ func TestInjectKernelCacheMountResolvesOptionalContainerPath(t *testing.T) {
 	}
 }
 
+// A namespace with a ResourceQuota refuses Pods with a container that sets no requests or limits.
+func TestInjectKernelCacheMountSetsLinkerResources(t *testing.T) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "model-pod", Namespace: "team"},
+		Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "vllm"}}},
+	}
+	cache := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "manual-cache", Namespace: "team"},
+		Spec: v1alpha1.KernelCacheSpec{Artifact: v1alpha1.KernelCacheArtifact{
+			ImageReference: "registry.example/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			CachePaths:     []v1alpha1.KernelCachePath{{OCIPath: "io.vllm.cache"}},
+		}},
+	}
+
+	require.NoError(t, injectKernelCacheMount(pod, cache, &kernelcacheconfig.KernelCacheConfig{}))
+	linker := pod.Spec.InitContainers[0]
+	for _, name := range []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory} {
+		require.Contains(t, linker.Resources.Requests, name)
+		require.Contains(t, linker.Resources.Limits, name)
+	}
+}
+
 // vLLM derives its cache from HOME unless VLLM_CACHE_ROOT is set, and the image or platform
 // sets HOME (OpenShift runs images with HOME=/). The mount pins vLLM to the mounted path.
 func TestInjectKernelCacheMountPinsVLLMCacheRoot(t *testing.T) {

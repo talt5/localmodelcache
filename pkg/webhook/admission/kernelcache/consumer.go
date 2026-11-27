@@ -26,6 +26,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/talt5/localmodelcache/pkg/apis/cache/v1alpha1"
@@ -72,6 +73,11 @@ func (m *PodMutator) injectKernelCacheArtifact(
 	}
 	if !found {
 		return false, nil
+	}
+	if m.RegistryProbe != nil {
+		if err := m.RegistryProbe.Check(ctx, m.reader(), pod.Namespace, cfg.Registry, selection.cache.Spec.Artifact.ImageReference); err != nil {
+			return false, fmt.Errorf("KernelCache %s/%s: %w", selection.cache.Namespace, selection.cache.Name, err)
+		}
 	}
 	mutatedPod := pod.DeepCopy()
 	if err := injectKernelCacheMount(mutatedPod, selection.cache, cfg); err != nil {
@@ -248,6 +254,12 @@ func injectKernelCacheMount(pod *corev1.Pod, kernelCache *v1alpha1.KernelCache, 
 		Image:           kernelCacheLinkerImage(cfg),
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         []string{"/bin/sh", "-c"},
+		// A namespace with a ResourceQuota refuses Pods with a container that sets none. The
+		// linker only creates links.
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("32Mi")},
+			Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m"), corev1.ResourceMemory: resource.MustParse("128Mi")},
+		},
 	}
 	linker.VolumeMounts = append(linker.VolumeMounts, corev1.VolumeMount{
 		Name:      kernelCacheSourceVolumeName,

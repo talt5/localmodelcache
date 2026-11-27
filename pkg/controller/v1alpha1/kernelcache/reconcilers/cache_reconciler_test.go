@@ -336,6 +336,47 @@ func TestReconcileArtifactVerificationClearsStaleSuccessWhenRegistryIsUnavailabl
 	}
 }
 
+// A registry outage should not leave a cache unusable for the controller's full backoff, about
+// 16 minutes, after the registry is back.
+func TestReconcileRetriesVerificationEveryMinute(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	ca := securityfixture.NewCA(t)
+	cache := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "team"},
+		Spec: v1alpha1.KernelCacheSpec{Artifact: v1alpha1.KernelCacheArtifact{
+			ImageReference: "registry.example.com/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		}},
+	}
+	trustBundle := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "kernel-cache-ca", Namespace: "localmodelcache"},
+		Data:       map[string][]byte{"ca.crt": ca.CertPEM},
+	}
+	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.LocalModelConfigMapName, Namespace: constants.SystemNamespace}, Data: map[string]string{
+		"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"cert","cert":{"trustBundle":"localmodelcache/kernel-cache-ca","subjectRegexp":"kernel-cache-signer"}},
+			"registry":{"endpoint":"registry.example.com","caConfigMapRef":{"name":"missing-registry-ca","key":"ca.crt"}}}`,
+	}}
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cache, trustBundle, configMap).WithStatusSubresource(cache).Build()
+	reconciler := &KernelCacheReconciler{Client: k8sClient}
+
+	result, err := reconciler.Reconcile(t.Context(), reconcile.Request{NamespacedName: client.ObjectKeyFromObject(cache)})
+	if err != nil || result.RequeueAfter != verificationRetryDelay {
+		t.Fatalf("expected a retry after %s without the rate limiter, got %#v, %v", verificationRetryDelay, result, err)
+	}
+	updated := &v1alpha1.KernelCache{}
+	if err := k8sClient.Get(t.Context(), client.ObjectKeyFromObject(cache), updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status.State != v1alpha1.KernelCacheStateError {
+		t.Fatalf("expected the cache to be unusable while it cannot be verified, got %q", updated.Status.State)
+	}
+}
+
 func TestAggregateKernelCacheNodeStatuses(t *testing.T) {
 	kernelCache := &v1alpha1.KernelCache{ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "team"}}
 	kernelCacheNodes := &v1alpha1.KernelCacheNodeList{Items: []v1alpha1.KernelCacheNode{

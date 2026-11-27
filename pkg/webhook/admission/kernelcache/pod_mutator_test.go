@@ -159,6 +159,17 @@ func TestPodMutatorWarnsForPodsWithoutADeployment(t *testing.T) {
 	require.Contains(t, response.Warnings[0], "not owned by a Deployment")
 }
 
+// A typo in the annotation costs the kernel cache, not the Pod.
+func TestPodMutatorAdmitsPodsWithAnInvalidSidecarInjectionValue(t *testing.T) {
+	fixture := newPodMutatorFixture()
+	fixture.pod.Annotations[constants.KernelCacheSidecarInjectionAnnotationKey] = "yes"
+	response := fixture.mutator(t, enabledKernelCache).Handle(t.Context(), podCreateRequest(t, fixture.pod))
+	require.True(t, response.Allowed, response.Result)
+	require.Empty(t, response.Patches)
+	require.Len(t, response.Warnings, 1)
+	require.Contains(t, response.Warnings[0], constants.KernelCacheSidecarInjectionAnnotationKey)
+}
+
 func TestPodMutatorWarnsWhenTheRuntimeContainerIsAmbiguous(t *testing.T) {
 	fixture := newPodMutatorFixture()
 	fixture.pod.Spec.Containers = append(fixture.pod.Spec.Containers, corev1.Container{Name: "proxy", Image: "proxy:latest"})
@@ -206,6 +217,13 @@ func TestPodMutatorAdmitsPodsItCannotCapture(t *testing.T) {
 // mountableFixture has a ready KernelCache that matches its Pod.
 func mountableFixture(t *testing.T) (*podMutatorFixture, *PodMutator) {
 	t.Helper()
+	return mountableFixtureWithImage(t, "")
+}
+
+// mountableFixtureWithImage is mountableFixture with the cache at an image reference; empty keeps
+// the default.
+func mountableFixtureWithImage(t *testing.T, imageReference string) (*podMutatorFixture, *PodMutator) {
+	t.Helper()
 	fixture := newPodMutatorFixture()
 	fixture.pod.Spec.Containers[0].Env = []corev1.EnvVar{{Name: "VLLM_CACHE_ROOT", Value: "/cache/vllm"}}
 	identified := fixture.pod.DeepCopy()
@@ -216,6 +234,9 @@ func mountableFixture(t *testing.T) (*podMutatorFixture, *PodMutator) {
 	cache := readyCache("captured", identity)
 	cache.Spec.Artifact.CachePaths[0].ContainerName = ""
 	cache.Spec.Artifact.CachePaths[0].ContainerPath = ""
+	if imageReference != "" {
+		cache.Spec.Artifact.ImageReference = imageReference
+	}
 	node := kernelCacheNode("node-a", cache, v1alpha1.KernelCacheNodePreparationStateReady)
 	mutator := fixture.mutator(t, enabledKernelCache)
 	require.NoError(t, mutator.Client.Create(t.Context(), &cache))

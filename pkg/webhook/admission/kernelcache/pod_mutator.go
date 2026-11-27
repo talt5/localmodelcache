@@ -35,7 +35,7 @@ import (
 	"github.com/talt5/localmodelcache/pkg/kernelcache/workload"
 )
 
-// +kubebuilder:webhook:path=/mutate-kernelcache-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=kernelcache-pod-mutator.webhook.local.cache.ai,reinvocationPolicy=IfNeeded
+// +kubebuilder:webhook:path=/mutate-kernelcache-pods,mutating=true,failurePolicy=ignore,groups="",resources=pods,verbs=create,versions=v1,name=kernelcache-pod-mutator.webhook.local.cache.ai,reinvocationPolicy=IfNeeded
 
 // PodMutator is the KernelCache Pod webhook entry point.
 type PodMutator struct {
@@ -43,6 +43,8 @@ type PodMutator struct {
 	Reader    client.Reader
 	Clientset kubernetes.Interface
 	Decoder   admission.Decoder
+	// RegistryProbe, when set, leaves out a cache whose registry does not answer.
+	RegistryProbe *RegistryProbe
 }
 
 var logger = logf.Log.WithName("kernelcache-pod-mutator")
@@ -98,9 +100,7 @@ func (m *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 		case "false":
 			sidecarInjection = false
 		default:
-			err := fmt.Errorf("%s must be true or false", constants.KernelCacheSidecarInjectionAnnotationKey)
-			logger.Error(err, "Failed to parse sidecar injection annotation")
-			return admission.Errored(http.StatusBadRequest, err)
+			return skipped(fmt.Errorf("%s must be true or false, got %q", constants.KernelCacheSidecarInjectionAnnotationKey, value))
 		}
 	}
 	// Both change the Pod only when they succeed.

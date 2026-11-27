@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run one capture after the runtime is ready and report its result."""
 
+import http.client
 import json
 import logging
 import os
@@ -269,11 +270,26 @@ def is_capture_session_superseded(status_code, response):
     return any(marker in message for marker in SESSION_TEST_FAILURE_MARKERS)
 
 
+def readiness_context(url):
+    """Accept any certificate on an HTTPS probe, as the kubelet does.
+
+    The probe goes to the runtime in the same Pod over the loopback address, which no
+    certificate names, and the runtime's certificate is often self-signed.
+    """
+    if urllib.parse.urlsplit(url).scheme != "https":
+        return None
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    return context
+
+
 def wait_for_readiness():
     config = readiness_config()
     url = config.get("url", "")
     if not url:
         raise RuntimeError("MCV_READINESS_CONFIG url is required")
+    context = readiness_context(url)
     timeout = config["mcvCaptureReadinessTimeoutSeconds"]
     deadline = time.monotonic() + timeout
     logger.info("Waiting for workload readiness probe")
@@ -285,10 +301,11 @@ def wait_for_readiness():
                 f"workload readiness probe did not succeed within {timeout} seconds"
             )
         try:
-            with urllib.request.urlopen(url, timeout=min(1, remaining)):
+            with urllib.request.urlopen(url, timeout=min(1, remaining), context=context):
                 logger.info("Workload readiness probe succeeded")
                 return
-        except (urllib.error.URLError, TimeoutError):
+        # A starting runtime refuses, resets or garbles connections: all mean not ready yet.
+        except (OSError, http.client.HTTPException):
             if shutdown_event.wait(min(1, max(0, deadline - time.monotonic()))):
                 raise ShutdownRequested()
 

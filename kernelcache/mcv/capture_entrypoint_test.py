@@ -1,9 +1,15 @@
+import http.client
+import http.server
 import importlib.util
 import json
 import os
 import pathlib
+import shutil
 import signal
+import ssl
+import subprocess
 import tempfile
+import threading
 import unittest
 from unittest import mock
 
@@ -147,6 +153,71 @@ class CaptureEntrypointTest(unittest.TestCase):
                 capture_entrypoint.wait_for_readiness()
 
         urlopen.assert_not_called()
+
+    def readiness_environment(self, url):
+        config = dict(READINESS_CONFIG, url=url)
+        return mock.patch.dict(
+            os.environ, {"MCV_READINESS_CONFIG": json.dumps(config)}, clear=True
+        )
+
+    def test_readiness_does_not_verify_https_certificates(self):
+        # The kubelet does not verify the certificate of an HTTPS probe, and 127.0.0.1 is in no
+        # certificate's names.
+        with (
+            self.readiness_environment("https://127.0.0.1:8443/health"),
+            mock.patch.object(
+                capture_entrypoint.urllib.request,
+                "urlopen",
+                return_value=FakeHTTPResponse({}),
+            ) as urlopen,
+        ):
+            capture_entrypoint.wait_for_readiness()
+
+        context = urlopen.call_args.kwargs["context"]
+        self.assertEqual(context.verify_mode, ssl.CERT_NONE)
+        self.assertFalse(context.check_hostname)
+
+    @unittest.skipUnless(shutil.which("openssl"), "needs openssl to make a certificate")
+    def test_readiness_accepts_a_self_signed_https_server(self):
+        with tempfile.TemporaryDirectory() as directory:
+            certificate = os.path.join(directory, "cert.pem")
+            key = os.path.join(directory, "key.pem")
+            subprocess.run(
+                ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
+                 "-subj", "/CN=runtime", "-keyout", key, "-out", certificate],
+                check=True,
+                capture_output=True,
+            )
+            server = http.server.HTTPServer(("127.0.0.1", 0), http.server.SimpleHTTPRequestHandler)
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(certificate, key)
+            server.socket = context.wrap_socket(server.socket, server_side=True)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                with self.readiness_environment(f"https://127.0.0.1:{server.server_port}/"):
+                    capture_entrypoint.wait_for_readiness()
+            finally:
+                server.shutdown()
+                server.server_close()
+
+    def test_readiness_retries_when_the_runtime_drops_the_connection(self):
+        responses = [
+            ConnectionResetError("reset by peer"),
+            http.client.RemoteDisconnected("closed"),
+            http.client.BadStatusLine("garbage"),
+            FakeHTTPResponse({}),
+        ]
+        with (
+            self.readiness_environment("http://127.0.0.1:8080/health"),
+            mock.patch.object(
+                capture_entrypoint.urllib.request, "urlopen", side_effect=responses
+            ) as urlopen,
+            mock.patch.object(capture_entrypoint.shutdown_event, "wait", return_value=False),
+        ):
+            capture_entrypoint.wait_for_readiness()
+
+        self.assertEqual(urlopen.call_count, 4)
 
     def test_snapshot_retries_after_transient_failure(self):
         failed_process = mock.Mock()
