@@ -253,6 +253,11 @@ func snapshotOCICacheDirectories(ctx context.Context, source, destination string
 		}
 		// Root confines path resolution; flags reject a swapped symlink or FIFO.
 		src, err := fileRoot.OpenFile(filePath, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+		if errors.Is(err, fs.ErrPermission) {
+			// The snapshot leaves these out as well, so the delta stays consistent.
+			logging.Warnf("Skipping cache file the capture cannot read: %s", relative)
+			return nil
+		}
 		if err != nil {
 			return err
 		}

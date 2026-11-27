@@ -401,3 +401,23 @@ func readLayerFiles(t *testing.T, image v1.Image) map[string]string {
 	}
 	return files
 }
+
+// Leaves out files the capture sidecar cannot read instead of failing the capture.
+func TestOCISnapshotSkipsUnreadableFiles(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every file")
+	}
+	source := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(source, "modelinfos"), 0o700))
+	require.NoError(t, os.MkdirAll(filepath.Join(source, "torch_compile_cache", "hash"), 0o700))
+	unreadable := filepath.Join(source, "modelinfos", "model.json")
+	require.NoError(t, os.WriteFile(unreadable, []byte("{}"), 0o600))
+	require.NoError(t, os.Chmod(unreadable, 0o000))
+	require.NoError(t, os.WriteFile(filepath.Join(source, "torch_compile_cache", "hash", "kernel.bin"), []byte("kernel"), 0o600))
+
+	destination := filepath.Join(t.TempDir(), "snapshot")
+	require.NoError(t, snapshotOCICache(context.Background(), source, destination))
+	require.FileExists(t, filepath.Join(destination, "torch_compile_cache", "hash", "kernel.bin"))
+	require.DirExists(t, filepath.Join(destination, "modelinfos"))
+	require.NoFileExists(t, filepath.Join(destination, "modelinfos", "model.json"))
+}
