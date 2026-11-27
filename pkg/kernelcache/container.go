@@ -26,8 +26,11 @@ import (
 )
 
 const (
-	vllmCacheRootEnv     = "VLLM_CACHE_ROOT"
-	defaultVLLMCachePath = "/root/.cache/vllm"
+	vllmCacheRootEnv = "VLLM_CACHE_ROOT"
+	// defaultVLLMCachePath is where the webhook mounts the cache, and points vLLM to, when the
+	// runtime sets no VLLM_CACHE_ROOT. It is not vLLM's own default under HOME: images often
+	// make /root 0700, which keeps out the non-root UID that OpenShift runs them as.
+	defaultVLLMCachePath = "/var/cache/vllm"
 	defaultOCIPath       = "io.vllm.cache"
 	tritonOCIPath        = "io.triton.cache"
 )
@@ -88,6 +91,22 @@ func ResolveContainerPath(container *corev1.Container, requested string) (string
 	}
 
 	return defaultVLLMCachePath, nil
+}
+
+// PinVLLMCacheRoot points vLLM at the vLLM cache path that the kernel cache mounts. Without
+// VLLM_CACHE_ROOT, vLLM derives its cache from HOME, which the image or the platform sets
+// (OpenShift runs images with HOME=/), and would write beside the mount. A value the container
+// sets itself is kept.
+func PinVLLMCacheRoot(container *corev1.Container, ociPath, containerPath string) {
+	if ociPath != defaultOCIPath {
+		return
+	}
+	for _, env := range container.Env {
+		if env.Name == vllmCacheRootEnv {
+			return
+		}
+	}
+	container.Env = append(container.Env, corev1.EnvVar{Name: vllmCacheRootEnv, Value: containerPath})
 }
 
 // ResolveOCIPath resolves and validates an OCI cache path supported by the MCV

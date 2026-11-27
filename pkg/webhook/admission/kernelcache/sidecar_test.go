@@ -526,6 +526,49 @@ func TestSidecarManifestsAndExistingMount(t *testing.T) {
 	require.Equal(t, corev1.VolumeMount{Name: "existing", MountPath: "/workspace/cache/0", SubPath: "vllm"}, manifests.Containers[0].VolumeMounts[0])
 }
 
+// The capture watches the mounted path, so vLLM must write there whatever HOME is.
+func TestAddCacheMountPinsVLLMCacheRoot(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		env       []corev1.EnvVar
+		cachePath v1alpha1.KernelCachePath
+		wantEnv   []corev1.EnvVar
+	}{
+		{
+			name:      "sets the default path",
+			cachePath: v1alpha1.KernelCachePath{ContainerName: "main", ContainerPath: "/var/cache/vllm", OCIPath: "io.vllm.cache"},
+			wantEnv:   []corev1.EnvVar{{Name: "VLLM_CACHE_ROOT", Value: "/var/cache/vllm"}},
+		},
+		{
+			name:      "keeps the runtime's own value",
+			env:       []corev1.EnvVar{{Name: "VLLM_CACHE_ROOT", Value: "/cache/vllm"}},
+			cachePath: v1alpha1.KernelCachePath{ContainerName: "main", ContainerPath: "/cache/vllm", OCIPath: "io.vllm.cache"},
+			wantEnv:   []corev1.EnvVar{{Name: "VLLM_CACHE_ROOT", Value: "/cache/vllm"}},
+		},
+		{
+			name:      "leaves a Triton cache alone",
+			cachePath: v1alpha1.KernelCachePath{ContainerName: "main", ContainerPath: "/cache/triton", OCIPath: "io.triton.cache"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &kernelcacheconfig.KernelCacheConfig{
+				MCVImage: "example/mcv:test", TargetImage: "registry.example/cache:capture-id",
+				CachePaths:         []v1alpha1.KernelCachePath{tc.cachePath},
+				ReporterSecretName: reporter.SecretName("capture"),
+				CaptureName:        "capture",
+				CaptureNamespace:   "team",
+				CaptureSessionID:   "session-id",
+			}
+			manifests, err := getSidecarManifestsWithConfigs(cfg, captureconfig.ReadinessConfig{URL: "http://127.0.0.1:8080/", MCVCaptureReadinessTimeoutSeconds: 600}, captureconfig.RuntimeInfo{})
+			require.NoError(t, err)
+			podSpec := corev1.PodSpec{Containers: []corev1.Container{{Name: "main", Env: tc.env}}}
+
+			require.NoError(t, addCacheMount(&podSpec, &manifests.Containers[0], 0, tc.cachePath, manifests.Volumes[0]))
+			require.Equal(t, tc.wantEnv, podSpec.Containers[0].Env)
+		})
+	}
+}
+
 func TestDefaultCachePaths(t *testing.T) {
 	for _, tc := range []struct {
 		name         string
@@ -548,7 +591,7 @@ func TestDefaultCachePaths(t *testing.T) {
 			container: corev1.Container{
 				Name: "server",
 			},
-			wantVLLMPath: "/root/.cache/vllm",
+			wantVLLMPath: "/var/cache/vllm",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

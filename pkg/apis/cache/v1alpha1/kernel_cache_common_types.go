@@ -52,7 +52,7 @@ type KernelCachePath struct {
 	ContainerName string `json:"containerName,omitempty"`
 
 	// ContainerPath is the absolute path of the cache directory in the container. If omitted,
-	// LocalModelCache resolves VLLM_CACHE_ROOT and falls back to /root/.cache/vllm.
+	// LocalModelCache resolves VLLM_CACHE_ROOT and falls back to /var/cache/vllm.
 	// +optional
 	// +kubebuilder:validation:MinLength=2
 	// +kubebuilder:validation:MaxLength=4096
