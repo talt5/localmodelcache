@@ -17,6 +17,7 @@ limitations under the License.
 package kernelcachenode
 
 import (
+	"fmt"
 	"testing"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -123,6 +124,32 @@ func TestCachePreparationStateAfterJobCleanup(t *testing.T) {
 				t.Fatalf("expected message %q, got %q", test.wantMessage, message)
 			}
 		})
+	}
+}
+
+// The kubelet reports only the 50 largest images by default, and cache images are small, so a
+// full list proves nothing about a cache image that is not in it.
+func TestCacheImageValidationStateTrustsNoTruncatedList(t *testing.T) {
+	const imageReference = "registry.example.com/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	images := make([]corev1.ContainerImage, kubeletDefaultNodeStatusMaxImages)
+	for i := range images {
+		images[i] = corev1.ContainerImage{Names: []string{fmt.Sprintf("registry.example.com/large-%d:1", i)}, SizeBytes: 1 << 30}
+	}
+	node := &corev1.Node{Status: corev1.NodeStatus{Images: images}}
+
+	state, message := cacheImageValidationState(v1alpha1.KernelCacheNodeCacheInfo{
+		ImageReference: imageReference,
+		State:          v1alpha1.KernelCacheNodePreparationStateReady,
+		Message:        "OCI artifact was prefetched on the node",
+	}, node)
+	if state != v1alpha1.KernelCacheNodePreparationStateReady || message != "OCI artifact was prefetched on the node" {
+		t.Fatalf("a truncated image list changed the cache to %q: %q", state, message)
+	}
+
+	// A shorter list is complete.
+	node.Status.Images = images[:kubeletDefaultNodeStatusMaxImages-1]
+	if state, _ := cacheImageValidationState(v1alpha1.KernelCacheNodeCacheInfo{ImageReference: imageReference, State: v1alpha1.KernelCacheNodePreparationStateReady}, node); state != v1alpha1.KernelCacheNodePreparationStatePending {
+		t.Fatalf("a complete image list without the cache should make it Pending, got %q", state)
 	}
 }
 
